@@ -112,6 +112,20 @@ R("  document.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const o=or
 # first run: nothing set up yet
 R("function dashboard(){", "function dashboard(){\n  if(LIVE&&!BRANCHES.length&&ROLE==='owner'){V(`<div class=\"panel\"><div class=\"panel-b\" style=\"display:flex;flex-direction:column;gap:12px;align-items:flex-start\"><h2 style=\"margin:0;font-family:var(--f-display);font-weight:600;font-size:22px\">Welcome, ${esc(USER.name)}</h2><p class=\"muted\" style=\"margin:0\">Start by adding your shop branches and the tailoring factory. Each branch gets logins for its manager, measurement and cashier.</p><a class=\"btn pri\" href=\"#branches\">Add branches & factory</a></div></div>`);return}")
 
+
+# numbers for records made on the website never meet the shop exe's own numbers
+R("Math.max(1000,...orders.map(o=>o.rno))+1", "Math.max(DEMO?1000:50000,...orders.filter(o=>DEMO||!o.exe||o.rno>=50000).map(o=>o.rno))+1")
+R("cid=Math.max(0,...customers.map(c=>c.id))+1;", "cid=Math.max(DEMO?0:500000,...customers.filter(c=>DEMO||c.id>=500000).map(c=>c.id))+1;")
+R("<b>${prof.m[k]}</b>", "<b>${prof.m[k]??'—'}</b>")
+R("<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]}", "<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]??'—'}")
+R('<div class="rid" style="font-size:13px">Receipt #${o.rno} · ${bname(o.branch)} branch</div>', '<div class="rid" style="font-size:13px">Receipt #${o.rno}${o.exeNo&&o.exeNo!==o.rno?` · shop no. ${o.exeNo}`:\'\'} · ${bname(o.branch)} branch${o.exe?\' · from shop exe\':\'\'}</div>')
+# people from the shop exe get their login from here
+R('<div class="acts"><button class="btn sm" id="wcp">Copy link</button>', '<div class="acts">${LIVE&&!w.uid?`<button class="btn sm pri" id="wmk">Create his login</button>`:\'\'}<button class="btn sm" id="wcp">Copy link</button>')
+R("document.getElementById('wcp').onclick=()=>cp(wLink(w),'Link copied');", "const mk=document.getElementById('wmk');if(mk)mk.onclick=async()=>{mk.disabled=true;mk.textContent='Creating…';try{w.login=w.login||jobLogin(w.role);await createStaff(w);toast('Login made. Send him the link');workerApp(w)}catch(e){mk.disabled=false;mk.textContent='Create his login';toast('Could not create: '+(e.code||e.message))}};\n  document.getElementById('wcp').onclick=()=>{if(LIVE&&!w.uid){toast('Create his login first');return}cp(wLink(w),'Link copied')};")
+# owner: shop exe status in Settings
+R("""  <div class="panel"><div class="panel-h"><h2>Logins & permissions</h2>""", """  ${LIVE?`<div class="panel"><div class="panel-h"><h2>Shop exe (AL THOB)</h2></div><div class="panel-b" id="exeBox"><span class="muted">Checking…</span></div></div>`:''}
+  <div class="panel"><div class="panel-h"><h2>Logins & permissions</h2>""")
+
 # delete worker in live also removes login (flush → removeStaff); demo unchanged
 # start
 R("route();showLogin();", "if(DEMO){route();showLogin()}else liveBoot();\nsetTimeout(()=>location.reload(),addD(today,1)-new Date()+60000);")

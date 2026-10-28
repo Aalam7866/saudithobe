@@ -9,6 +9,7 @@
 const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices};
 const KEY={branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
+const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
 let fb=null,app=null,db=null,auth=null,ME_UID=null,writing=0;
 const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
@@ -41,14 +42,14 @@ async function doFlush(){
         if(col==='orders'){await createOrder(x);continue}
         if(col==='customers'){await createCustomer(x);continue}
         if(col==='staff'&&!x.uid)continue;            // staff are created by createStaff()
-        writing++;try{await setDoc(doc(db,col,id),cur)}finally{writing--}
+        writing++;try{await setDoc(doc(db,col,id),STAMP.has(col)?{...cur,upd:new Date()}:cur)}finally{writing--}
         synced[col].set(id,structuredClone(cur));continue}
       const upd={};let n=0;
       for(const k of new Set([...Object.keys(cur),...Object.keys(prev)])){
         if(J(cur[k])===J(prev[k]))continue;
         if(isObj(cur[k])&&isObj(prev[k])){for(const k2 of new Set([...Object.keys(cur[k]),...Object.keys(prev[k])]))if(J(cur[k][k2])!==J(prev[k][k2])){upd[`${k}.${k2}`]=cur[k][k2]===undefined?fb.deleteField():cur[k][k2];n++}}
         else{upd[k]=cur[k]===undefined?fb.deleteField():cur[k];n++}}
-      if(n){writing++;try{await updateDoc(doc(db,col,id),upd)}finally{writing--}
+      if(n){if(STAMP.has(col))upd.upd=new Date();writing++;try{await updateDoc(doc(db,col,id),upd)}finally{writing--}
         if(col==='staff'&&('status' in upd)&&x.uid)await updateDoc(doc(db,'uids',x.uid),{active:okW(x)});
         synced[col].set(id,structuredClone(cur))}
     }
@@ -59,7 +60,7 @@ async function createOrder(o){
   const {doc,runTransaction}=fb;let rno=o.rno;const old=o.rno;
   await runTransaction(db,async tx=>{
     for(let i=0;i<50;i++){const s=await tx.get(doc(db,'orders',String(rno)));if(!s.exists())break;rno++}
-    o.rno=rno;tx.set(doc(db,'orders',String(rno)),plain('orders',o))});
+    o.rno=rno;tx.set(doc(db,'orders',String(rno)),{...plain('orders',o),upd:new Date()})});
   for(const p of payLog)if(p.rno===old&&!synced.payments.has(p._id||''))p.rno=rno;
   synced.orders.set(String(o.rno),snap('orders',o));
 }
@@ -67,7 +68,7 @@ async function createCustomer(c){
   const {doc,runTransaction}=fb;const old=c.id;
   await runTransaction(db,async tx=>{const s=await tx.get(doc(db,'customers',String(c.id)));
     if(s.exists()){const r=doc(db,'counters','customers');const cs=await tx.get(r);const base=Math.max(0,...customers.map(x=>+x.id||0));c.id=Math.max(base,cs.exists()?cs.data().n:0)+1;tx.set(r,{n:c.id})}
-    tx.set(doc(db,'customers',String(c.id)),plain('customers',c))});
+    tx.set(doc(db,'customers',String(c.id)),{...plain('customers',c),upd:new Date()})});
   if(c.id!==old)for(const o of orders)if(o.cid===old&&!synced.orders.has(String(o.rno)))o.cid=c.id;
   synced.customers.set(String(c.id),snap('customers',c));
 }
@@ -81,13 +82,13 @@ async function removeStaff(id,old){
 async function createStaff(w){
   const {initializeApp,getAuth,createUserWithEmailAndPassword,signOut,doc,writeBatch,runTransaction}=fb;
   const {getApps}=fb;
-  if(!w.id||synced.staff.has(String(w.id)))w.id=await nextId('staff');
+  if(!w.id||(synced.staff.has(String(w.id))&&w.uid))w.id=await nextId('staff');
   const login=w.login||jobLogin(w.role),key=randKey(),gen=1;
   const a2=getApps().find(a=>a.name==='creator')||initializeApp(FIREBASE_CONFIG,'creator');const au2=getAuth(a2);
   const cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key);const uid=cred.user.uid;await signOut(au2);
   Object.assign(w,{uid,gen,login,pinSet:false,status:w.status||'active'});
   const b=writeBatch(db);
-  b.set(doc(db,'staff',String(w.id)),plain('staff',w));
+  b.set(doc(db,'staff',String(w.id)),{...plain('staff',w),upd:new Date()},{merge:true});
   b.set(doc(db,'uids',uid),{sid:w.id,role:login,branch:w.branch,job:w.role,active:true});
   b.set(doc(db,'pub',String(w.id)),{name:w.name,gen,job:w.role,branch:bname(w.branch)});
   b.set(doc(db,'keys',String(w.id)),{k:key,branch:w.branch});
@@ -100,7 +101,7 @@ async function resetPin(w){
   const a2=getApps().find(a=>a.name==='creator')||initializeApp(FIREBASE_CONFIG,'creator');const au2=getAuth(a2);
   const cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key);await signOut(au2);
   const b=writeBatch(db),old=w.uid;w.uid=cred.user.uid;w.gen=gen;w.pinSet=false;
-  b.update(doc(db,'staff',String(w.id)),{uid:w.uid,gen,pinSet:false});
+  b.update(doc(db,'staff',String(w.id)),{uid:w.uid,gen,pinSet:false,upd:new Date()});
   if(old)b.delete(doc(db,'uids',old));
   b.set(doc(db,'uids',w.uid),{sid:w.id,role:w.login||jobLogin(w.role),branch:w.branch,job:w.role,active:okW(w)});
   b.set(doc(db,'pub',String(w.id)),{name:w.name,gen,job:w.role,branch:bname(w.branch)});
@@ -123,10 +124,17 @@ function busy(){const a=document.activeElement;const h=(location.hash||'').slice
 let rerenderT=null;
 function rerender(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{if(busy()){staleView=true;return}staleView=false;route()},120)}
 const PARTS={};
+function normalize(col,x){
+  if(col==='orders'){x.t={cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait',...(x.t||{})};x.tw=x.tw||{};x.design={...Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),...(x.design||{})};
+    if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
+  if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
+  if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
+  if(col==='payments'||col==='deliveries'||col==='prod'){if(!(x.d instanceof Date))x.d=today}
+  return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
   (PARTS[col]||[]).forEach(p=>p.forEach((v,k)=>m.set(k,v)));
-  const items=[...m.entries()].map(([id,v])=>{if(!KEY[col])v._id=id;return v});
+  const items=[...m.entries()].map(([id,v])=>{if(!KEY[col])v._id=id;return normalize(col,v)});
   if(col==='orders')items.sort((a,b)=>b.created-a.created);
   arr.length=0;arr.push(...items);
   synced[col]=new Map(items.map(x=>[idOf(col,x),snap(col,x)]));
@@ -275,3 +283,14 @@ function enterLive(){
   document.addEventListener('change',()=>setTimeout(flush,0));
   document.addEventListener('focusout',()=>{if(staleView)setTimeout(()=>{if(!busy())route()},200)});
 }
+
+/* ---------- owner: is the shop exe syncing? (it writes meta/exe after every round) ---------- */
+const _settingsView=settings;
+settings=function(){_settingsView();if(!LIVE||!db)return;const box=document.getElementById('exeBox');if(!box)return;
+  fb.getDoc(fb.doc(db,'meta','exe')).then(s=>{
+    if(!s.exists()){box.innerHTML=`<p class="muted" style="margin:0">Not connected yet. In the AL THOB exe open <b>Saudi Thobe online</b>, sign in with the owner email and choose this branch.</p>`;return}
+    const m=revive(s.data()),mins=Math.round((Date.now()-m.at)/60000);
+    box.innerHTML=`<div class="rows"><div class="row" style="padding:0 0 8px;border:0"><div class="grow"><b>${m.ok?'Syncing':'Problem'} · ${esc(bname(m.branch))}</b><span>Last round ${mins<1?'just now':mins+' min ago'}${m.msg?' · '+esc(m.msg):''}</span></div>${mins<10&&m.ok?'<span class="pill s-ready">Online</span>':'<span class="pill s-late">Check the shop PC</span>'}</div></div>
+     <div class="kv">${Object.entries(m.counts||{}).map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join('')}</div>
+     <p class="muted" style="font-size:12px;margin:8px 0 0">The exe keeps its own data in F:\\AL THOB and a daily copy of the website in F:\\AL THOB\\backups.</p>`;
+  }).catch(e=>{box.textContent='Cannot read: '+(e.code||e.message)})};

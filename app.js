@@ -366,7 +366,7 @@ function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.na
   :`Assalamu alaikum ${first},\nWe have received your order no. ${o.rno} (${pl(o.qty,'thobe')}) at our ${bname(o.branch)} branch.\nExpected pickup: ${fmtD(o.due)}\nPaid: ${sar(o.paid)} SAR · Balance: ${sar(rem)} SAR`;}
 function openOrder(rno){
   const o=orders.find(x=>x.rno===rno);if(!o)return;const c=cust(o.cid),i=SI[o.st],rem=o.total-o.paid,prof=c.profiles[o.profile]||c.profiles[0];
-  drawer(c.name,`<div class="rid" style="font-size:13px">Receipt #${o.rno} · ${bname(o.branch)} branch</div>`,
+  drawer(c.name,`<div class="rid" style="font-size:13px">Receipt #${o.rno}${o.exeNo&&o.exeNo!==o.rno?` · shop no. ${o.exeNo}`:''} · ${bname(o.branch)} branch${o.exe?' · from shop exe':''}</div>`,
    `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill(o)}<span class="muted num">${c.phone}</span></div>
     <div class="steps">${STAGES.map((s,j)=>`<div class="step ${j<i?'done':j===i?'cur':''}">${s.t}</div>`).join('')}</div>
     <div class="kv"><div><span>Thobes</span><b>${o.qty}</b></div><div><span>Ordered</span><b>${fmtD(o.created)}</b></div><div><span>Pickup</span><b>${fmtD(o.due)}</b></div>
@@ -375,7 +375,7 @@ function openOrder(rno){
     <div><p class="h4">Workshop · ${o.made===o.branch?bname(o.made)+' workshop':bname(o.made)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${TASKS.map(t=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="row" style="padding-block:8px"><div class="grow"><b>${t.t}</b><span>${wid?wk(wid).name:'Not assigned yet'}</span></div>${taskPill(o,t.k)}${canTask()&&pending(o,t.k)?`<button class="btn sm" data-tk="${t.k}">${taskBtn(o,t.k)}</button>`:''}</div>`}).join('')}</div></div>
     <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0"><div class="wav" style="width:36px;height:36px;font-size:14px">${initials(wk(o.tailor).name)}</div><div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
     <div><p class="h4">Style</p><div class="kv">${DESIGN_.map(g=>`<div><span>${g.t}</span><b style="font-family:var(--f-body);font-size:13px">${g.opts.find(x=>x[0]===o.design[g.k])[1]}</b></div>`).join('')}<div><span>Fabric</span><b style="font-family:var(--f-body);font-size:13px">${o.fabric}</b></div></div></div>
-    <div><p class="h4">Measurements · ${prof.name} (cm)</p><div class="kv">${MEAS.map(([k,t])=>`<div><span>${t}</span><b>${prof.m[k]}</b></div>`).join('')}</div></div>
+    <div><p class="h4">Measurements · ${prof.name} (cm)</p><div class="kv">${MEAS.map(([k,t])=>`<div><span>${t}</span><b>${prof.m[k]??'—'}</b></div>`).join('')}</div></div>
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
    `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}`);
@@ -390,7 +390,7 @@ function copyEl(id,t){navigator.clipboard.writeText(t).then(()=>toast('Copied'),
 let draft;
 function newOrder(){
   draft={design:Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),tab:'qalab'};
-  const due0=addD(today,10);const nextR=Math.max(1000,...orders.map(o=>o.rno))+1;
+  const due0=addD(today,10);const nextR=Math.max(DEMO?1000:50000,...orders.filter(o=>DEMO||!o.exe||o.rno>=50000).map(o=>o.rno))+1;
   const br=curBranch&&!isFac(curBranch)?curBranch:1;
   V(`<div class="form">
    <div class="sec">
@@ -450,7 +450,7 @@ function newOrder(){
   $('saveBtn').onclick=()=>{
     let cid=+$('fCust').value;
     if(!cid){if(!$('fName').value.trim()||!$('fPhone').value.trim()){toast('Enter the customer name and mobile number');$('fName').focus();return}
-      const m={};MEAS.forEach(([k])=>m[k]=+$('m_'+k).value||0);cid=Math.max(0,...customers.map(c=>c.id))+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
+      const m={};MEAS.forEach(([k])=>m[k]=+$('m_'+k).value||0);cid=Math.max(DEMO?0:500000,...customers.filter(c=>DEMO||c.id>=500000).map(c=>c.id))+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
     const qty=+$('fQty').value||1,price=+$('fPrice').value||0;
     const dep=+$('fPaid').value||0;if(RA().money&&dep)payLog.push({d:today,rno:nextR,branch:+$('fBranch').value,amt:dep,m:'Cash',t:'Deposit'});
     orders.unshift({rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty,price,total:qty*price,paid:RA().money?(+$('fPaid').value||0):0,created:new Date(today),due:new Date($('fDue').value||due0),st:'cut',t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},tatreez:$('fTat').checked,hinge:$('fHinge').checked,tailor:+$('fTailor').value,fabric:$('fFabric').value,design:{...draft.design},profile:+$('fProf').value||0,note:$('fNote').value});
@@ -760,7 +760,7 @@ function till(){
 
 /* ================= Tailor: My work ================= */
 const ME=()=>(LIVE&&workers.find(w=>w.id===USER.sid))||workers.find(w=>w.name===USER.name)||workers.find(w=>w.role==='Tailor'&&w.branch===USER.branch)||workers.find(w=>w.role==='Tailor');
-function mmLine(o,keys){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return keys.map(k=>`<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]}`).join(' ')}
+function mmLine(o,keys){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return keys.map(k=>`<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]??'—'}`).join(' ')}
 function myJobs(w){const k=ROLE2TASK[w.role];if(!k)return[];
   return orders.filter(o=>pending(o,k)&&(k==='sew'?(o.tailor===w.id||(!workers.some(x=>x.id===o.tailor)&&o.made===w.branch)):(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).sort((a,b)=>a.due-b.due)}
 function mywork(){
@@ -958,13 +958,14 @@ function workerApp(w,fresh){
   drawer(fresh?`${w.name} added`:`${w.name} · app`,`<div class="muted" style="font-size:13px">${w.role} · ${bname(w.branch)}</div>`,
    `<div class="msg" style="border-color:var(--brass)">Every worker gets <b>his own app</b>. It installs as <b>"ST · ${esc(w.name.split(' ')[0])}"</b> and opens straight into his ${ROLE2TASK[w.role]?TK[ROLE2TASK[w.role]].t.toLowerCase()+' job cards':'work'}. Two workers can install their apps on the same phone or PC: each shows up as a separate icon, never "already installed".</div>
     <div class="lk"><div class="qr" id="qr_w"></div><div style="min-width:0"><b>Personal app link</b><span class="muted" style="font-size:12px">Only for ${esc(w.name)}${LIVE?(w.pinSet?' · PIN set':' · first-time link, he sets his PIN'):''}</span><span class="url">${wLink(w)}</span>
-     <div class="acts"><button class="btn sm" id="wcp">Copy link</button><button class="btn sm" id="wwa">${ico('wa')}Copy WhatsApp message</button>${LIVE?`<a class="btn sm pri" href="${wLink(w)}" target="_blank" rel="noopener">Open</a>`:`<button class="btn sm pri" id="wpv">Preview</button>`}</div></div></div>
+     <div class="acts">${LIVE&&!w.uid?`<button class="btn sm pri" id="wmk">Create his login</button>`:''}<button class="btn sm" id="wcp">Copy link</button><button class="btn sm" id="wwa">${ico('wa')}Copy WhatsApp message</button>${LIVE?`<a class="btn sm pri" href="${wLink(w)}" target="_blank" rel="noopener">Open</a>`:`<button class="btn sm pri" id="wpv">Preview</button>`}</div></div></div>
     <div><p class="h4">Same phone, two workers</p><div class="applike" style="background:var(--ground);color:var(--text)">${[w,...workers.filter(x=>x!==w&&x.branch===w.branch).slice(0,2)].map(x=>`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:74px;text-align:center"><div class="appico" style="width:46px;height:46px;font-size:14px">${initials(x.name)}</div><span style="font-size:11px">ST · ${esc(x.name.split(' ')[0])}</span></div>`).join('')}</div>
      <p class="muted" style="font-size:12px;margin:6px 0 0">Each app keeps its own login, so one worker can't open the other's job cards.</p></div>`,
    `${isOwner()?`<button class="btn" id="wreset">Reset PIN</button>`:''}`);
   qrInto(document.getElementById('qr_w'),wLink(w));
   const cp=(t,ok)=>navigator.clipboard.writeText(t).then(()=>toast(ok),()=>toast('Copy blocked here. Select the link and copy it'));
-  document.getElementById('wcp').onclick=()=>cp(wLink(w),'Link copied');
+  const mk=document.getElementById('wmk');if(mk)mk.onclick=async()=>{mk.disabled=true;mk.textContent='Creating…';try{w.login=w.login||jobLogin(w.role);await createStaff(w);toast('Login made. Send him the link');workerApp(w)}catch(e){mk.disabled=false;mk.textContent='Create his login';toast('Could not create: '+(e.code||e.message))}};
+  document.getElementById('wcp').onclick=()=>{if(LIVE&&!w.uid){toast('Create his login first');return}cp(wLink(w),'Link copied')};
   document.getElementById('wwa').onclick=()=>cp(msg,'Message copied, paste it in WhatsApp');
   const pv=document.getElementById('wpv');if(pv)pv.onclick=()=>installScreen(null,null,w);
   const rs=document.getElementById('wreset');if(rs)rs.onclick=async()=>{if(DEMO){toast(`${w.name} will set a new PIN next time he opens his app`);return}rs.disabled=true;try{await resetPin(w);toast('New link made. The old PIN no longer works');workerApp(w)}catch(e){rs.disabled=false;toast('Could not reset: '+(e.code||e.message))}};
@@ -997,6 +998,7 @@ function settings(){
    <div class="field"><label for="sDays">Default delivery time (days)</label><input id="sDays" type="number" value="10" class="num"></div>
    <div class="field"><label for="sCur">Currency</label><input id="sCur" value="SAR" class="num"></div>
   </div></div></div>
+  ${LIVE?`<div class="panel"><div class="panel-h"><h2>Shop exe (AL THOB)</h2></div><div class="panel-b" id="exeBox"><span class="muted">Checking…</span></div></div>`:''}
   <div class="panel"><div class="panel-h"><h2>Logins & permissions</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(USERS.length,'login')} · 5 roles</span></div><div class="rows">
    ${USERS.map((u,i)=>{const a=ACCESS[u.role];return `<div class="row"><div class="avatar">${a.no}</div><div class="grow"><b>${u.name}</b><span>${a.label} · ${u.branch?bname(u.branch):'All branches'}</span></div>${DEMO?`<button class="btn sm" data-try="${i}">Try it</button>`:(u.sid?`<button class="btn sm" data-wapp2="${u.sid}">Link</button>`:'')}</div>`}).join('')}
   </div></div></div>`);
@@ -1027,6 +1029,7 @@ setTimeout(()=>location.reload(),addD(today,1)-new Date()+60000);
 const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices};
 const KEY={branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
+const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
 let fb=null,app=null,db=null,auth=null,ME_UID=null,writing=0;
 const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
@@ -1059,14 +1062,14 @@ async function doFlush(){
         if(col==='orders'){await createOrder(x);continue}
         if(col==='customers'){await createCustomer(x);continue}
         if(col==='staff'&&!x.uid)continue;            // staff are created by createStaff()
-        writing++;try{await setDoc(doc(db,col,id),cur)}finally{writing--}
+        writing++;try{await setDoc(doc(db,col,id),STAMP.has(col)?{...cur,upd:new Date()}:cur)}finally{writing--}
         synced[col].set(id,structuredClone(cur));continue}
       const upd={};let n=0;
       for(const k of new Set([...Object.keys(cur),...Object.keys(prev)])){
         if(J(cur[k])===J(prev[k]))continue;
         if(isObj(cur[k])&&isObj(prev[k])){for(const k2 of new Set([...Object.keys(cur[k]),...Object.keys(prev[k])]))if(J(cur[k][k2])!==J(prev[k][k2])){upd[`${k}.${k2}`]=cur[k][k2]===undefined?fb.deleteField():cur[k][k2];n++}}
         else{upd[k]=cur[k]===undefined?fb.deleteField():cur[k];n++}}
-      if(n){writing++;try{await updateDoc(doc(db,col,id),upd)}finally{writing--}
+      if(n){if(STAMP.has(col))upd.upd=new Date();writing++;try{await updateDoc(doc(db,col,id),upd)}finally{writing--}
         if(col==='staff'&&('status' in upd)&&x.uid)await updateDoc(doc(db,'uids',x.uid),{active:okW(x)});
         synced[col].set(id,structuredClone(cur))}
     }
@@ -1077,7 +1080,7 @@ async function createOrder(o){
   const {doc,runTransaction}=fb;let rno=o.rno;const old=o.rno;
   await runTransaction(db,async tx=>{
     for(let i=0;i<50;i++){const s=await tx.get(doc(db,'orders',String(rno)));if(!s.exists())break;rno++}
-    o.rno=rno;tx.set(doc(db,'orders',String(rno)),plain('orders',o))});
+    o.rno=rno;tx.set(doc(db,'orders',String(rno)),{...plain('orders',o),upd:new Date()})});
   for(const p of payLog)if(p.rno===old&&!synced.payments.has(p._id||''))p.rno=rno;
   synced.orders.set(String(o.rno),snap('orders',o));
 }
@@ -1085,7 +1088,7 @@ async function createCustomer(c){
   const {doc,runTransaction}=fb;const old=c.id;
   await runTransaction(db,async tx=>{const s=await tx.get(doc(db,'customers',String(c.id)));
     if(s.exists()){const r=doc(db,'counters','customers');const cs=await tx.get(r);const base=Math.max(0,...customers.map(x=>+x.id||0));c.id=Math.max(base,cs.exists()?cs.data().n:0)+1;tx.set(r,{n:c.id})}
-    tx.set(doc(db,'customers',String(c.id)),plain('customers',c))});
+    tx.set(doc(db,'customers',String(c.id)),{...plain('customers',c),upd:new Date()})});
   if(c.id!==old)for(const o of orders)if(o.cid===old&&!synced.orders.has(String(o.rno)))o.cid=c.id;
   synced.customers.set(String(c.id),snap('customers',c));
 }
@@ -1099,13 +1102,13 @@ async function removeStaff(id,old){
 async function createStaff(w){
   const {initializeApp,getAuth,createUserWithEmailAndPassword,signOut,doc,writeBatch,runTransaction}=fb;
   const {getApps}=fb;
-  if(!w.id||synced.staff.has(String(w.id)))w.id=await nextId('staff');
+  if(!w.id||(synced.staff.has(String(w.id))&&w.uid))w.id=await nextId('staff');
   const login=w.login||jobLogin(w.role),key=randKey(),gen=1;
   const a2=getApps().find(a=>a.name==='creator')||initializeApp(FIREBASE_CONFIG,'creator');const au2=getAuth(a2);
   const cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key);const uid=cred.user.uid;await signOut(au2);
   Object.assign(w,{uid,gen,login,pinSet:false,status:w.status||'active'});
   const b=writeBatch(db);
-  b.set(doc(db,'staff',String(w.id)),plain('staff',w));
+  b.set(doc(db,'staff',String(w.id)),{...plain('staff',w),upd:new Date()},{merge:true});
   b.set(doc(db,'uids',uid),{sid:w.id,role:login,branch:w.branch,job:w.role,active:true});
   b.set(doc(db,'pub',String(w.id)),{name:w.name,gen,job:w.role,branch:bname(w.branch)});
   b.set(doc(db,'keys',String(w.id)),{k:key,branch:w.branch});
@@ -1118,7 +1121,7 @@ async function resetPin(w){
   const a2=getApps().find(a=>a.name==='creator')||initializeApp(FIREBASE_CONFIG,'creator');const au2=getAuth(a2);
   const cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key);await signOut(au2);
   const b=writeBatch(db),old=w.uid;w.uid=cred.user.uid;w.gen=gen;w.pinSet=false;
-  b.update(doc(db,'staff',String(w.id)),{uid:w.uid,gen,pinSet:false});
+  b.update(doc(db,'staff',String(w.id)),{uid:w.uid,gen,pinSet:false,upd:new Date()});
   if(old)b.delete(doc(db,'uids',old));
   b.set(doc(db,'uids',w.uid),{sid:w.id,role:w.login||jobLogin(w.role),branch:w.branch,job:w.role,active:okW(w)});
   b.set(doc(db,'pub',String(w.id)),{name:w.name,gen,job:w.role,branch:bname(w.branch)});
@@ -1141,10 +1144,17 @@ function busy(){const a=document.activeElement;const h=(location.hash||'').slice
 let rerenderT=null;
 function rerender(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{if(busy()){staleView=true;return}staleView=false;route()},120)}
 const PARTS={};
+function normalize(col,x){
+  if(col==='orders'){x.t={cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait',...(x.t||{})};x.tw=x.tw||{};x.design={...Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),...(x.design||{})};
+    if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
+  if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
+  if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
+  if(col==='payments'||col==='deliveries'||col==='prod'){if(!(x.d instanceof Date))x.d=today}
+  return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
   (PARTS[col]||[]).forEach(p=>p.forEach((v,k)=>m.set(k,v)));
-  const items=[...m.entries()].map(([id,v])=>{if(!KEY[col])v._id=id;return v});
+  const items=[...m.entries()].map(([id,v])=>{if(!KEY[col])v._id=id;return normalize(col,v)});
   if(col==='orders')items.sort((a,b)=>b.created-a.created);
   arr.length=0;arr.push(...items);
   synced[col]=new Map(items.map(x=>[idOf(col,x),snap(col,x)]));
@@ -1293,6 +1303,17 @@ function enterLive(){
   document.addEventListener('change',()=>setTimeout(flush,0));
   document.addEventListener('focusout',()=>{if(staleView)setTimeout(()=>{if(!busy())route()},200)});
 }
+
+/* ---------- owner: is the shop exe syncing? (it writes meta/exe after every round) ---------- */
+const _settingsView=settings;
+settings=function(){_settingsView();if(!LIVE||!db)return;const box=document.getElementById('exeBox');if(!box)return;
+  fb.getDoc(fb.doc(db,'meta','exe')).then(s=>{
+    if(!s.exists()){box.innerHTML=`<p class="muted" style="margin:0">Not connected yet. In the AL THOB exe open <b>Saudi Thobe online</b>, sign in with the owner email and choose this branch.</p>`;return}
+    const m=revive(s.data()),mins=Math.round((Date.now()-m.at)/60000);
+    box.innerHTML=`<div class="rows"><div class="row" style="padding:0 0 8px;border:0"><div class="grow"><b>${m.ok?'Syncing':'Problem'} · ${esc(bname(m.branch))}</b><span>Last round ${mins<1?'just now':mins+' min ago'}${m.msg?' · '+esc(m.msg):''}</span></div>${mins<10&&m.ok?'<span class="pill s-ready">Online</span>':'<span class="pill s-late">Check the shop PC</span>'}</div></div>
+     <div class="kv">${Object.entries(m.counts||{}).map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join('')}</div>
+     <p class="muted" style="font-size:12px;margin:8px 0 0">The exe keeps its own data in F:\\AL THOB and a daily copy of the website in F:\\AL THOB\\backups.</p>`;
+  }).catch(e=>{box.textContent='Cannot read: '+(e.code||e.message)})};
 
 async function loadFirebase(){
   if(window.__FB_MOCK)return window.__FB_MOCK;

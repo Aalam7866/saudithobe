@@ -32,6 +32,12 @@ service cloud.firestore {
       allow update, delete: if isOwner();
     }
 
+    // the shop exe (AL THOB) reports its last sync round here
+    match /meta/exe {
+      allow read: if active();
+      allow write: if isOwner();
+    }
+
     // ---------------- logins
     match /uids/{uid} {
       allow get: if (signedIn() && request.auth.uid == uid) || (active() && managesBranch(resource.data.branch));
@@ -95,7 +101,7 @@ service cloud.firestore {
         // measurement: order details, never money
         || (isRole(['measure']) && !changed().hasAny(['paid', 'total', 'price', 'st']))
         // workshop: only the work steps
-        || (isRole(['tailor']) && changed().hasOnly(['t', 'tw', 'st', 'tailor']) && request.resource.data.st in ['cut', 'sew', 'ready']);
+        || (isRole(['tailor']) && changed().hasOnly(['t', 'tw', 'st', 'tailor', 'upd']) && request.resource.data.st in ['cut', 'sew', 'ready']);
       allow delete: if isOwner();
     }
 
