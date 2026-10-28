@@ -1,0 +1,130 @@
+rules_version = '2';
+// saudithobe.men — Saudi Thobe (own Firebase project; nothing shared with any other site)
+// Every person signs in with Firebase Auth. uids/{authUid} says who they are:
+//   {sid, role: owner|manager|measure|cashier|tailor, branch, job, active}
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function meDoc() { return /databases/$(database)/documents/uids/$(request.auth.uid); }
+    function me() { return get(meDoc()).data; }
+    function active() { return signedIn() && exists(meDoc()) && me().active == true; }
+    function role() { return me().role; }
+    function br() { return me().branch; }
+    function isOwner() { return active() && role() == 'owner'; }
+    function isRole(rs) { return active() && role() in rs; }
+    function isSupervisor() { return active() && role() == 'tailor' && me().job == 'Factory supervisor'; }
+    // who may manage people of branch b: the owner, that branch's manager, that factory's supervisor
+    function managesBranch(b) { return isOwner() || ((role() == 'manager' || isSupervisor()) && br() == b); }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function workshopJob(j) { return j in ['Tailor', 'Cutter', 'Hinge', 'Tatreez', 'Ironing']; }
+    // what a non-owner may create: factory supervisor → workshop workers; branch manager → cashier / measurement
+    function mayCreatePerson(d) {
+      return isOwner()
+        || (isSupervisor() && d.branch == br() && workshopJob(d.job) && d.role == 'tailor')
+        || (active() && role() == 'manager' && d.branch == br() && d.job in ['Cashier', 'Measurement'] && d.role in ['cashier', 'measure']);
+    }
+
+    // ---------------- first-time setup: the very first account becomes the owner, once
+    match /meta/owner {
+      allow get: if true;
+      allow create: if signedIn() && !exists(/databases/$(database)/documents/meta/owner) && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isOwner();
+    }
+
+    // ---------------- logins
+    match /uids/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || (active() && managesBranch(resource.data.branch));
+      allow list: if isOwner();
+      allow create: if (signedIn() && request.auth.uid == uid && request.resource.data.role == 'owner'
+                         && !exists(/databases/$(database)/documents/meta/owner)
+                         && getAfter(/databases/$(database)/documents/meta/owner).data.uid == request.auth.uid)
+                    || (active() && mayCreatePerson({'branch': request.resource.data.branch, 'job': request.resource.data.job, 'role': request.resource.data.role})
+                         && request.resource.data.active == true);
+      allow update, delete: if isOwner();
+    }
+    // name + login generation for the PIN screen of a personal link (no secrets)
+    match /pub/{sid} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if active() && (isOwner() || managesBranch(br()));
+    }
+    // first-time setup keys of personal links: only the owner / that branch's manager / supervisor
+    match /keys/{sid} {
+      allow read: if isOwner() || (active() && managesBranch(resource.data.branch));
+      allow create, update: if isOwner() || (active() && managesBranch(request.resource.data.branch));
+      allow delete: if isOwner();
+    }
+
+    // ---------------- people
+    match /staff/{sid} {
+      allow read: if active();
+      allow create: if active() && mayCreatePerson({'branch': request.resource.data.branch, 'job': request.resource.data.role, 'role': request.resource.data.login});
+      allow update: if isOwner()
+        // manager / supervisor: edit details and leave, never block / deactivate / move logins
+        || (active() && managesBranch(resource.data.branch) && request.resource.data.branch == resource.data.branch
+            && resource.data.status in ['active', 'leave'] && request.resource.data.status in ['active', 'leave']
+            && !changed().hasAny(['uid', 'gen', 'login']))
+        // the person himself: only "PIN is set"
+        || (signedIn() && resource.data.uid == request.auth.uid && changed().hasOnly(['pinSet']));
+      allow delete: if isOwner();
+    }
+    match /att/{id} {
+      allow read: if active();
+      allow write: if active() && managesBranch(request.resource.data.branch);
+    }
+
+    // ---------------- branches & factories
+    match /branches/{id} {
+      allow read: if active();
+      allow write: if isOwner();
+    }
+
+    // ---------------- customers & measurements
+    match /customers/{id} {
+      allow read: if active();
+      allow create, update: if isRole(['owner', 'manager', 'measure', 'cashier']);
+      allow delete: if isOwner();
+    }
+
+    // ---------------- orders
+    match /orders/{rno} {
+      allow read: if active();
+      allow create: if isRole(['owner', 'manager', 'measure', 'cashier']);
+      allow update: if isRole(['owner', 'manager', 'cashier'])
+        // measurement: order details, never money
+        || (isRole(['measure']) && !changed().hasAny(['paid', 'total', 'price', 'st']))
+        // workshop: only the work steps
+        || (isRole(['tailor']) && changed().hasOnly(['t', 'tw', 'st', 'tailor']) && request.resource.data.st in ['cut', 'sew', 'ready']);
+      allow delete: if isOwner();
+    }
+
+    // ---------------- money & delivery
+    match /payments/{id} {
+      allow read: if active();
+      allow create: if isRole(['owner', 'manager', 'cashier']);
+      allow update, delete: if isOwner();
+    }
+    match /deliveries/{id} {
+      allow read: if active();
+      allow create: if isRole(['owner', 'manager', 'cashier']);
+      allow update, delete: if isOwner();
+    }
+
+    // ---------------- workshop log, ready popups, counters
+    match /prod/{id} {
+      allow read: if active();
+      allow create: if active();
+      allow update, delete: if isOwner();
+    }
+    match /notices/{id} {
+      allow read: if active();
+      allow create: if active();
+      allow update: if active() && changed().hasOnly(['seen']);
+      allow delete: if isOwner();
+    }
+    match /counters/{name} {
+      allow read, write: if active();
+    }
+  }
+}
