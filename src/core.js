@@ -63,10 +63,10 @@ function syncSt(o){if(o.st==='done'||o.st==='ready')return;const mains=TASKS.fil
   if(mains.length&&allStepsDone(o)&&!tr){o.st='ready';o.hold=false;return}
   o.st=(mains[0]&&tv(o,mains[0].k)==='done')||tv(o,'sew')==='done'?'sew':'cut'}
 /* the tailor: send this order to hinge / tatreez / bottom cutting */
-function sendTask(o,k){o.sent={...(o.sent||{}),[k]:true};if(!o.tw[k]){const w=firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}toast(`#${o.rno}: sent for ${TK[k].t.toLowerCase()}`)}
+function sendTask(o,k){o.sent={...(o.sent||{}),[k]:true};if(!o.tw[k]){const w=firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}toast(`${ono(o)}: sent for ${TK[k].t.toLowerCase()}`)}
 /* the tailor: everything is done, the order is ready for pickup → popup for the owner and that branch */
 function markReady(o){if(!allStepsDone(o)){toast('Not finished yet: '+TASKS.filter(t=>needs(o,t.k)&&tv(o,t.k)!=='done').map(t=>t.t).join(', '));return}
-  o.st='ready';o.hold=false;toast(`#${o.rno} ready for pickup · owner and ${bname(o.branch)} notified`);notifyReady(o)}
+  o.st='ready';o.hold=false;toast(`${ono(o)} ready for pickup · owner and ${bname(o.branch)} notified`);notifyReady(o)}
 const pending=(o,k)=>o.st!=='done'&&!!TK[k]&&TK[k].avail(o)&&tv(o,k)!=='done'&&needs(o,k);
 const SI=Object.fromEntries(STAGES.map((s,i)=>[s.k,i]));
 const FABRICS=['Toyobo (Japan)','Shakespeare (UK)','Loriana','Korean summer','Daniel Hechter','Egyptian cotton'];
@@ -211,10 +211,10 @@ for(let k=0;k<14;k++){const d=addD(today,-k);if(d.getDay()===5)continue;
     if(w.role==='Tatreez')prodLog.push({d,w:w.id,made:w.branch,stage:'tat',qty:(k===0?1:f?4:2)+Math.floor(r2()*4)});});}
 function stepTask(o,k,by){const cur=o.t[k];if(cur==='done')return;
   if(k!=='sew'&&!o.tw[k]){const w=by&&by.role===TK[k].role?by:firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}
-  if(tv(o,k)==='wait'){o.t[k]='doing';toast(`#${o.rno}: ${TK[k].t} started`)}
+  if(tv(o,k)==='wait'){o.t[k]='doing';toast(`${ono(o)}: ${TK[k].t} started`)}
   else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});
     if(k==='sew'){const t=wk(o.tailor);t.mdone=(t.mdone||0)+o.qty}
-    toast(`#${o.rno}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):k==='hinge'&&needs(o,'btm')&&TK.btm&&tv(o,'btm')==='wait'&&!isSent(o,'btm')?' · now send it for bottom cutting':TK[k].m==='send'?' · back to the tailor':''}`)}
+    toast(`${ono(o)}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):k==='hinge'&&needs(o,'btm')&&TK.btm&&tv(o,'btm')==='wait'&&!isSent(o,'btm')?' · now send it for bottom cutting':TK[k].m==='send'?' · back to the tailor':''}`)}
   const before=o.st;syncSt(o);if(before!=='ready'&&o.st==='ready')notifyReady(o)}
 const taskBtn=(o,k)=>tv(o,k)==='wait'?`Start ${TK[k].t.toLowerCase()}`:`Finish ${TK[k].t.toLowerCase()}`;
 const taskPill=(o,k)=>{const v=tv(o,k);if(!needs(o,k))return '<span class="pill s-done">Not needed</span>';if(v==='done')return '<span class="pill s-ready">Done</span>';if(v==='doing')return '<span class="pill s-cut">In progress</span>';return TK[k].avail(o)?'<span class="pill s-new">Waiting</span>':'<span class="pill s-done">Not yet</span>'};
@@ -299,7 +299,7 @@ const myNotices=()=>ROLE==='owner'?notices:ROLE==='manager'?notices.filter(n=>n.
 function updateBell(){const n=myNotices().filter(x=>!x.seen[USER.name]).length;const b=document.getElementById('bellN');b.textContent=n;b.hidden=!n;document.getElementById('bellBtn').hidden=!(ROLE==='owner'||ROLE==='manager')}
 function showPopups(){updateBell();let box=document.getElementById('pops');if(!box){box=document.createElement('div');box.id='pops';box.className='pops';document.body.appendChild(box)}
   const all=myNotices().filter(x=>!x.seen[USER.name]);const list=all.slice(-2).reverse();const more=all.length-list.length;
-  box.innerHTML=list.map(n=>{const c=cust(orders.find(o=>o.rno===n.rno).cid);return `<div class="pop" role="alert"><div class="pop-ic">✓</div><div style="flex:1;min-width:0"><b>Order #${n.rno} is ready</b><span>${c.name} · ${pl(n.qty,'thobe')} · ${bname(n.branch)} branch</span><span>${wk(n.tailor).name} · ${bname(n.made)}${n.open.length?` · ${n.open.join(' & ')} pending`:''}</span>
+  box.innerHTML=list.map(n=>{const c=cust(orders.find(o=>o.rno===n.rno).cid);return `<div class="pop" role="alert"><div class="pop-ic">✓</div><div style="flex:1;min-width:0"><b>Order ${onoR(n.rno)} is ready</b><span>${c.name} · ${pl(n.qty,'thobe')} · ${bname(n.branch)} branch</span><span>${wk(n.tailor).name} · ${bname(n.made)}${n.open.length?` · ${n.open.join(' & ')} pending`:''}</span>
    <div style="display:flex;gap:6px;margin-top:6px"><button class="btn sm pri" data-pop-open="${n.id}">Open order</button><button class="btn sm" data-pop-ok="${n.id}">OK</button></div></div></div>`}).join('')+(more?`<button class="btn sm pop" style="justify-content:center;padding:8px" id="popMore">+${more} more ready orders</button>`:'');
   const pm=document.getElementById('popMore');if(pm)pm.onclick=bellList;
   box.querySelectorAll('[data-pop-ok]').forEach(b=>b.onclick=()=>{notices.find(x=>x.id===+b.dataset.popOk).seen[USER.name]=1;showPopups()});
@@ -307,7 +307,7 @@ function showPopups(){updateBell();let box=document.getElementById('pops');if(!b
 }
 function bellList(){const list=myNotices().slice().reverse();
   drawer('Ready notifications',`<div class="muted" style="font-size:13px">${ROLE==='owner'?'All branches':bname(USER.branch)+' branch'}</div>`,
-   `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${list.map(n=>`<div class="row" data-r="${n.rno}" style="cursor:pointer"><span class="rid">#${n.rno}</span><div class="grow"><b>${cust(orders.find(o=>o.rno===n.rno).cid).name}</b><span>${pl(n.qty,'thobe')} · ${bname(n.branch)} · tailor ${wk(n.tailor).name}</span></div>${n.seen[USER.name]?'<span class="pill s-done">Seen</span>':'<span class="pill s-ready">New</span>'}</div>`).join('')||'<div class="empty">No ready orders yet.</div>'}</div>`,
+   `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${list.map(n=>`<div class="row" data-r="${n.rno}" style="cursor:pointer"><span class="rid">${onoR(n.rno)}</span><div class="grow"><b>${cust(orders.find(o=>o.rno===n.rno).cid).name}</b><span>${pl(n.qty,'thobe')} · ${bname(n.branch)} · tailor ${wk(n.tailor).name}</span></div>${n.seen[USER.name]?'<span class="pill s-done">Seen</span>':'<span class="pill s-ready">New</span>'}</div>`).join('')||'<div class="empty">No ready orders yet.</div>'}</div>`,
    `<button class="btn" id="markAll">Mark all as seen</button>`);
   list.forEach(n=>{});document.getElementById('markAll').onclick=()=>{list.forEach(n=>n.seen[USER.name]=1);showPopups();bellList()};
   document.querySelectorAll('.drawer [data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}
@@ -393,7 +393,7 @@ function dashboard(){
     <div class="panel">
       <div class="panel-h"><h2>Upcoming deliveries</h2><span class="sp"></span><a class="btn sm" href="#orders">All orders</a></div>
       <div class="rows">${soon.map(o=>{const d=daysLeft(o);return `<div class="row" data-r="${o.rno}" style="cursor:pointer">
-        <span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${wk(o.tailor).name} ${curBranch?'':'· '+bname(o.branch)}</span></div>${pill(o)}
+        <span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${wk(o.tailor).name} ${curBranch?'':'· '+bname(o.branch)}</span></div>${pill(o)}
         <span class="days ${d<0?'late':d===0?'today':''}">${d<0?`${-d}d late`:d===0?'Today':`in ${d}d`}</span></div>`}).join('')||'<div class="empty">Nothing due.</div>'}</div>
     </div>
     <div class="panel">
@@ -451,9 +451,9 @@ function ordersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();const money=RA().money;
   const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
   const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='gift'?!!o.gift:true};
-  const hit=o=>{if(!q)return true;const c=cust(o.cid);return String(o.rno)===q||String(o.invoiceNo||'')===q||String(o.cid)===q||String(o.exeNo||'')===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
+  const hit=o=>{if(!q)return true;const c=cust(o.cid);return ordMatch(o,q)||(o.bno||'').toLowerCase().includes(q)&&q.length>=4||String(o.cid)===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
   if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
-  const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
+  const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.binvSeq||+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
   const fl=all.filter(o=>pass(o,orderFilter)&&hit(o)).sort((a,b)=>{const A=val(a,oSort.k),B=val(b,oSort.k);return (A<B?-1:A>B?1:0)*oSort.d||b.rno-a.rno});
   const sum=f=>fl.reduce((s,o)=>s+f(o),0);
   const T={n:fl.length,pcs:sum(o=>o.qty),tot:sum(o=>o.total),paid:sum(o=>o.paid),due:sum(o=>Math.max(0,info.get(o.rno).due)),late:fl.filter(o=>info.get(o.rno).status==='Late').length,ready:fl.filter(o=>o.st==='ready').length};
@@ -476,7 +476,7 @@ function ordersView(){
      <thead><tr>${th('rno','Order / Invoice','stk s1')}${th('cust','Customer','stk s2')}<th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
       ${money?th('total','Total','r')+th('paid','Paid','r')+th('bal','Due','r'):''}${th('status','Status')}<th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th class="r">Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
      <tbody>${fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno),lateD=x.dq<o.qty&&o.due<today;return `<tr class="click" data-r="${o.rno}" tabindex="0">
-      <td class="stk s1"><span class="rid">#${o.rno}</span><small class="sub">${o.gift?'Free gift':o.invoiceNo?'Inv '+o.invoiceNo:'Inv —'}${o.exeNo&&o.exeNo!==o.rno?' · shop '+o.exeNo:''}</small></td>
+      <td class="stk s1"><span class="rid">${ono(o)}</span><small class="sub">${o.gift?'Free gift':oinv(o)?'Inv '+oinv(o):'Inv —'}${o.exeNo&&o.exeNo!==o.rno?' · shop '+o.exeNo:''}</small></td>
       <td class="stk s2"><b dir="auto" class="cn">${esc(c.name)}</b></td>
       <td class="num">${esc(c.phone)}</td>
       <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
@@ -492,7 +492,7 @@ function ordersView(){
   document.querySelectorAll('th[data-sort]').forEach(h=>h.onclick=()=>{const k=h.dataset.sort;oSort=oSort.k===k?{k,d:-oSort.d}:{k,d:k==='cust'||k==='status'?1:-1};ordersView()});
   document.querySelectorAll('tr[data-r]').forEach(r=>r.onkeydown=e=>{if(e.key==='Enter')openOrder(+r.dataset.r)});
   const rowsCsv=()=>{const H=['Order No','Invoice','Customer','Mobile','Booked','Delivery','Pcs',...(money?['Total','Paid','Due']:[]),'Status','Cut','Stitched','Hinge','Ready','Delivered',...(money?['Method']:[]),'Tailor','Fabric','Made at','Branch'];
-    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [o.rno,o.gift?'Gift':o.invoiceNo||'',c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
+    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [ono(o).replace(/^#/,''),o.gift?'Gift':oinv(o),c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
     return [H,...R]};
   document.getElementById('oCsv').onclick=()=>{const csv='﻿'+rowsCsv().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`orders_${dkey2(today)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
@@ -507,7 +507,7 @@ function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.na
   :`Assalamu alaikum ${first},\nWe have received your order no. ${o.rno} (${pl(o.qty,'thobe')}) at our ${bname(o.branch)} branch.\nExpected pickup: ${fmtD(o.due)}\nPaid: ${sar(o.paid)} SAR · Balance: ${sar(rem)} SAR`;}
 function openOrder(rno){
   const o=orders.find(x=>x.rno===rno),c=cust(o.cid),i=SI[o.st],rem=o.total-o.paid,prof=c.profiles[o.profile]||c.profiles[0];
-  drawer(c.name,`<div class="rid" style="font-size:13px">Receipt #${o.rno} · ${bname(o.branch)} branch</div>`,
+  drawer(c.name,`<div class="rid" style="font-size:13px">Receipt ${ono(o)} · ${bname(o.branch)} branch</div>`,
    `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill(o)}<span class="muted num">${c.phone}</span></div>
     <div class="steps">${STAGES.map((s,j)=>`<div class="step ${j<i?'done':j===i?'cur':''}">${s.t}</div>`).join('')}</div>
     <div class="kv"><div><span>Thobes</span><b>${o.qty}</b></div><div><span>Ordered</span><b>${fmtD(o.created)}</b></div><div><span>Pickup</span><b>${fmtD(o.due)}</b></div>
@@ -520,10 +520,11 @@ function openOrder(rno){
     ${MALL.some(([k])=>mVal(prof.m,k)!=='')?`<div><p class="h4">Old shop paper values</p>${mShow(prof.m)}</div>`:''}
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
-   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}`);
+   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}${RA().money&&!o.gift?`<button class="btn" id="prtBtn">🖨 Invoice</button>`:''}`);
+  const prt=document.getElementById('prtBtn');if(prt)prt.onclick=()=>printOrder(o);
   document.querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{stepTask(o,b.dataset.tk);route();openOrder(rno)});
-  const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order #${o.rno} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
-  const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>{delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:0});o.st='done';toast(`#${o.rno} handed over`);route();openOrder(rno)};
+  const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order ${ono(o)} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
+  const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>{delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:0});o.st='done';toast(`${ono(o)} handed over`);route();openOrder(rno)};
   const pay=document.getElementById('payBtn');if(pay)pay.onclick=()=>{if(o.st==='ready'){o.st='done';delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:rem})}payLog.push({d:today,rno:o.rno,branch:o.branch,amt:rem,m:'Cash',t:'Balance'});o.paid=o.total;toast(`Payment of ${sar(rem)} SAR recorded`);route();openOrder(rno)};
   const wb=document.getElementById('waBtn');if(wb)wb.onclick=()=>copyEl('wamsg',waText(o));
 }
@@ -548,7 +549,7 @@ function newOrder(){
     ${F('Address','<input id="fAddr" dir="auto">')}
     ${F('Booking date',`<input id="fBook" type="date" value="${dkey2(today)}">`)}
     ${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">`)}
-    ${F('Order No',`<input id="fOno" class="num" readonly value="(new) ${nextR}">`)}
+    ${F('Order No',`<input id="fOno" class="num" readonly value="(new)">`)}
     ${F('Invoice No',`<div class="orow"><input id="fInv" class="num" readonly value="(new)"><label class="ock gift"><input type="checkbox" id="fGift"> Free gift / هدية</label></div>`)}
     ${F('',`<label class="ock"><input type="checkbox" id="fSample"> Customer left a sample thobe</label>`)}
     ${F('Notes','<input id="fNote" dir="auto">',5)}
@@ -611,9 +612,10 @@ function newOrder(){
   $('fCno').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const c=customers.find(x=>String(x.id)===$('fCno').value.trim());if(c)setCust(c);else toast('Customer '+$('fCno').value+' not found')}};
   $('fCno').onchange=()=>{const v=$('fCno').value.trim();if(!v){cid=0;return}const c=customers.find(x=>String(x.id)===v);if(c)setCust(c)};
   $('fFind').onclick=()=>pickCustomer(setCust);
-  $('fBranch').onchange=()=>{fillMade();fillTailors()};$('fMade').onchange=fillTailors;
+  const fillNo=()=>{const b=+$('fBranch').value;$('fOno').value='(new) '+branchNos(b,$('fGift').checked).bno;if(!$('fGift').checked){const n=branchNos(b,false);$('fInv').value=n.binv?'(new) '+n.binv:'(from the shop exe)'}};
+  $('fBranch').onchange=()=>{fillMade();fillTailors();fillNo()};setTimeout(fillNo,0);$('fMade').onchange=fillTailors;
   ['fDisc','fPaid'].forEach(id=>$(id).oninput=totals);
-  $('fGift').onchange=()=>{$('fInv').value=$('fGift').checked?'(free gift – no invoice)':'(new)'};
+  $('fGift').onchange=()=>{if($('fGift').checked)$('fInv').value='(free gift – no invoice)';else{const n=branchNos(+$('fBranch').value,false);$('fInv').value=n.binv?'(new) '+n.binv:'(from the shop exe)'}};
   $('addIn').onclick=()=>pickStock(it=>{draft.lines.push({src:'IN',code:it.code,item:it.name,company:it.company||'',qty:1,rate:it.rate});draft.sel=draft.lines.length-1;drawLines()});
   $('addOut').onclick=()=>{draft.lines.push({src:'OUT',code:0,item:OUT_ITEM,company:'',qty:1,rate:OUT_RATE});draft.sel=draft.lines.length-1;drawLines()};
   $('rmLine').onclick=()=>{if(draft.sel<0||!draft.lines[draft.sel]){toast('Click a line first');return}draft.lines.splice(draft.sel,1);draft.emb.forEach(e=>{if(e.fab===draft.sel)e.fab=-1;else if(e.fab>draft.sel)e.fab--});draft.sel=-1;drawLines()};
@@ -647,9 +649,10 @@ function newOrder(){
       lines:lines.map(l=>({src:l.src,code:l.code||0,item:String(l.item).trim(),qty:+l.qty,rate:+l.rate})),emb:emb.map(e=>({code:e.code,item:e.item,fab:e.fab,qty:+e.qty,rate:+e.rate})),
       gross:m.gross,disc:m.disc,vat:m.vat,pm:method,ref:$('fRef').value.trim(),meas,
       tailor:+$('fTailor').value||0,fabric:lines.map(l=>l.src==='OUT'?'قماش العميل: '+l.item:l.item).join(' + '),design:{...draft.design},profile:0,note:$('fNote').value.trim()};
+    Object.assign(o,branchNos(o.branch,o.gift));
     orders.unshift(o);
-    toast(`${money?`Order #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(o.made)} cutting`);
-    if(print)printOrder(o);
+    toast(`${money?`Order ${ono(o)} saved`:`Order ${ono(o)} sent to the cashier`} · now in ${bname(o.made)} cutting`);
+    if(print)printReceipt(o);
     orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
   };
   $('saveP').onclick=()=>save(true);$('saveO').onclick=()=>save(false);
@@ -686,24 +689,11 @@ function pickEmb(done){
   document.querySelectorAll('[data-pe]').forEach(r=>r.onclick=()=>{close();done(EMBL.find(x=>String(x.code)===r.dataset.pe))});
 }
 /* Save & Print: the order slip (A5 / receipt) */
-function printOrder(o){
-  const c=cust(o.cid),w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
-  const L=o.lines||[],E=o.emb||[];
-  w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>Order ${o.rno}</title><style>body{font:13px Arial,sans-serif;margin:14px;max-width:560px}h1{font-size:18px;margin:0}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border-bottom:1px solid #ccc;padding:4px;text-align:right}td.n{text-align:left;direction:ltr}.t td{border:0;padding:2px 4px}.b{font-weight:bold;font-size:15px}@page{margin:8mm}</style></head><body>
-   <h1>الثوب السعودي · AL THOB AL SAUDI</h1><div>${esc(bname(o.branch))} · ${o.created.toLocaleDateString('en-GB')}</div><hr>
-   <table class="t"><tr><td>رقم الطلب / Order</td><td class="n b">${o.rno}</td></tr><tr><td>العميل / Customer</td><td class="n">${esc(c.name)} (${c.id})</td></tr><tr><td>الجوال / Mobile</td><td class="n">${esc(c.phone)}</td></tr>
-   <tr><td>التسليم / Delivery</td><td class="n b">${o.due.toLocaleDateString('en-GB')}</td></tr>${o.hingeQty?`<tr><td>Hinge</td><td class="n">${o.hingeQty}</td></tr>`:''}${o.zipQty?`<tr><td>سحاب / Zip</td><td class="n">${o.zipQty}</td></tr>`:''}${o.sample?'<tr><td colspan="2">عينة: العميل ترك ثوب عينة</td></tr>':''}${o.gift?'<tr><td colspan="2"><b>هدية – Free gift</b></td></tr>':''}</table>
-   <table><thead><tr><th>الصنف / Item</th><th>العدد</th><th>السعر</th><th>المبلغ</th></tr></thead><tbody>${[...L,...E].map(l=>`<tr><td>${esc(l.item)}${l.code?' ('+l.code+')':''}</td><td class="n">${l.qty}</td><td class="n">${sar2(l.rate)}</td><td class="n">${sar2(l.qty*l.rate)}</td></tr>`).join('')}</tbody></table>
-   <table class="t"><tr><td>المجموع / Subtotal</td><td class="n">${sar2(o.gross)}</td></tr><tr><td>الخصم / Discount</td><td class="n">${sar2(o.disc)}</td></tr><tr><td>ضريبة 15% / VAT</td><td class="n">${sar2(o.vat)}</td></tr>
-   <tr class="b"><td>الإجمالي / TOTAL</td><td class="n">${sar2(o.total)}</td></tr><tr><td>المدفوع / Paid${o.pm?' ('+esc(o.pm)+')':''}</td><td class="n">${sar2(o.paid)}</td></tr><tr class="b"><td>المتبقي / Balance</td><td class="n">${sar2(o.total-o.paid)}</td></tr></table>
-   ${o.note?`<div>ملاحظات: ${esc(o.note)}</div>`:''}</body></html>`);
-  w.document.close();setTimeout(()=>w.print(),300);
-}
 
 /* the order's items as the shop exe keeps them: fabric lines (IN = shop stock / OUT = customer's fabric), embroidery, totals */
 function orderItems(o){
   const L=o.lines||[],E=o.emb||[],money=RA().money;
-  const extra=[o.invoiceNo?['Invoice no.',String(o.invoiceNo)]:null,o.exeNo&&o.exeNo!==o.rno?['Shop order no.',String(o.exeNo)]:null,o.hingeQty?['Hinge button',o.hingeQty+' pcs']:null,o.zipQty?['Zip',o.zipQty+' pcs']:null,
+  const extra=[oinv(o)?['Invoice no.',oinv(o)]:null,o.binv&&o.invoiceNo?['Shop invoice no.',String(o.invoiceNo)]:null,o.exeNo&&o.exeNo!==o.rno?['Shop order no.',String(o.exeNo)]:null,o.hingeQty?['Hinge button',o.hingeQty+' pcs']:null,o.zipQty?['Zip',o.zipQty+' pcs']:null,
     o.sample?['Sample','Customer left a sample thobe']:null,o.gift?['Free gift','No invoice']:null,money&&o.pm?['Paid by',o.pm+(o.ref?' · '+o.ref:'')]:null].filter(Boolean);
   if(!L.length&&!E.length&&!extra.length)return '';
   return `<div><p class="h4">Items</p>${L.length||E.length?`<div class="tbl-wrap" style="border:1px solid var(--line);border-radius:8px"><table><thead><tr><th>Type</th><th>Item</th><th>Pcs</th>${money?'<th>Rate</th><th>Amount</th>':''}</tr></thead><tbody>
@@ -736,6 +726,7 @@ function thobeSVG(){
 }
 /* Measurements: the JAMEEL measurement sheet (as the exe), one per customer – his newest measurement */
 let jsCur=null;
+let mOrdSel=0;
 function measurements(){
   const q=document.getElementById('q').value.trim().toLowerCase();
   const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)||String(c.id)===q));
@@ -747,6 +738,7 @@ function measurements(){
   const oldPaper=MALL.some(([k])=>mVal(p.m,k)!=='');
   const last=orders.filter(o=>o.cid===c.id).sort((a,b)=>b.rno-a.rno);
   const show=list.slice(0,300);
+  if(!last.some(o=>o.rno===mOrdSel))mOrdSel=(last.find(o=>oInfo(o).dq<o.qty)||last[0]||{}).rno||0;const mo=last.find(o=>o.rno===mOrdSel)||null;
   V(`<div class="mlay">
    <div class="panel"><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
     <div class="clist">${show.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini num" style="font-size:11px">${x.id}</div><div class="grow"><b dir="auto">${esc(x.name)}</b><span>${esc(x.phone)}${jHas((x.profiles[0]||{}).m)?' · 📐':''}</span></div></button>`).join('')}${list.length>show.length?`<div class="muted" style="padding:10px;font-size:12px">Search to find the other ${list.length-show.length}…</div>`:''}</div></div>
@@ -755,14 +747,16 @@ function measurements(){
      <div class="panel-h" style="flex-wrap:wrap;gap:8px"><div><h2 style="font-size:18px;font-family:var(--f-display);font-weight:600" dir="auto">${esc(c.name)}</h2><span class="muted num" style="font-size:12.5px">No. ${c.id} · ${esc(c.phone)} · ${bname(c.branch)} · ${pl(last.length,'order')}${c.book?` · <span dir="rtl">دفتر ${esc(c.book)}</span>`:''}</span></div><span class="sp"></span>
       <span class="muted" id="msN" style="font-size:12.5px"></span>
       <button class="btn sm" id="msZo" aria-label="Smaller">－</button><button class="btn sm" id="msZi" aria-label="Bigger">＋</button><button class="btn sm" id="msFull">Full screen</button>
-      <button class="btn sm" id="mReset">Undo changes</button><button class="btn sm pri" id="mSave">Save measurements</button>
+      <button class="btn sm" id="mPrint">🖨 Print sheet</button><button class="btn sm" id="mReset">Undo changes</button><button class="btn sm pri" id="mSave">Save measurements</button>
       ${can('new')?`<button class="btn sm" id="newOrdBtn">${ico('plus')}New order</button>`:''}</div>
+     ${last.length?`<div class="mordsel"><label for="mOrd" class="muted" style="font-size:12.5px;font-weight:600">Order for this sheet</label><select id="mOrd">${last.map(o=>`<option value="${o.rno}" ${o.rno===mo.rno?'selected':''}>${esc(ono(o))} · ${fmtD(o.created)} · ${pl(o.qty,'thobe')} · ${esc(oInfo(o).where)}</option>`).join('')}</select></div>`:''}
+     ${jHeadHtml(mo,c)}
      <div class="jwrap" id="msHost"></div>
     </div>
     ${oldPaper?`<details class="panel" style="padding:0"><summary class="panel-h" style="cursor:pointer"><h2>Old shop paper values</h2><span class="sp"></span><span class="muted" style="font-size:12px">from the earlier AL THOB sheet</span></summary><div class="panel-b">${mShow(p.m)}</div></details>`:''}
     <div class="grid2">
      <div class="panel"><div class="panel-h"><h2>Measurement history</h2></div><div class="panel-b"><div class="hist">${(c.hist||[]).map(h=>`<div><time>${fmtD(h.d)}</time><span style="flex:1">${esc(h.t)}</span><span class="muted">${esc(h.by||'')}</span></div>`).join('')||'<span class="muted">—</span>'}</div></div></div>
-     <div class="panel"><div class="panel-h"><h2>Recent orders</h2></div><div class="rows">${last.slice(0,5).map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${pl(o.qty,'thobe')} · <span dir="auto">${esc(o.fabric||'')}</span></b><span>${fmtD(o.created)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No orders yet.</div>'}</div></div>
+     <div class="panel"><div class="panel-h"><h2>Recent orders</h2></div><div class="rows">${last.slice(0,5).map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b>${pl(o.qty,'thobe')} · <span dir="auto">${esc(o.fabric||'')}</span></b><span>${fmtD(o.created)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No orders yet.</div>'}</div></div>
     </div>
    </div></div>`);
   const fabs=()=>{const a=[];last.slice(0,3).forEach(o=>(o.lines||[]).forEach(l=>{const n=l.src==='OUT'?'قماش العميل':String(l.code||l.item);if(!a.includes(n))a.push(n)}));return a};
@@ -772,6 +766,8 @@ function measurements(){
   document.getElementById('msFull').onclick=()=>jSheetWindow(`Measurements · ${c.name}`,work,{fabrics:fabs,onDone:m=>{jsCur.load(m)}});
   document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;measurements()});
   document.getElementById('mReset').onclick=()=>measurements();
+  const mos=document.getElementById('mOrd');if(mos)mos.onchange=()=>{mOrdSel=+mos.value;measurements()};
+  document.getElementById('mPrint').onclick=()=>printSheet(mo&&jHas(mo.meas)?mo.meas:work,mo,c);
   document.getElementById('mSave').onclick=()=>{
     const before=Object.fromEntries(Object.entries(p.m).filter(([k])=>k.startsWith('q_')));
     const keys=new Set([...Object.keys(before),...Object.keys(work)]);let n=0;keys.forEach(k=>{if((before[k]||'')!==(work[k]||''))n++});
@@ -792,7 +788,7 @@ function customersView(){
   V(`<div class="panel"><div class="panel-h"><h2>${pl(list.length,'customer')}</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sorted by total spent · tap a row for measurements</span></div><div class="tbl-wrap"><table>
    <thead><tr><th class="r">Cust No</th><th>Customer</th><th>Mobile</th><th>Book</th><th class="r">Orders</th>${RA().money?'<th class="r">Total paid</th><th class="r">Balance</th>':''}<th>Last order</th><th>Home branch</th></tr></thead>
    <tbody>${list.map(x=>`<tr class="click" data-c="${x.c.id}"><td class="num r" style="text-align:right">${x.c.id}</td><td><b dir="auto">${esc(x.c.name)}</b></td><td class="num">${esc(x.c.phone)}</td><td dir="auto" class="muted">${esc(x.c.book||'')}</td><td class="num" style="text-align:right">${x.n}</td>${RA().money?`<td class="num" style="text-align:right">${sar(x.spent)}</td>
-    <td class="num" style="text-align:right;color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.last?`<span class="rid">#${x.last.rno}</span> ${pill(x.last)}`:'—'}</td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td></tr>`).join('')}</tbody></table></div></div>`);
+    <td class="num" style="text-align:right;color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.last?`<span class="rid">${ono(x.last)}</span> ${pill(x.last)}`:'—'}</td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td></tr>`).join('')}</tbody></table></div></div>`);
   document.querySelectorAll('tr[data-c]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.c;selProf=0;location.hash='measurements'});
 }
 
@@ -818,14 +814,14 @@ function payments(){
     const coll=all.reduce((s,o)=>s+o.paid,0),due=open.reduce((s,o)=>s+o.total-o.paid,0),readyDue=open.filter(o=>o.st==='ready').reduce((s,o)=>s+o.total-o.paid,0);
     V(`${tabs}<div class="okpi"><div><span>Collected</span><b class="num">${sar(coll)}<small>SAR</small></b><em>On the orders shown</em></div><div class="bad"><span>Balance due</span><b class="num">${sar(due)}<small>SAR</small></b><em>${pl(open.length,'order')}</em></div><div class="okc"><span>Due on ready orders</span><b class="num">${sar(readyDue)}<small>SAR</small></b><em>Collected at pickup</em></div></div>
     <div class="panel opanel"><div class="tbl-wrap otbl"><table class="ot" style="min-width:900px"><thead><tr><th>Order / Invoice</th><th>Customer</th><th>Mobile</th><th class="r">Total</th><th class="r">Paid</th><th class="r">Balance</th><th>Paid so far</th><th>Status</th><th>Branch</th></tr></thead>
-     <tbody>${open.map(o=>{const c=cust(o.cid),p=o.total?o.paid/o.total:0;return `<tr class="click" data-r="${o.rno}"><td><span class="rid">#${o.rno}</span><small class="sub">${o.invoiceNo?'Inv '+o.invoiceNo:'Inv —'}</small></td><td><b dir="auto">${esc(c.name)}</b></td><td class="num">${esc(c.phone)}</td>
+     <tbody>${open.map(o=>{const c=cust(o.cid),p=o.total?o.paid/o.total:0;return `<tr class="click" data-r="${o.rno}"><td><span class="rid">${ono(o)}</span><small class="sub">${oinv(o)?'Inv '+oinv(o):'Inv —'}</small></td><td><b dir="auto">${esc(c.name)}</b></td><td class="num">${esc(c.phone)}</td>
       <td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num tbad">${sar(o.total-o.paid)}</td><td><div class="mbar"><i><b style="width:${p*100}%"></b></i></div></td><td>${pill(o)}</td><td>${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody></table>${open.length?'':'<div class="empty">No unpaid receipts.</div>'}</div></div>`);
     document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{payTab=b.dataset.pt;payments()});bindRows();return}
   const d0=new Date(payF.from),d1=new Date(payF.to);d1.setHours(23,59,59);
   const q=payF.q.trim().toLowerCase();
   const rows=payRows().filter(r=>{if(r.d<d0||r.d>d1)return false;if(payF.br&&r.branch!==payF.br)return false;
     if(payF.type==='down'&&r.type!=='Down payment')return false;if(payF.type==='due'&&r.type!=='Due payment')return false;
-    if(!q)return true;const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return String(r.rno)===q||String(r.receipt)===q||(o&&String(o.invoiceNo||'')===q)||(c&&c.name.toLowerCase().includes(q))});
+    if(!q)return true;const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return String(r.rno)===q||String(r.receipt)===q||(o&&ordMatch(o,q))||(c&&c.name.toLowerCase().includes(q))});
   const tot=rows.reduce((s,r)=>s+r.amt,0),byM={};rows.forEach(r=>{if(r.amt){const k=webCat(r.m||'Cash');byM[k]=(byM[k]||0)+r.amt}});
   const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});
   V(`${tabs}<div class="okpi"><div><span>Payments</span><b class="num">${rows.filter(r=>r.amt).length}</b><em>${D(d0)} – ${D(d1)}</em></div>
@@ -842,7 +838,7 @@ function payments(){
     <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
    <div class="tbl-wrap otbl"><table class="ot" style="min-width:1400px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
     <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
-     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">#${r.rno}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
+     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">${onoR(r.rno)}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
      <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
      <td class="r num" style="font-weight:600">${r.amt?sar2(r.amt):'<span class="muted">0</span>'}</td><td>${esc(r.m)}</td><td class="num">${esc(r.ref)}</td><td class="r num">${r.dq||''}</td>
      <td class="r num ${o&&o.total-o.paid>0.5?'tbad':'tok'}">${o?(o.total-o.paid>0.5?sar(o.total-o.paid):'—'):''}</td><td>${bTag(r.branch)} ${bname(r.branch)}</td></tr>`}).join('')}</tbody>
@@ -863,7 +859,7 @@ function payments(){
     if(r.del){delLog.splice(delLog.indexOf(r.del),1);if(o&&o.st==='done')o.st=o.t.sew==='done'?'ready':o.st}
     payF.sel=null;toast('Payment deleted');payments()};
   const csvRows=()=>[['Date','Receipt','Order No','Invoice','Customer','Order Total','Type','Action','Amount','Method','Reference','Delivered Qty','Branch'],
-    ...rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return [dkey2(r.d),r.receipt,r.rno,o&&o.invoiceNo||'',c?c.name:'',o?o.total:'',r.type,r.act,r.amt,r.m,r.ref,r.dq,bname(r.branch)]})];
+    ...rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return [dkey2(r.d),r.receipt,onoR(r.rno).replace(/^#/,''),o?oinv(o):'',c?c.name:'',o?o.total:'',r.type,r.act,r.amt,r.m,r.ref,r.dq,bname(r.branch)]})];
   $('pCsv').onclick=()=>{const csv='﻿'+csvRows().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`payments_${dkey2(d0)}_${dkey2(payF.to)}.csv`;a.click()};
   $('pPrint').onclick=()=>{const rs=csvRows(),w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Payments</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Payments · ${payF.br?esc(bname(payF.br)):'All branches'}</h1><p>${D(d0)} – ${D(d1)} · ${pl(rows.length,'row')} · total ${sar2(tot)} SAR</p><table><thead><tr>${rs[0].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);w.document.close();setTimeout(()=>w.print(),300)};
@@ -895,7 +891,7 @@ function receivePayment(rno,deliverAll){
     const p=a>0?{d:new Date(today),rno:o.rno,branch:o.branch,amt:a,m:webCat(m),pm:m,ref:$('rpR').value.trim(),t:'Balance',by:USER.name||''}:null;
     if(p){payLog.push(p);o.paid=Math.round((o.paid+a)*100)/100}
     if(q>0){delLog.push({d:new Date(today),rno:o.rno,branch:o.branch,qty:q,amt:a});if(oInfo(o).dq>=o.qty)o.st='done'}
-    close();toast(`Order #${o.rno}: ${a?sar2(a)+' SAR received':''}${a&&q?' · ':''}${q?q+' pcs delivered':''}`);
+    close();toast(`Order ${ono(o)}: ${a?sar2(a)+' SAR received':''}${a&&q?' · ':''}${q?q+' pcs delivered':''}`);
     if(print)printPayment({d:new Date(today),rno:o.rno,amt:a,m,ref:p?p.ref:'',dq:q,type:'Due payment',receipt:''});route()};
   $('rpSave').onclick=()=>save(false);$('rpPrint').onclick=()=>save(true);
 }
@@ -903,7 +899,7 @@ function printPayment(r){
   const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null,w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
   w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>Receipt ${r.rno}</title><style>body{font:13px Arial,sans-serif;margin:12px;max-width:340px}h1{font-size:16px;margin:0}td{padding:3px 2px}td.n{text-align:left;direction:ltr}.b{font-weight:bold;font-size:15px}@page{margin:6mm}</style></head><body>
    <h1>الثوب السعودي · AL THOB AL SAUDI</h1><div>سند قبض / Payment receipt${r.receipt?' #'+r.receipt:''}</div><hr><table style="width:100%">
-   <tr><td>التاريخ / Date</td><td class="n">${r.d.toLocaleDateString('en-GB')}</td></tr><tr><td>رقم الطلب / Order</td><td class="n b">${r.rno}</td></tr>${o&&o.invoiceNo?`<tr><td>الفاتورة / Invoice</td><td class="n">${o.invoiceNo}</td></tr>`:''}
+   <tr><td>التاريخ / Date</td><td class="n">${r.d.toLocaleDateString('en-GB')}</td></tr><tr><td>رقم الطلب / Order</td><td class="n b">${esc(onoR(r.rno).replace(/^#/,""))}</td></tr>${o&&oinv(o)?`<tr><td>الفاتورة / Invoice</td><td class="n">${esc(oinv(o))}</td></tr>`:''}
    <tr><td>العميل / Customer</td><td class="n">${c?esc(c.name):''}</td></tr><tr><td>المبلغ / Amount</td><td class="n b">${sar2(r.amt)} SAR</td></tr>${r.m?`<tr><td>طريقة الدفع / Method</td><td class="n">${esc(r.m)}${r.ref?' · '+esc(r.ref):''}</td></tr>`:''}
    ${r.dq?`<tr><td>تسليم / Delivered</td><td class="n">${r.dq} pcs</td></tr>`:''}${o?`<tr><td>الإجمالي / Total</td><td class="n">${sar2(o.total)}</td></tr><tr><td>المتبقي / Balance</td><td class="n b">${sar2(o.total-o.paid)}</td></tr>`:''}</table></body></html>`);
   w.document.close();setTimeout(()=>w.print(),300);
@@ -965,7 +961,7 @@ function openWorker(id){
       <div class="fgrid" style="margin-top:8px;grid-template-columns:120px 1fr 1fr auto;align-items:end"><div class="field"><label for="dAmt">Amount</label><input id="dAmt" type="number" min="1" class="num"></div><div class="field"><label for="dWhy">Reason</label><input id="dWhy" placeholder="Advance, absent, damage…"></div><div class="field"><label for="dDay">Date</label><input id="dDay" type="date" value="${dkey2(today)}"></div><button class="btn" id="dAdd">Add</button></div></div>`})():''}
     <div><p class="h4">Attendance · last 14 days <span class="muted" style="font-weight:500">(${s.absent} absent)</span></p><div class="att">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div><p class="muted" style="font-size:11.5px;margin:6px 0 0">Green present · red absent · grey Friday</p></div>
     ${ROLE2TASK[w.role]?'<div id="wwSec"></div>':''}
-    ${w.role==='Tailor'?`<div><p class="h4">Current work (${pl(s.act,'thobe')})</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${os.map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · due ${fmtD(o.due)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">Nothing assigned.</div>'}</div></div>`:''}`,
+    ${w.role==='Tailor'?`<div><p class="h4">Current work (${pl(s.act,'thobe')})</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${os.map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · due ${fmtD(o.due)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">Nothing assigned.</div>'}</div></div>`:''}`,
    `${canEditW(w)?`<button class="btn pri" id="editW">Edit</button>`:''}${canEditW(w)||isOwner()?`<button class="btn" id="appW">App link</button>`:''}${(canEditW(w)||ROLE==='manager')&&okW(w)?`<button class="btn" id="leaveW">${w.status==='leave'?'Mark as back':'Mark on leave'}</button>`:''}
     ${isOwner()?`<button class="btn" id="actW">${w.status==='inactive'?'Activate':'Deactivate'}</button><button class="btn" id="blkW" style="color:var(--bad)">${w.status==='blocked'?'Unblock':'Block'}</button><button class="btn" id="delW" style="color:var(--bad);border-color:var(--bad)">Delete</button>`:'<span class="muted" style="font-size:12px;align-self:center">Block, deactivate and delete: owner only</span>'}`);
   const $=x=>document.getElementById(x);
@@ -1058,8 +1054,8 @@ function daily(){
    <tbody>${rows.map(r=>`<tr><td>${bTag(r.b.id)} <b>${r.b.name}</b></td><td class="num">${r.n}</td><td class="num">${r.pcs}</td><td class="num"><b>${sar(r.sale)}</b></td><td class="num">${sar(r.dep)}</td><td class="num">${sar(r.bal)}</td><td class="num"><b>${sar(r.tot)}</b></td><td class="num">${sar(r.cash)}</td><td class="num">${sar(r.mada)}</td><td class="num">${sar(r.tr)}</td><td class="num">${r.dq} pcs · ${r.dn}</td></tr>`).join('')}
    ${rows.length>1?`<tr style="background:var(--ground)"><td><b>Total</b></td><td class="num"><b>${T('n')}</b></td><td class="num"><b>${T('pcs')}</b></td><td class="num"><b>${sar(T('sale'))}</b></td><td class="num"><b>${sar(T('dep'))}</b></td><td class="num"><b>${sar(T('bal'))}</b></td><td class="num"><b>${sar(T('tot'))}</b></td><td class="num"><b>${sar(T('cash'))}</b></td><td class="num"><b>${sar(T('mada'))}</b></td><td class="num"><b>${sar(T('tr'))}</b></td><td class="num"><b>${T('dq')} pcs · ${T('dn')}</b></td></tr>`:''}</tbody></table></div></div>
   <div class="grid2">
-   <div class="panel"><div class="panel-h"><h2>Delivered & paid</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(dels.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th>${shops.length>1?'<th>Branch</th>':''}<th>Thobes</th><th>Paid at delivery</th></tr></thead><tbody>${dels.map(p=>`<tr><td><span class="rid">#${p.rno}</span></td>${shops.length>1?`<td>${bTag(p.branch)}</td>`:''}<td class="num">${p.qty}</td><td class="num">${p.amt?sar(p.amt):'<span class="muted">already paid</span>'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No deliveries.</td></tr>'}</tbody></table></div></div>
-   <div class="panel"><div class="panel-h"><h2>New orders booked</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(booked.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>Customer</th><th>Thobes</th><th>Sale</th><th>Deposit</th></tr></thead><tbody>${booked.map(o=>`<tr class="click" data-r="${o.rno}"><td><span class="rid">#${o.rno}</span> ${shops.length>1?bTag(o.branch):''}</td><td>${cust(o.cid).name}</td><td class="num">${o.qty}</td><td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">No new orders.</td></tr>'}</tbody></table></div></div>
+   <div class="panel"><div class="panel-h"><h2>Delivered & paid</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(dels.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th>${shops.length>1?'<th>Branch</th>':''}<th>Thobes</th><th>Paid at delivery</th></tr></thead><tbody>${dels.map(p=>`<tr><td><span class="rid">${onoR(p.rno)}</span></td>${shops.length>1?`<td>${bTag(p.branch)}</td>`:''}<td class="num">${p.qty}</td><td class="num">${p.amt?sar(p.amt):'<span class="muted">already paid</span>'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No deliveries.</td></tr>'}</tbody></table></div></div>
+   <div class="panel"><div class="panel-h"><h2>New orders booked</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(booked.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>Customer</th><th>Thobes</th><th>Sale</th><th>Deposit</th></tr></thead><tbody>${booked.map(o=>`<tr class="click" data-r="${o.rno}"><td><span class="rid">${ono(o)}</span> ${shops.length>1?bTag(o.branch):''}</td><td>${cust(o.cid).name}</td><td class="num">${o.qty}</td><td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">No new orders.</td></tr>'}</tbody></table></div></div>
   </div>`:''}
   <h2 style="margin:0;font-size:17px">Tailoring daily report</h2>
   <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${shopsIn.map(b=>{const pp=prod.filter(p=>p.made===b.id);const ws=tailors.filter(w=>w.branch===b.id);const inProd=orders.filter(o=>o.made===b.id&&(o.st==='cut'||o.st==='sew')).reduce((s,o)=>s+o.qty,0);
@@ -1093,24 +1089,24 @@ function till(){
    <label class="bigsearch">${ico('orders')}<input id="tq" placeholder="Receipt no. or mobile, e.g. 1252 or 05…" autocomplete="off"></label>
    <div id="tres"></div>
    <div class="panel"><div class="panel-h"><h2>Ready for pickup</h2><span class="sp"></span><span class="muted" style="font-size:12px">Collect the balance and hand over</span></div>
-    <div class="rows">${ready.map(o=>{const rem=o.total-o.paid;return `<div class="row tpay" data-pay="${o.rno}" tabindex="0" style="cursor:pointer" title="Receive payment / deliver"><span class="rid">#${o.rno}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name)}</b><span class="num">${cust(o.cid).phone} · ${pl(o.qty,'thobe')}</span></div>
+    <div class="rows">${ready.map(o=>{const rem=o.total-o.paid;return `<div class="row tpay" data-pay="${o.rno}" tabindex="0" style="cursor:pointer" title="Receive payment / deliver"><span class="rid">${ono(o)}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name)}</b><span class="num">${cust(o.cid).phone} · ${pl(o.qty,'thobe')}</span></div>
      <span class="num" style="font-weight:700;color:${rem>0.5?'var(--bad)':'var(--ok)'}">${rem>0.5?sar(rem)+' SAR':'Paid'}</span><span class="muted" aria-hidden="true">›</span></div>`}).join('')||'<div class="empty">No thobes waiting for pickup.</div>'}</div></div>
-   ${unpaidNew.length?`<div class="panel"><div class="panel-h"><h2>New orders waiting for deposit</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sent by measurement</span></div><div class="rows">${unpaidNew.map(o=>`<div class="row"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${o.fabric}</span></div><input class="num" style="width:80px;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--ground)" id="dep${o.rno}" value="${Math.round(o.total/2)}" aria-label="Deposit"><button class="btn sm pri" data-dep="${o.rno}">Take deposit</button></div>`).join('')}</div></div>`:''}
+   ${unpaidNew.length?`<div class="panel"><div class="panel-h"><h2>New orders waiting for deposit</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sent by measurement</span></div><div class="rows">${unpaidNew.map(o=>`<div class="row"><span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${o.fabric}</span></div><input class="num" style="width:80px;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--ground)" id="dep${o.rno}" value="${Math.round(o.total/2)}" aria-label="Deposit"><button class="btn sm pri" data-dep="${o.rno}">Take deposit</button></div>`).join('')}</div></div>`:''}
   </div>
   <aside class="sec">
    <div class="panel"><div class="panel-h"><h2>Today's cash box</h2><span class="sp"></span><span class="muted" style="font-size:12px">${bname(b)}</span></div>
     <div class="cashbox"><div><span>Cash</span><span class="num">${sar(by('Cash'))}</span></div><div><span>Card (mada)</span><span class="num">${sar(by('Card (mada)'))}</span></div><div><span>Bank transfer</span><span class="num">${sar(by('Transfer'))}</span></div><div><span>Total today</span><span class="num">${sar(log.reduce((s,p)=>s+p.amt,0))} SAR</span></div></div></div>
-   <div class="panel"><div class="panel-h"><h2>Today's receipts</h2></div><div class="rows">${log.slice().reverse().map(p=>`<div class="row" style="padding-block:8px"><span class="rid">#${p.rno}</span><div class="grow"><b style="font-weight:500">${p.t}</b><span>${p.m}</span></div><span class="num">${sar(p.amt)}</span></div>`).join('')||'<div class="empty">No payments yet today.</div>'}</div></div>
+   <div class="panel"><div class="panel-h"><h2>Today's receipts</h2></div><div class="rows">${log.slice().reverse().map(p=>`<div class="row" style="padding-block:8px"><span class="rid">${onoR(p.rno)}</span><div class="grow"><b style="font-weight:500">${p.t}</b><span>${p.m}</span></div><span class="num">${sar(p.amt)}</span></div>`).join('')||'<div class="empty">No payments yet today.</div>'}</div></div>
    <button class="btn" id="closeDay">Close the day</button>
   </aside></div>`);
   const tq=document.getElementById('tq');
   tq.oninput=()=>{const q=tq.value.trim();const res=document.getElementById('tres');if(q.length<2){res.innerHTML='';return}
-    const f=mine.filter(o=>String(o.rno).includes(q)||cust(o.cid).phone.includes(q)).slice(0,5);
-    res.innerHTML=`<div class="panel"><div class="rows">${f.map(o=>`<div class="row" data-pay="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · balance ${sar(o.total-o.paid)} SAR</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No receipt found in this branch.</div>'}</div></div>`;
+    const f=mine.filter(o=>String(o.rno).includes(q)||(o.bno||'').toLowerCase().includes(q.toLowerCase())||ordMatch(o,q)||cust(o.cid).phone.includes(q)).slice(0,5);
+    res.innerHTML=`<div class="panel"><div class="rows">${f.map(o=>`<div class="row" data-pay="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · balance ${sar(o.total-o.paid)} SAR</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No receipt found in this branch.</div>'}</div></div>`;
     res.querySelectorAll('[data-pay]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.pay);receivePayment(o.rno,o.st==='ready')})};
   // a ready order: the payment / delivery window (as the exe's) – balance and all pieces filled in
   document.querySelectorAll('[data-pay]').forEach(x=>{x.onclick=()=>receivePayment(+x.dataset.pay,true);x.onkeydown=e=>{if(e.key==='Enter')x.click()}});
-  document.querySelectorAll('[data-dep]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.dep);const a=+document.getElementById('dep'+o.rno).value||0;if(!a){toast('Enter the deposit amount');return}o.paid=Math.min(o.total,a);payLog.push({d:today,rno:o.rno,branch:o.branch,amt:o.paid,m:'Cash',t:'Deposit'});toast(`Deposit ${sar(o.paid)} SAR taken for #${o.rno}`);route()});
+  document.querySelectorAll('[data-dep]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.dep);const a=+document.getElementById('dep'+o.rno).value||0;if(!a){toast('Enter the deposit amount');return}o.paid=Math.min(o.total,a);payLog.push({d:today,rno:o.rno,branch:o.branch,amt:o.paid,m:'Cash',t:'Deposit'});toast(`Deposit ${sar(o.paid)} SAR taken for ${ono(o)}`);route()});
   document.getElementById('closeDay').onclick=()=>toast('Demo: the day total will be locked and sent to the owner');
   document.querySelectorAll('.rid[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r));
 }
@@ -1136,7 +1132,7 @@ function mywork(){
   ${w.pay==='target'&&k==='sew'?`<div class="panel"><div class="panel-b">${targetBar(w,s)}</div></div>`:''}
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
-    <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${BRANCHES.find(b=>b.id===o.branch).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
+    <div class="jh"><span class="rid" style="font-size:17px">${ono(o)}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${BRANCHES.find(b=>b.id===o.branch).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
     <details class="jmore" data-js="${o.rno}"><summary class="btn sm">Measurements & style</summary>${jHas(o.meas)||jHas(p.m)?`<div class="jwrap jro" style="margin-top:10px"></div>${jStylesHtml(jHas(o.meas)?o.meas:p.m)}`:''}<div class="jb"${jHas(o.meas)||jHas(p.m)?' hidden':''}><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
     <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):k==='hinge'&&tv(o,'hinge')==='done'?`<span class="pill s-ready">Hinge done</span><button class="btn pri" data-send="${o.rno}" data-k="btm">Send for bottom cutting</button>`:`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
@@ -1230,10 +1226,10 @@ function board(){
   V(`<div class="msg" style="border-color:var(--brass)">Every new order from any branch lands in <b>Cutting</b>. When cutting is finished it moves to the <b>Tailor</b>. When the tailor finishes stitching he sends it for <b>Hinge</b>, <b>Tatreez</b> or <b>Bottom cutting</b> (zip) when the order needs them. When those are done it comes back to him and he ticks <b>Ready</b>; then the owner and that branch get a popup. Change the steps in Settings → Workshop flow.</div>
   <div class="rowtools"><span class="muted" style="font-size:13px">${fid?bname(fid):'All workshops'} · ${list.filter(o=>o.st!=='ready').reduce((s,o)=>s+o.qty,0)} thobes in production · ${ready.reduce((s,o)=>s+o.qty,0)} ready</span></div>
   <div class="board" style="grid-template-columns:repeat(${TASKS.length+(FLOW_OPT.tready?1:0)},minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
-   ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${BRANCHES.find(b=>b.id===o.branch).code}</span></span></div>
+   ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${BRANCHES.find(b=>b.id===o.branch).code}</span></span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?wk(wid).name:'Not assigned'} · due ${fmtD(o.due)}</div>
     ${t.k==='sew'||t.k==='cut'?`<div class="mm">${mmLine(o,['tool','sadr','kom','raqba'])}</div>`:''}
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${esc(o.fabric||'')}</b><div class="m">${esc(wk(o.tailor).name)} · due ${fmtD(o.due)}</div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${TASKS.filter(t=>t.m==='send'&&needs(o,t.k)).map(t=>{const v=tv(o,t.k);return `<span class="pill ${v==='done'?'s-ready':v==='doing'||isSent(o,t.k)?'s-cut':'s-wait'}">${t.t}: ${v==='done'?'done':v==='doing'?'working':isSent(o,t.k)?'sent':'not sent'}</span>`}).join('')}${allStepsDone(o)?'<span class="pill s-ready">Waiting for tailor\'s Ready</span>':''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`})():''}</div>`);
   document.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.mv);stepTask(o,b.dataset.k);route()});

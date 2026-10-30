@@ -63,10 +63,10 @@ function syncSt(o){if(o.st==='done'||o.st==='ready')return;const mains=TASKS.fil
   if(mains.length&&allStepsDone(o)&&!tr){o.st='ready';o.hold=false;return}
   o.st=(mains[0]&&tv(o,mains[0].k)==='done')||tv(o,'sew')==='done'?'sew':'cut'}
 /* the tailor: send this order to hinge / tatreez / bottom cutting */
-function sendTask(o,k){o.sent={...(o.sent||{}),[k]:true};if(!o.tw[k]){const w=firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}toast(`#${o.rno}: sent for ${TK[k].t.toLowerCase()}`)}
+function sendTask(o,k){o.sent={...(o.sent||{}),[k]:true};if(!o.tw[k]){const w=firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}toast(`${ono(o)}: sent for ${TK[k].t.toLowerCase()}`)}
 /* the tailor: everything is done, the order is ready for pickup → popup for the owner and that branch */
 function markReady(o){if(!allStepsDone(o)){toast('Not finished yet: '+TASKS.filter(t=>needs(o,t.k)&&tv(o,t.k)!=='done').map(t=>t.t).join(', '));return}
-  o.st='ready';o.hold=false;toast(`#${o.rno} ready for pickup · owner and ${bname(o.branch)} notified`);notifyReady(o)}
+  o.st='ready';o.hold=false;toast(`${ono(o)} ready for pickup · owner and ${bname(o.branch)} notified`);notifyReady(o)}
 const pending=(o,k)=>o.st!=='done'&&!!TK[k]&&TK[k].avail(o)&&tv(o,k)!=='done'&&needs(o,k);
 const SI=Object.fromEntries(STAGES.map((s,i)=>[s.k,i]));
 const FABRICS=['Toyobo (Japan)','Shakespeare (UK)','Loriana','Korean summer','Daniel Hechter','Egyptian cotton'];
@@ -212,10 +212,10 @@ for(let k=0;k<(DEMO?14:0);k++){const d=addD(today,-k);if(d.getDay()===5)continue
 function stepTask(o,k,by){const cur=o.t[k];if(cur==='done')return;
   if(k==='sew'&&!workers.some(x=>x.id===o.tailor)){const t=by&&by.role==='Tailor'?by:null;if(!t){toast('Choose a tailor first');return}o.tailor=t.id}
   if(k!=='sew'&&!o.tw[k]){const w=by&&by.role===TK[k].role?by:firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}
-  if(tv(o,k)==='wait'){o.t[k]='doing';toast(`#${o.rno}: ${TK[k].t} started`)}
+  if(tv(o,k)==='wait'){o.t[k]='doing';toast(`${ono(o)}: ${TK[k].t} started`)}
   else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});
     if(k==='sew'){const t=wk(o.tailor);t.mdone=(t.mdone||0)+o.qty}
-    toast(`#${o.rno}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):k==='hinge'&&needs(o,'btm')&&TK.btm&&tv(o,'btm')==='wait'&&!isSent(o,'btm')?' · now send it for bottom cutting':TK[k].m==='send'?' · back to the tailor':''}`)}
+    toast(`${ono(o)}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):k==='hinge'&&needs(o,'btm')&&TK.btm&&tv(o,'btm')==='wait'&&!isSent(o,'btm')?' · now send it for bottom cutting':TK[k].m==='send'?' · back to the tailor':''}`)}
   const before=o.st;syncSt(o);if(before!=='ready'&&o.st==='ready')notifyReady(o)}
 const taskBtn=(o,k)=>tv(o,k)==='wait'?`Start ${TK[k].t.toLowerCase()}`:`Finish ${TK[k].t.toLowerCase()}`;
 const taskPill=(o,k)=>{const v=tv(o,k);if(!needs(o,k))return '<span class="pill s-done">Not needed</span>';if(v==='done')return '<span class="pill s-ready">Done</span>';if(v==='doing')return '<span class="pill s-cut">In progress</span>';return TK[k].avail(o)?'<span class="pill s-new">Waiting</span>':'<span class="pill s-done">Not yet</span>'};
@@ -301,7 +301,7 @@ const myNotices=()=>ROLE==='owner'?notices:ROLE==='manager'?notices.filter(n=>n.
 function updateBell(){const n=myNotices().filter(x=>!x.seen[USER.name]).length;const b=document.getElementById('bellN');b.textContent=n;b.hidden=!n;document.getElementById('bellBtn').hidden=!(ROLE==='owner'||ROLE==='manager')}
 function showPopups(){updateBell();let box=document.getElementById('pops');if(!box){box=document.createElement('div');box.id='pops';box.className='pops';document.body.appendChild(box)}
   const all=myNotices().filter(x=>!x.seen[USER.name]);const list=all.slice(-2).reverse();const more=all.length-list.length;
-  box.innerHTML=list.map(n=>{const c=cust(orders.find(o=>o.rno===n.rno).cid);return `<div class="pop" role="alert"><div class="pop-ic">✓</div><div style="flex:1;min-width:0"><b>Order #${n.rno} is ready</b><span>${c.name} · ${pl(n.qty,'thobe')} · ${bname(n.branch)} branch</span><span>${wk(n.tailor).name} · ${bname(n.made)}${n.open.length?` · ${n.open.join(' & ')} pending`:''}</span>
+  box.innerHTML=list.map(n=>{const c=cust(orders.find(o=>o.rno===n.rno).cid);return `<div class="pop" role="alert"><div class="pop-ic">✓</div><div style="flex:1;min-width:0"><b>Order ${onoR(n.rno)} is ready</b><span>${c.name} · ${pl(n.qty,'thobe')} · ${bname(n.branch)} branch</span><span>${wk(n.tailor).name} · ${bname(n.made)}${n.open.length?` · ${n.open.join(' & ')} pending`:''}</span>
    <div style="display:flex;gap:6px;margin-top:6px"><button class="btn sm pri" data-pop-open="${n.id}">Open order</button><button class="btn sm" data-pop-ok="${n.id}">OK</button></div></div></div>`}).join('')+(more?`<button class="btn sm pop" style="justify-content:center;padding:8px" id="popMore">+${more} more ready orders</button>`:'');
   const pm=document.getElementById('popMore');if(pm)pm.onclick=bellList;
   box.querySelectorAll('[data-pop-ok]').forEach(b=>b.onclick=()=>{notices.find(x=>String(x.id)===b.dataset.popOk).seen[USER.name]=1;showPopups()});
@@ -309,7 +309,7 @@ function showPopups(){updateBell();let box=document.getElementById('pops');if(!b
 }
 function bellList(){const list=myNotices().slice().reverse();
   drawer('Ready notifications',`<div class="muted" style="font-size:13px">${ROLE==='owner'?'All branches':bname(USER.branch)+' branch'}</div>`,
-   `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${list.map(n=>`<div class="row" data-r="${n.rno}" style="cursor:pointer"><span class="rid">#${n.rno}</span><div class="grow"><b>${cust(orders.find(o=>o.rno===n.rno).cid).name}</b><span>${pl(n.qty,'thobe')} · ${bname(n.branch)} · tailor ${wk(n.tailor).name}</span></div>${n.seen[USER.name]?'<span class="pill s-done">Seen</span>':'<span class="pill s-ready">New</span>'}</div>`).join('')||'<div class="empty">No ready orders yet.</div>'}</div>`,
+   `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${list.map(n=>`<div class="row" data-r="${n.rno}" style="cursor:pointer"><span class="rid">${onoR(n.rno)}</span><div class="grow"><b>${cust(orders.find(o=>o.rno===n.rno).cid).name}</b><span>${pl(n.qty,'thobe')} · ${bname(n.branch)} · tailor ${wk(n.tailor).name}</span></div>${n.seen[USER.name]?'<span class="pill s-done">Seen</span>':'<span class="pill s-ready">New</span>'}</div>`).join('')||'<div class="empty">No ready orders yet.</div>'}</div>`,
    `<button class="btn" id="markAll">Mark all as seen</button>`);
   list.forEach(n=>{});document.getElementById('markAll').onclick=()=>{list.forEach(n=>n.seen[USER.name]=1);showPopups();bellList()};
   document.querySelectorAll('.drawer [data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}
@@ -396,7 +396,7 @@ function dashboard(){
     <div class="panel">
       <div class="panel-h"><h2>Upcoming deliveries</h2><span class="sp"></span><a class="btn sm" href="#orders">All orders</a></div>
       <div class="rows">${soon.map(o=>{const d=daysLeft(o);return `<div class="row" data-r="${o.rno}" style="cursor:pointer">
-        <span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${wk(o.tailor).name} ${curBranch?'':'· '+bname(o.branch)}</span></div>${pill(o)}
+        <span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${wk(o.tailor).name} ${curBranch?'':'· '+bname(o.branch)}</span></div>${pill(o)}
         <span class="days ${d<0?'late':d===0?'today':''}">${d<0?`${-d}d late`:d===0?'Today':`in ${d}d`}</span></div>`}).join('')||'<div class="empty">Nothing due.</div>'}</div>
     </div>
     <div class="panel">
@@ -454,9 +454,9 @@ function ordersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();const money=RA().money;
   const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
   const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='gift'?!!o.gift:true};
-  const hit=o=>{if(!q)return true;const c=cust(o.cid);return String(o.rno)===q||String(o.invoiceNo||'')===q||String(o.cid)===q||String(o.exeNo||'')===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
+  const hit=o=>{if(!q)return true;const c=cust(o.cid);return ordMatch(o,q)||(o.bno||'').toLowerCase().includes(q)&&q.length>=4||String(o.cid)===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
   if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
-  const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
+  const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.binvSeq||+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
   const fl=all.filter(o=>pass(o,orderFilter)&&hit(o)).sort((a,b)=>{const A=val(a,oSort.k),B=val(b,oSort.k);return (A<B?-1:A>B?1:0)*oSort.d||b.rno-a.rno});
   const sum=f=>fl.reduce((s,o)=>s+f(o),0);
   const T={n:fl.length,pcs:sum(o=>o.qty),tot:sum(o=>o.total),paid:sum(o=>o.paid),due:sum(o=>Math.max(0,info.get(o.rno).due)),late:fl.filter(o=>info.get(o.rno).status==='Late').length,ready:fl.filter(o=>o.st==='ready').length};
@@ -479,7 +479,7 @@ function ordersView(){
      <thead><tr>${th('rno','Order / Invoice','stk s1')}${th('cust','Customer','stk s2')}<th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
       ${money?th('total','Total','r')+th('paid','Paid','r')+th('bal','Due','r'):''}${th('status','Status')}<th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th class="r">Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
      <tbody>${fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno),lateD=x.dq<o.qty&&o.due<today;return `<tr class="click" data-r="${o.rno}" tabindex="0">
-      <td class="stk s1"><span class="rid">#${o.rno}</span><small class="sub">${o.gift?'Free gift':o.invoiceNo?'Inv '+o.invoiceNo:'Inv —'}${o.exeNo&&o.exeNo!==o.rno?' · shop '+o.exeNo:''}</small></td>
+      <td class="stk s1"><span class="rid">${ono(o)}</span><small class="sub">${o.gift?'Free gift':oinv(o)?'Inv '+oinv(o):'Inv —'}${o.exeNo&&o.exeNo!==o.rno?' · shop '+o.exeNo:''}</small></td>
       <td class="stk s2"><b dir="auto" class="cn">${esc(c.name)}</b></td>
       <td class="num">${esc(c.phone)}</td>
       <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
@@ -495,7 +495,7 @@ function ordersView(){
   document.querySelectorAll('th[data-sort]').forEach(h=>h.onclick=()=>{const k=h.dataset.sort;oSort=oSort.k===k?{k,d:-oSort.d}:{k,d:k==='cust'||k==='status'?1:-1};ordersView()});
   document.querySelectorAll('tr[data-r]').forEach(r=>r.onkeydown=e=>{if(e.key==='Enter')openOrder(+r.dataset.r)});
   const rowsCsv=()=>{const H=['Order No','Invoice','Customer','Mobile','Booked','Delivery','Pcs',...(money?['Total','Paid','Due']:[]),'Status','Cut','Stitched','Hinge','Ready','Delivered',...(money?['Method']:[]),'Tailor','Fabric','Made at','Branch'];
-    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [o.rno,o.gift?'Gift':o.invoiceNo||'',c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
+    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [ono(o).replace(/^#/,''),o.gift?'Gift':oinv(o),c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
     return [H,...R]};
   document.getElementById('oCsv').onclick=()=>{const csv='﻿'+rowsCsv().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`orders_${dkey2(today)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
@@ -510,7 +510,7 @@ function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.na
   :`Assalamu alaikum ${first},\nWe have received your order no. ${o.rno} (${pl(o.qty,'thobe')}) at our ${bname(o.branch)} branch.\nExpected pickup: ${fmtD(o.due)}\nPaid: ${sar(o.paid)} SAR · Balance: ${sar(rem)} SAR`;}
 function openOrder(rno){
   const o=orders.find(x=>x.rno===rno);if(!o)return;const c=cust(o.cid),i=SI[o.st],rem=o.total-o.paid,prof=c.profiles[o.profile]||c.profiles[0];
-  drawer(c.name,`<div class="rid" style="font-size:13px">Receipt #${o.rno}${o.exeNo&&o.exeNo!==o.rno?` · shop no. ${o.exeNo}`:''} · ${bname(o.branch)} branch${o.exe?' · from shop exe':''}</div>`,
+  drawer(c.name,`<div class="rid" style="font-size:13px">Receipt ${ono(o)}${o.exeNo&&o.exeNo!==o.rno?` · shop no. ${o.exeNo}`:''} · ${bname(o.branch)} branch${o.exe?' · from shop exe':''}</div>`,
    `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill(o)}<span class="muted num">${c.phone}</span></div>
     <div class="steps">${STAGES.map((s,j)=>`<div class="step ${j<i?'done':j===i?'cur':''}">${s.t}</div>`).join('')}</div>
     <div class="kv"><div><span>Thobes</span><b>${o.qty}</b></div><div><span>Ordered</span><b>${fmtD(o.created)}</b></div><div><span>Pickup</span><b>${fmtD(o.due)}</b></div>
@@ -523,10 +523,11 @@ function openOrder(rno){
     ${MALL.some(([k])=>mVal(prof.m,k)!=='')?`<div><p class="h4">Old shop paper values</p>${mShow(prof.m)}</div>`:''}
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
-   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}`);
+   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}${RA().money&&!o.gift?`<button class="btn" id="prtBtn">🖨 Invoice</button>`:''}`);
+  const prt=document.getElementById('prtBtn');if(prt)prt.onclick=()=>printOrder(o);
   document.querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{stepTask(o,b.dataset.tk);route();openOrder(rno)});
-  const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order #${o.rno} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
-  const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>{delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:0});o.st='done';toast(`#${o.rno} handed over`);route();openOrder(rno)};
+  const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order ${ono(o)} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
+  const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>{delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:0});o.st='done';toast(`${ono(o)} handed over`);route();openOrder(rno)};
   const pay=document.getElementById('payBtn');if(pay)pay.onclick=()=>{if(o.st==='ready'){o.st='done';delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:rem})}payLog.push({d:today,rno:o.rno,branch:o.branch,amt:rem,m:'Cash',t:'Balance'});o.paid=o.total;toast(`Payment of ${sar(rem)} SAR recorded`);route();openOrder(rno)};
   const wb=document.getElementById('waBtn');if(wb)wb.onclick=()=>copyEl('wamsg',waText(o));
 }
@@ -551,7 +552,7 @@ function newOrder(){
     ${F('Address','<input id="fAddr" dir="auto">')}
     ${F('Booking date',`<input id="fBook" type="date" value="${dkey2(today)}">`)}
     ${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">`)}
-    ${F('Order No',`<input id="fOno" class="num" readonly value="(new) ${nextR}">`)}
+    ${F('Order No',`<input id="fOno" class="num" readonly value="(new)">`)}
     ${F('Invoice No',`<div class="orow"><input id="fInv" class="num" readonly value="(new)"><label class="ock gift"><input type="checkbox" id="fGift"> Free gift / هدية</label></div>`)}
     ${F('',`<label class="ock"><input type="checkbox" id="fSample"> Customer left a sample thobe</label>`)}
     ${F('Notes','<input id="fNote" dir="auto">',5)}
@@ -614,9 +615,10 @@ function newOrder(){
   $('fCno').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const c=customers.find(x=>String(x.id)===$('fCno').value.trim());if(c)setCust(c);else toast('Customer '+$('fCno').value+' not found')}};
   $('fCno').onchange=()=>{const v=$('fCno').value.trim();if(!v){cid=0;return}const c=customers.find(x=>String(x.id)===v);if(c)setCust(c)};
   $('fFind').onclick=()=>pickCustomer(setCust);
-  $('fBranch').onchange=()=>{fillMade();fillTailors()};$('fMade').onchange=fillTailors;
+  const fillNo=()=>{const b=+$('fBranch').value;$('fOno').value='(new) '+branchNos(b,$('fGift').checked).bno;if(!$('fGift').checked){const n=branchNos(b,false);$('fInv').value=n.binv?'(new) '+n.binv:'(from the shop exe)'}};
+  $('fBranch').onchange=()=>{fillMade();fillTailors();fillNo()};setTimeout(fillNo,0);$('fMade').onchange=fillTailors;
   ['fDisc','fPaid'].forEach(id=>$(id).oninput=totals);
-  $('fGift').onchange=()=>{$('fInv').value=$('fGift').checked?'(free gift – no invoice)':'(new)'};
+  $('fGift').onchange=()=>{if($('fGift').checked)$('fInv').value='(free gift – no invoice)';else{const n=branchNos(+$('fBranch').value,false);$('fInv').value=n.binv?'(new) '+n.binv:'(from the shop exe)'}};
   $('addIn').onclick=()=>pickStock(it=>{draft.lines.push({src:'IN',code:it.code,item:it.name,company:it.company||'',qty:1,rate:it.rate});draft.sel=draft.lines.length-1;drawLines()});
   $('addOut').onclick=()=>{draft.lines.push({src:'OUT',code:0,item:OUT_ITEM,company:'',qty:1,rate:OUT_RATE});draft.sel=draft.lines.length-1;drawLines()};
   $('rmLine').onclick=()=>{if(draft.sel<0||!draft.lines[draft.sel]){toast('Click a line first');return}draft.lines.splice(draft.sel,1);draft.emb.forEach(e=>{if(e.fab===draft.sel)e.fab=-1;else if(e.fab>draft.sel)e.fab--});draft.sel=-1;drawLines()};
@@ -650,9 +652,10 @@ function newOrder(){
       lines:lines.map(l=>({src:l.src,code:l.code||0,item:String(l.item).trim(),qty:+l.qty,rate:+l.rate})),emb:emb.map(e=>({code:e.code,item:e.item,fab:e.fab,qty:+e.qty,rate:+e.rate})),
       gross:m.gross,disc:m.disc,vat:m.vat,pm:method,ref:$('fRef').value.trim(),meas,
       tailor:+$('fTailor').value||0,fabric:lines.map(l=>l.src==='OUT'?'قماش العميل: '+l.item:l.item).join(' + '),design:{...draft.design},profile:0,note:$('fNote').value.trim()};
+    Object.assign(o,branchNos(o.branch,o.gift));
     orders.unshift(o);
-    toast(`${money?`Order #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(o.made)} cutting`);
-    if(print)printOrder(o);
+    toast(`${money?`Order ${ono(o)} saved`:`Order ${ono(o)} sent to the cashier`} · now in ${bname(o.made)} cutting`);
+    if(print)printReceipt(o);
     orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
   };
   $('saveP').onclick=()=>save(true);$('saveO').onclick=()=>save(false);
@@ -689,24 +692,11 @@ function pickEmb(done){
   document.querySelectorAll('[data-pe]').forEach(r=>r.onclick=()=>{close();done(EMBL.find(x=>String(x.code)===r.dataset.pe))});
 }
 /* Save & Print: the order slip (A5 / receipt) */
-function printOrder(o){
-  const c=cust(o.cid),w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
-  const L=o.lines||[],E=o.emb||[];
-  w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>Order ${o.rno}</title><style>body{font:13px Arial,sans-serif;margin:14px;max-width:560px}h1{font-size:18px;margin:0}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border-bottom:1px solid #ccc;padding:4px;text-align:right}td.n{text-align:left;direction:ltr}.t td{border:0;padding:2px 4px}.b{font-weight:bold;font-size:15px}@page{margin:8mm}</style></head><body>
-   <h1>الثوب السعودي · AL THOB AL SAUDI</h1><div>${esc(bname(o.branch))} · ${o.created.toLocaleDateString('en-GB')}</div><hr>
-   <table class="t"><tr><td>رقم الطلب / Order</td><td class="n b">${o.rno}</td></tr><tr><td>العميل / Customer</td><td class="n">${esc(c.name)} (${c.id})</td></tr><tr><td>الجوال / Mobile</td><td class="n">${esc(c.phone)}</td></tr>
-   <tr><td>التسليم / Delivery</td><td class="n b">${o.due.toLocaleDateString('en-GB')}</td></tr>${o.hingeQty?`<tr><td>Hinge</td><td class="n">${o.hingeQty}</td></tr>`:''}${o.zipQty?`<tr><td>سحاب / Zip</td><td class="n">${o.zipQty}</td></tr>`:''}${o.sample?'<tr><td colspan="2">عينة: العميل ترك ثوب عينة</td></tr>':''}${o.gift?'<tr><td colspan="2"><b>هدية – Free gift</b></td></tr>':''}</table>
-   <table><thead><tr><th>الصنف / Item</th><th>العدد</th><th>السعر</th><th>المبلغ</th></tr></thead><tbody>${[...L,...E].map(l=>`<tr><td>${esc(l.item)}${l.code?' ('+l.code+')':''}</td><td class="n">${l.qty}</td><td class="n">${sar2(l.rate)}</td><td class="n">${sar2(l.qty*l.rate)}</td></tr>`).join('')}</tbody></table>
-   <table class="t"><tr><td>المجموع / Subtotal</td><td class="n">${sar2(o.gross)}</td></tr><tr><td>الخصم / Discount</td><td class="n">${sar2(o.disc)}</td></tr><tr><td>ضريبة 15% / VAT</td><td class="n">${sar2(o.vat)}</td></tr>
-   <tr class="b"><td>الإجمالي / TOTAL</td><td class="n">${sar2(o.total)}</td></tr><tr><td>المدفوع / Paid${o.pm?' ('+esc(o.pm)+')':''}</td><td class="n">${sar2(o.paid)}</td></tr><tr class="b"><td>المتبقي / Balance</td><td class="n">${sar2(o.total-o.paid)}</td></tr></table>
-   ${o.note?`<div>ملاحظات: ${esc(o.note)}</div>`:''}</body></html>`);
-  w.document.close();setTimeout(()=>w.print(),300);
-}
 
 /* the order's items as the shop exe keeps them: fabric lines (IN = shop stock / OUT = customer's fabric), embroidery, totals */
 function orderItems(o){
   const L=o.lines||[],E=o.emb||[],money=RA().money;
-  const extra=[o.invoiceNo?['Invoice no.',String(o.invoiceNo)]:null,o.exeNo&&o.exeNo!==o.rno?['Shop order no.',String(o.exeNo)]:null,o.hingeQty?['Hinge button',o.hingeQty+' pcs']:null,o.zipQty?['Zip',o.zipQty+' pcs']:null,
+  const extra=[oinv(o)?['Invoice no.',oinv(o)]:null,o.binv&&o.invoiceNo?['Shop invoice no.',String(o.invoiceNo)]:null,o.exeNo&&o.exeNo!==o.rno?['Shop order no.',String(o.exeNo)]:null,o.hingeQty?['Hinge button',o.hingeQty+' pcs']:null,o.zipQty?['Zip',o.zipQty+' pcs']:null,
     o.sample?['Sample','Customer left a sample thobe']:null,o.gift?['Free gift','No invoice']:null,money&&o.pm?['Paid by',o.pm+(o.ref?' · '+o.ref:'')]:null].filter(Boolean);
   if(!L.length&&!E.length&&!extra.length)return '';
   return `<div><p class="h4">Items</p>${L.length||E.length?`<div class="tbl-wrap" style="border:1px solid var(--line);border-radius:8px"><table><thead><tr><th>Type</th><th>Item</th><th>Pcs</th>${money?'<th>Rate</th><th>Amount</th>':''}</tr></thead><tbody>
@@ -739,6 +729,7 @@ function thobeSVG(){
 }
 /* Measurements: the JAMEEL measurement sheet (as the exe), one per customer – his newest measurement */
 let jsCur=null;
+let mOrdSel=0;
 function measurements(){
   const q=document.getElementById('q').value.trim().toLowerCase();
   const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)||String(c.id)===q));
@@ -750,6 +741,7 @@ function measurements(){
   const oldPaper=MALL.some(([k])=>mVal(p.m,k)!=='');
   const last=orders.filter(o=>o.cid===c.id).sort((a,b)=>b.rno-a.rno);
   const show=list.slice(0,300);
+  if(!last.some(o=>o.rno===mOrdSel))mOrdSel=(last.find(o=>oInfo(o).dq<o.qty)||last[0]||{}).rno||0;const mo=last.find(o=>o.rno===mOrdSel)||null;
   V(`<div class="mlay">
    <div class="panel"><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
     <div class="clist">${show.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini num" style="font-size:11px">${x.id}</div><div class="grow"><b dir="auto">${esc(x.name)}</b><span>${esc(x.phone)}${jHas((x.profiles[0]||{}).m)?' · 📐':''}</span></div></button>`).join('')}${list.length>show.length?`<div class="muted" style="padding:10px;font-size:12px">Search to find the other ${list.length-show.length}…</div>`:''}</div></div>
@@ -758,14 +750,16 @@ function measurements(){
      <div class="panel-h" style="flex-wrap:wrap;gap:8px"><div><h2 style="font-size:18px;font-family:var(--f-display);font-weight:600" dir="auto">${esc(c.name)}</h2><span class="muted num" style="font-size:12.5px">No. ${c.id} · ${esc(c.phone)} · ${bname(c.branch)} · ${pl(last.length,'order')}${c.book?` · <span dir="rtl">دفتر ${esc(c.book)}</span>`:''}</span></div><span class="sp"></span>
       <span class="muted" id="msN" style="font-size:12.5px"></span>
       <button class="btn sm" id="msZo" aria-label="Smaller">－</button><button class="btn sm" id="msZi" aria-label="Bigger">＋</button><button class="btn sm" id="msFull">Full screen</button>
-      <button class="btn sm" id="mReset">Undo changes</button><button class="btn sm pri" id="mSave">Save measurements</button>
+      <button class="btn sm" id="mPrint">🖨 Print sheet</button><button class="btn sm" id="mReset">Undo changes</button><button class="btn sm pri" id="mSave">Save measurements</button>
       ${can('new')?`<button class="btn sm" id="newOrdBtn">${ico('plus')}New order</button>`:''}</div>
+     ${last.length?`<div class="mordsel"><label for="mOrd" class="muted" style="font-size:12.5px;font-weight:600">Order for this sheet</label><select id="mOrd">${last.map(o=>`<option value="${o.rno}" ${o.rno===mo.rno?'selected':''}>${esc(ono(o))} · ${fmtD(o.created)} · ${pl(o.qty,'thobe')} · ${esc(oInfo(o).where)}</option>`).join('')}</select></div>`:''}
+     ${jHeadHtml(mo,c)}
      <div class="jwrap" id="msHost"></div>
     </div>
     ${oldPaper?`<details class="panel" style="padding:0"><summary class="panel-h" style="cursor:pointer"><h2>Old shop paper values</h2><span class="sp"></span><span class="muted" style="font-size:12px">from the earlier AL THOB sheet</span></summary><div class="panel-b">${mShow(p.m)}</div></details>`:''}
     <div class="grid2">
      <div class="panel"><div class="panel-h"><h2>Measurement history</h2></div><div class="panel-b"><div class="hist">${(c.hist||[]).map(h=>`<div><time>${fmtD(h.d)}</time><span style="flex:1">${esc(h.t)}</span><span class="muted">${esc(h.by||'')}</span></div>`).join('')||'<span class="muted">—</span>'}</div></div></div>
-     <div class="panel"><div class="panel-h"><h2>Recent orders</h2></div><div class="rows">${last.slice(0,5).map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${pl(o.qty,'thobe')} · <span dir="auto">${esc(o.fabric||'')}</span></b><span>${fmtD(o.created)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No orders yet.</div>'}</div></div>
+     <div class="panel"><div class="panel-h"><h2>Recent orders</h2></div><div class="rows">${last.slice(0,5).map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b>${pl(o.qty,'thobe')} · <span dir="auto">${esc(o.fabric||'')}</span></b><span>${fmtD(o.created)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No orders yet.</div>'}</div></div>
     </div>
    </div></div>`);
   const fabs=()=>{const a=[];last.slice(0,3).forEach(o=>(o.lines||[]).forEach(l=>{const n=l.src==='OUT'?'قماش العميل':String(l.code||l.item);if(!a.includes(n))a.push(n)}));return a};
@@ -775,6 +769,8 @@ function measurements(){
   document.getElementById('msFull').onclick=()=>jSheetWindow(`Measurements · ${c.name}`,work,{fabrics:fabs,onDone:m=>{jsCur.load(m)}});
   document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;measurements()});
   document.getElementById('mReset').onclick=()=>measurements();
+  const mos=document.getElementById('mOrd');if(mos)mos.onchange=()=>{mOrdSel=+mos.value;measurements()};
+  document.getElementById('mPrint').onclick=()=>printSheet(mo&&jHas(mo.meas)?mo.meas:work,mo,c);
   document.getElementById('mSave').onclick=()=>{
     const before=Object.fromEntries(Object.entries(p.m).filter(([k])=>k.startsWith('q_')));
     const keys=new Set([...Object.keys(before),...Object.keys(work)]);let n=0;keys.forEach(k=>{if((before[k]||'')!==(work[k]||''))n++});
@@ -795,7 +791,7 @@ function customersView(){
   V(`<div class="panel"><div class="panel-h"><h2>${pl(list.length,'customer')}</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sorted by total spent · tap a row for measurements</span></div><div class="tbl-wrap"><table>
    <thead><tr><th class="r">Cust No</th><th>Customer</th><th>Mobile</th><th>Book</th><th class="r">Orders</th>${RA().money?'<th class="r">Total paid</th><th class="r">Balance</th>':''}<th>Last order</th><th>Home branch</th></tr></thead>
    <tbody>${list.map(x=>`<tr class="click" data-c="${x.c.id}"><td class="num r" style="text-align:right">${x.c.id}</td><td><b dir="auto">${esc(x.c.name)}</b></td><td class="num">${esc(x.c.phone)}</td><td dir="auto" class="muted">${esc(x.c.book||'')}</td><td class="num" style="text-align:right">${x.n}</td>${RA().money?`<td class="num" style="text-align:right">${sar(x.spent)}</td>
-    <td class="num" style="text-align:right;color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.last?`<span class="rid">#${x.last.rno}</span> ${pill(x.last)}`:'—'}</td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td></tr>`).join('')}</tbody></table></div></div>`);
+    <td class="num" style="text-align:right;color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.last?`<span class="rid">${ono(x.last)}</span> ${pill(x.last)}`:'—'}</td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td></tr>`).join('')}</tbody></table></div></div>`);
   document.querySelectorAll('tr[data-c]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.c;selProf=0;location.hash='measurements'});
 }
 
@@ -821,14 +817,14 @@ function payments(){
     const coll=all.reduce((s,o)=>s+o.paid,0),due=open.reduce((s,o)=>s+o.total-o.paid,0),readyDue=open.filter(o=>o.st==='ready').reduce((s,o)=>s+o.total-o.paid,0);
     V(`${tabs}<div class="okpi"><div><span>Collected</span><b class="num">${sar(coll)}<small>SAR</small></b><em>On the orders shown</em></div><div class="bad"><span>Balance due</span><b class="num">${sar(due)}<small>SAR</small></b><em>${pl(open.length,'order')}</em></div><div class="okc"><span>Due on ready orders</span><b class="num">${sar(readyDue)}<small>SAR</small></b><em>Collected at pickup</em></div></div>
     <div class="panel opanel"><div class="tbl-wrap otbl"><table class="ot" style="min-width:900px"><thead><tr><th>Order / Invoice</th><th>Customer</th><th>Mobile</th><th class="r">Total</th><th class="r">Paid</th><th class="r">Balance</th><th>Paid so far</th><th>Status</th><th>Branch</th></tr></thead>
-     <tbody>${open.map(o=>{const c=cust(o.cid),p=o.total?o.paid/o.total:0;return `<tr class="click" data-r="${o.rno}"><td><span class="rid">#${o.rno}</span><small class="sub">${o.invoiceNo?'Inv '+o.invoiceNo:'Inv —'}</small></td><td><b dir="auto">${esc(c.name)}</b></td><td class="num">${esc(c.phone)}</td>
+     <tbody>${open.map(o=>{const c=cust(o.cid),p=o.total?o.paid/o.total:0;return `<tr class="click" data-r="${o.rno}"><td><span class="rid">${ono(o)}</span><small class="sub">${oinv(o)?'Inv '+oinv(o):'Inv —'}</small></td><td><b dir="auto">${esc(c.name)}</b></td><td class="num">${esc(c.phone)}</td>
       <td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num tbad">${sar(o.total-o.paid)}</td><td><div class="mbar"><i><b style="width:${p*100}%"></b></i></div></td><td>${pill(o)}</td><td>${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody></table>${open.length?'':'<div class="empty">No unpaid receipts.</div>'}</div></div>`);
     document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{payTab=b.dataset.pt;payments()});bindRows();return}
   const d0=new Date(payF.from),d1=new Date(payF.to);d1.setHours(23,59,59);
   const q=payF.q.trim().toLowerCase();
   const rows=payRows().filter(r=>{if(r.d<d0||r.d>d1)return false;if(payF.br&&r.branch!==payF.br)return false;
     if(payF.type==='down'&&r.type!=='Down payment')return false;if(payF.type==='due'&&r.type!=='Due payment')return false;
-    if(!q)return true;const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return String(r.rno)===q||String(r.receipt)===q||(o&&String(o.invoiceNo||'')===q)||(c&&c.name.toLowerCase().includes(q))});
+    if(!q)return true;const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return String(r.rno)===q||String(r.receipt)===q||(o&&ordMatch(o,q))||(c&&c.name.toLowerCase().includes(q))});
   const tot=rows.reduce((s,r)=>s+r.amt,0),byM={};rows.forEach(r=>{if(r.amt){const k=webCat(r.m||'Cash');byM[k]=(byM[k]||0)+r.amt}});
   const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});
   V(`${tabs}<div class="okpi"><div><span>Payments</span><b class="num">${rows.filter(r=>r.amt).length}</b><em>${D(d0)} – ${D(d1)}</em></div>
@@ -845,7 +841,7 @@ function payments(){
     <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
    <div class="tbl-wrap otbl"><table class="ot" style="min-width:1400px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
     <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
-     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">#${r.rno}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
+     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">${onoR(r.rno)}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
      <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
      <td class="r num" style="font-weight:600">${r.amt?sar2(r.amt):'<span class="muted">0</span>'}</td><td>${esc(r.m)}</td><td class="num">${esc(r.ref)}</td><td class="r num">${r.dq||''}</td>
      <td class="r num ${o&&o.total-o.paid>0.5?'tbad':'tok'}">${o?(o.total-o.paid>0.5?sar(o.total-o.paid):'—'):''}</td><td>${bTag(r.branch)} ${bname(r.branch)}</td></tr>`}).join('')}</tbody>
@@ -866,7 +862,7 @@ function payments(){
     if(r.del){delLog.splice(delLog.indexOf(r.del),1);if(o&&o.st==='done')o.st=o.t.sew==='done'?'ready':o.st}
     payF.sel=null;toast('Payment deleted');payments()};
   const csvRows=()=>[['Date','Receipt','Order No','Invoice','Customer','Order Total','Type','Action','Amount','Method','Reference','Delivered Qty','Branch'],
-    ...rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return [dkey2(r.d),r.receipt,r.rno,o&&o.invoiceNo||'',c?c.name:'',o?o.total:'',r.type,r.act,r.amt,r.m,r.ref,r.dq,bname(r.branch)]})];
+    ...rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return [dkey2(r.d),r.receipt,onoR(r.rno).replace(/^#/,''),o?oinv(o):'',c?c.name:'',o?o.total:'',r.type,r.act,r.amt,r.m,r.ref,r.dq,bname(r.branch)]})];
   $('pCsv').onclick=()=>{const csv='﻿'+csvRows().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`payments_${dkey2(d0)}_${dkey2(payF.to)}.csv`;a.click()};
   $('pPrint').onclick=()=>{const rs=csvRows(),w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Payments</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Payments · ${payF.br?esc(bname(payF.br)):'All branches'}</h1><p>${D(d0)} – ${D(d1)} · ${pl(rows.length,'row')} · total ${sar2(tot)} SAR</p><table><thead><tr>${rs[0].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);w.document.close();setTimeout(()=>w.print(),300)};
@@ -898,7 +894,7 @@ function receivePayment(rno,deliverAll){
     const p=a>0?{d:new Date(today),rno:o.rno,branch:o.branch,amt:a,m:webCat(m),pm:m,ref:$('rpR').value.trim(),t:'Balance',by:USER.name||''}:null;
     if(p){payLog.push(p);o.paid=Math.round((o.paid+a)*100)/100}
     if(q>0){delLog.push({d:new Date(today),rno:o.rno,branch:o.branch,qty:q,amt:a});if(oInfo(o).dq>=o.qty)o.st='done'}
-    close();toast(`Order #${o.rno}: ${a?sar2(a)+' SAR received':''}${a&&q?' · ':''}${q?q+' pcs delivered':''}`);
+    close();toast(`Order ${ono(o)}: ${a?sar2(a)+' SAR received':''}${a&&q?' · ':''}${q?q+' pcs delivered':''}`);
     if(print)printPayment({d:new Date(today),rno:o.rno,amt:a,m,ref:p?p.ref:'',dq:q,type:'Due payment',receipt:''});route()};
   $('rpSave').onclick=()=>save(false);$('rpPrint').onclick=()=>save(true);
 }
@@ -906,7 +902,7 @@ function printPayment(r){
   const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null,w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
   w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>Receipt ${r.rno}</title><style>body{font:13px Arial,sans-serif;margin:12px;max-width:340px}h1{font-size:16px;margin:0}td{padding:3px 2px}td.n{text-align:left;direction:ltr}.b{font-weight:bold;font-size:15px}@page{margin:6mm}</style></head><body>
    <h1>الثوب السعودي · AL THOB AL SAUDI</h1><div>سند قبض / Payment receipt${r.receipt?' #'+r.receipt:''}</div><hr><table style="width:100%">
-   <tr><td>التاريخ / Date</td><td class="n">${r.d.toLocaleDateString('en-GB')}</td></tr><tr><td>رقم الطلب / Order</td><td class="n b">${r.rno}</td></tr>${o&&o.invoiceNo?`<tr><td>الفاتورة / Invoice</td><td class="n">${o.invoiceNo}</td></tr>`:''}
+   <tr><td>التاريخ / Date</td><td class="n">${r.d.toLocaleDateString('en-GB')}</td></tr><tr><td>رقم الطلب / Order</td><td class="n b">${esc(onoR(r.rno).replace(/^#/,""))}</td></tr>${o&&oinv(o)?`<tr><td>الفاتورة / Invoice</td><td class="n">${esc(oinv(o))}</td></tr>`:''}
    <tr><td>العميل / Customer</td><td class="n">${c?esc(c.name):''}</td></tr><tr><td>المبلغ / Amount</td><td class="n b">${sar2(r.amt)} SAR</td></tr>${r.m?`<tr><td>طريقة الدفع / Method</td><td class="n">${esc(r.m)}${r.ref?' · '+esc(r.ref):''}</td></tr>`:''}
    ${r.dq?`<tr><td>تسليم / Delivered</td><td class="n">${r.dq} pcs</td></tr>`:''}${o?`<tr><td>الإجمالي / Total</td><td class="n">${sar2(o.total)}</td></tr><tr><td>المتبقي / Balance</td><td class="n b">${sar2(o.total-o.paid)}</td></tr>`:''}</table></body></html>`);
   w.document.close();setTimeout(()=>w.print(),300);
@@ -969,7 +965,7 @@ function openWorker(id){
     ${(isOwner()||managesW(w))&&okW(w)?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">Today</b>${w.att[13]==='a'?'<span class="pill s-late">Absent</span>':'<span class="pill s-ready">Present</span>'}<button class="btn sm" id="attW">${w.att[13]==='a'?'Mark present':'Mark absent'}</button></div>`:''}
     <div><p class="h4">Attendance · last 14 days <span class="muted" style="font-weight:500">(${s.absent} absent)</span></p><div class="att">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div><p class="muted" style="font-size:11.5px;margin:6px 0 0">Green present · red absent · grey Friday</p></div>
     ${ROLE2TASK[w.role]?'<div id="wwSec"></div>':''}
-    ${w.role==='Tailor'?`<div><p class="h4">Current work (${pl(s.act,'thobe')})</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${os.map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · due ${fmtD(o.due)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">Nothing assigned.</div>'}</div></div>`:''}`,
+    ${w.role==='Tailor'?`<div><p class="h4">Current work (${pl(s.act,'thobe')})</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${os.map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · due ${fmtD(o.due)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">Nothing assigned.</div>'}</div></div>`:''}`,
    `${canEditW(w)?`<button class="btn pri" id="editW">Edit</button>`:''}${canEditW(w)||isOwner()?`<button class="btn" id="appW">App link</button>`:''}${(canEditW(w)||ROLE==='manager')&&okW(w)?`<button class="btn" id="leaveW">${w.status==='leave'?'Mark as back':'Mark on leave'}</button>`:''}
     ${isOwner()?`<button class="btn" id="actW">${w.status==='inactive'?'Activate':'Deactivate'}</button><button class="btn" id="blkW" style="color:var(--bad)">${w.status==='blocked'?'Unblock':'Block'}</button><button class="btn" id="delW" style="color:var(--bad);border-color:var(--bad)">Delete</button>`:'<span class="muted" style="font-size:12px;align-self:center">Block, deactivate and delete: owner only</span>'}`);
   const $=x=>document.getElementById(x);
@@ -1063,8 +1059,8 @@ function daily(){
    <tbody>${rows.map(r=>`<tr><td>${bTag(r.b.id)} <b>${r.b.name}</b></td><td class="num">${r.n}</td><td class="num">${r.pcs}</td><td class="num"><b>${sar(r.sale)}</b></td><td class="num">${sar(r.dep)}</td><td class="num">${sar(r.bal)}</td><td class="num"><b>${sar(r.tot)}</b></td><td class="num">${sar(r.cash)}</td><td class="num">${sar(r.mada)}</td><td class="num">${sar(r.tr)}</td><td class="num">${r.dq} pcs · ${r.dn}</td></tr>`).join('')}
    ${rows.length>1?`<tr style="background:var(--ground)"><td><b>Total</b></td><td class="num"><b>${T('n')}</b></td><td class="num"><b>${T('pcs')}</b></td><td class="num"><b>${sar(T('sale'))}</b></td><td class="num"><b>${sar(T('dep'))}</b></td><td class="num"><b>${sar(T('bal'))}</b></td><td class="num"><b>${sar(T('tot'))}</b></td><td class="num"><b>${sar(T('cash'))}</b></td><td class="num"><b>${sar(T('mada'))}</b></td><td class="num"><b>${sar(T('tr'))}</b></td><td class="num"><b>${T('dq')} pcs · ${T('dn')}</b></td></tr>`:''}</tbody></table></div></div>
   <div class="grid2">
-   <div class="panel"><div class="panel-h"><h2>Delivered & paid</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(dels.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th>${shops.length>1?'<th>Branch</th>':''}<th>Thobes</th><th>Paid at delivery</th></tr></thead><tbody>${dels.map(p=>`<tr><td><span class="rid">#${p.rno}</span></td>${shops.length>1?`<td>${bTag(p.branch)}</td>`:''}<td class="num">${p.qty}</td><td class="num">${p.amt?sar(p.amt):'<span class="muted">already paid</span>'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No deliveries.</td></tr>'}</tbody></table></div></div>
-   <div class="panel"><div class="panel-h"><h2>New orders booked</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(booked.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>Customer</th><th>Thobes</th><th>Sale</th><th>Deposit</th></tr></thead><tbody>${booked.map(o=>`<tr class="click" data-r="${o.rno}"><td><span class="rid">#${o.rno}</span> ${shops.length>1?bTag(o.branch):''}</td><td>${cust(o.cid).name}</td><td class="num">${o.qty}</td><td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">No new orders.</td></tr>'}</tbody></table></div></div>
+   <div class="panel"><div class="panel-h"><h2>Delivered & paid</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(dels.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th>${shops.length>1?'<th>Branch</th>':''}<th>Thobes</th><th>Paid at delivery</th></tr></thead><tbody>${dels.map(p=>`<tr><td><span class="rid">${onoR(p.rno)}</span></td>${shops.length>1?`<td>${bTag(p.branch)}</td>`:''}<td class="num">${p.qty}</td><td class="num">${p.amt?sar(p.amt):'<span class="muted">already paid</span>'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No deliveries.</td></tr>'}</tbody></table></div></div>
+   <div class="panel"><div class="panel-h"><h2>New orders booked</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(booked.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>Customer</th><th>Thobes</th><th>Sale</th><th>Deposit</th></tr></thead><tbody>${booked.map(o=>`<tr class="click" data-r="${o.rno}"><td><span class="rid">${ono(o)}</span> ${shops.length>1?bTag(o.branch):''}</td><td>${cust(o.cid).name}</td><td class="num">${o.qty}</td><td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">No new orders.</td></tr>'}</tbody></table></div></div>
   </div>`:''}
   <h2 style="margin:0;font-size:17px">Tailoring daily report</h2>
   <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${shopsIn.map(b=>{const pp=prod.filter(p=>p.made===b.id);const ws=tailors.filter(w=>w.branch===b.id);const inProd=orders.filter(o=>o.made===b.id&&(o.st==='cut'||o.st==='sew')).reduce((s,o)=>s+o.qty,0);
@@ -1098,24 +1094,24 @@ function till(){
    <label class="bigsearch">${ico('orders')}<input id="tq" placeholder="Receipt no. or mobile, e.g. 1252 or 05…" autocomplete="off"></label>
    <div id="tres"></div>
    <div class="panel"><div class="panel-h"><h2>Ready for pickup</h2><span class="sp"></span><span class="muted" style="font-size:12px">Collect the balance and hand over</span></div>
-    <div class="rows">${ready.map(o=>{const rem=o.total-o.paid;return `<div class="row tpay" data-pay="${o.rno}" tabindex="0" style="cursor:pointer" title="Receive payment / deliver"><span class="rid">#${o.rno}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name)}</b><span class="num">${cust(o.cid).phone} · ${pl(o.qty,'thobe')}</span></div>
+    <div class="rows">${ready.map(o=>{const rem=o.total-o.paid;return `<div class="row tpay" data-pay="${o.rno}" tabindex="0" style="cursor:pointer" title="Receive payment / deliver"><span class="rid">${ono(o)}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name)}</b><span class="num">${cust(o.cid).phone} · ${pl(o.qty,'thobe')}</span></div>
      <span class="num" style="font-weight:700;color:${rem>0.5?'var(--bad)':'var(--ok)'}">${rem>0.5?sar(rem)+' SAR':'Paid'}</span><span class="muted" aria-hidden="true">›</span></div>`}).join('')||'<div class="empty">No thobes waiting for pickup.</div>'}</div></div>
-   ${unpaidNew.length?`<div class="panel"><div class="panel-h"><h2>New orders waiting for deposit</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sent by measurement</span></div><div class="rows">${unpaidNew.map(o=>`<div class="row"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${o.fabric}</span></div><input class="num" style="width:80px;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--ground)" id="dep${o.rno}" value="${Math.round(o.total/2)}" aria-label="Deposit"><button class="btn sm pri" data-dep="${o.rno}">Take deposit</button></div>`).join('')}</div></div>`:''}
+   ${unpaidNew.length?`<div class="panel"><div class="panel-h"><h2>New orders waiting for deposit</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sent by measurement</span></div><div class="rows">${unpaidNew.map(o=>`<div class="row"><span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · ${o.fabric}</span></div><input class="num" style="width:80px;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--ground)" id="dep${o.rno}" value="${Math.round(o.total/2)}" aria-label="Deposit"><button class="btn sm pri" data-dep="${o.rno}">Take deposit</button></div>`).join('')}</div></div>`:''}
   </div>
   <aside class="sec">
    <div class="panel"><div class="panel-h"><h2>Today's cash box</h2><span class="sp"></span><span class="muted" style="font-size:12px">${bname(b)}</span></div>
     <div class="cashbox"><div><span>Cash</span><span class="num">${sar(by('Cash'))}</span></div><div><span>Card (mada)</span><span class="num">${sar(by('Card (mada)'))}</span></div><div><span>Bank transfer</span><span class="num">${sar(by('Transfer'))}</span></div><div><span>Total today</span><span class="num">${sar(log.reduce((s,p)=>s+p.amt,0))} SAR</span></div></div></div>
-   <div class="panel"><div class="panel-h"><h2>Today's receipts</h2></div><div class="rows">${log.slice().reverse().map(p=>`<div class="row" style="padding-block:8px"><span class="rid">#${p.rno}</span><div class="grow"><b style="font-weight:500">${p.t}</b><span>${p.m}</span></div><span class="num">${sar(p.amt)}</span></div>`).join('')||'<div class="empty">No payments yet today.</div>'}</div></div>
+   <div class="panel"><div class="panel-h"><h2>Today's receipts</h2></div><div class="rows">${log.slice().reverse().map(p=>`<div class="row" style="padding-block:8px"><span class="rid">${onoR(p.rno)}</span><div class="grow"><b style="font-weight:500">${p.t}</b><span>${p.m}</span></div><span class="num">${sar(p.amt)}</span></div>`).join('')||'<div class="empty">No payments yet today.</div>'}</div></div>
    <button class="btn" id="closeDay">Close the day</button>
   </aside></div>`);
   const tq=document.getElementById('tq');
   tq.oninput=()=>{const q=tq.value.trim();const res=document.getElementById('tres');if(q.length<2){res.innerHTML='';return}
-    const f=mine.filter(o=>String(o.rno).includes(q)||cust(o.cid).phone.includes(q)).slice(0,5);
-    res.innerHTML=`<div class="panel"><div class="rows">${f.map(o=>`<div class="row" data-pay="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · balance ${sar(o.total-o.paid)} SAR</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No receipt found in this branch.</div>'}</div></div>`;
+    const f=mine.filter(o=>String(o.rno).includes(q)||(o.bno||'').toLowerCase().includes(q.toLowerCase())||ordMatch(o,q)||cust(o.cid).phone.includes(q)).slice(0,5);
+    res.innerHTML=`<div class="panel"><div class="rows">${f.map(o=>`<div class="row" data-pay="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · balance ${sar(o.total-o.paid)} SAR</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No receipt found in this branch.</div>'}</div></div>`;
     res.querySelectorAll('[data-pay]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.pay);receivePayment(o.rno,o.st==='ready')})};
   // a ready order: the payment / delivery window (as the exe's) – balance and all pieces filled in
   document.querySelectorAll('[data-pay]').forEach(x=>{x.onclick=()=>receivePayment(+x.dataset.pay,true);x.onkeydown=e=>{if(e.key==='Enter')x.click()}});
-  document.querySelectorAll('[data-dep]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.dep);const a=+document.getElementById('dep'+o.rno).value||0;if(!a){toast('Enter the deposit amount');return}o.paid=Math.min(o.total,a);payLog.push({d:today,rno:o.rno,branch:o.branch,amt:o.paid,m:'Cash',t:'Deposit'});toast(`Deposit ${sar(o.paid)} SAR taken for #${o.rno}`);route()});
+  document.querySelectorAll('[data-dep]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.dep);const a=+document.getElementById('dep'+o.rno).value||0;if(!a){toast('Enter the deposit amount');return}o.paid=Math.min(o.total,a);payLog.push({d:today,rno:o.rno,branch:o.branch,amt:o.paid,m:'Cash',t:'Deposit'});toast(`Deposit ${sar(o.paid)} SAR taken for ${ono(o)}`);route()});
   document.getElementById('closeDay').onclick=()=>toast(DEMO?'Demo: the day total will be locked and sent to the owner':'Day closed. The owner can see it in the daily report');
   document.querySelectorAll('.rid[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r));
 }
@@ -1142,7 +1138,7 @@ function mywork(){
   ${w.pay==='target'&&k==='sew'?`<div class="panel"><div class="panel-b">${targetBar(w,s)}</div></div>`:''}
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
-    <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
+    <div class="jh"><span class="rid" style="font-size:17px">${ono(o)}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
     <details class="jmore" data-js="${o.rno}"><summary class="btn sm">Measurements & style</summary>${jHas(o.meas)||jHas(p.m)?`<div class="jwrap jro" style="margin-top:10px"></div>${jStylesHtml(jHas(o.meas)?o.meas:p.m)}`:''}<div class="jb"${jHas(o.meas)||jHas(p.m)?' hidden':''}><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
     <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):k==='hinge'&&tv(o,'hinge')==='done'?`<span class="pill s-ready">Hinge done</span><button class="btn pri" data-send="${o.rno}" data-k="btm">Send for bottom cutting</button>`:`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
@@ -1236,13 +1232,13 @@ function board(){
   V(`<div class="msg" style="border-color:var(--brass)">Every new order from any branch lands in <b>Cutting</b>. When cutting is finished it moves to the <b>Tailor</b>. When the tailor finishes stitching he sends it for <b>Hinge</b>, <b>Tatreez</b> or <b>Bottom cutting</b> (zip) when the order needs them. When those are done it comes back to him and he ticks <b>Ready</b>; then the owner and that branch get a popup. Change the steps in Settings → Workshop flow.</div>
   <div class="rowtools"><span class="muted" style="font-size:13px">${fid?bname(fid):'All workshops'} · ${list.filter(o=>o.st!=='ready').reduce((s,o)=>s+o.qty,0)} thobes in production · ${ready.reduce((s,o)=>s+o.qty,0)} ready</span></div>
   <div class="board" style="grid-template-columns:repeat(${TASKS.length+(FLOW_OPT.tready?1:0)},minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
-   ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</span></span></div>
+   ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</span></span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?wk(wid).name:'Not assigned'} · due ${fmtD(o.due)}</div>
     ${t.k==='sew'||t.k==='cut'?`<div class="mm">${mmLine(o,['tool','sadr','kom','raqba'])}</div>`:''}${t.k==='sew'&&canAssign()&&o.t.sew==='wait'?`<select class="tsel" data-tsel="${o.rno}" aria-label="Tailor" style="border:1px solid var(--line);border-radius:7px;padding:5px;background:var(--surface)"><option value="">Choose tailor…</option>${tailorsOf(o.made).map(w=>`<option value="${w.id}" ${w.id===o.tailor?'selected':''}>${esc(w.name)}</option>`).join('')}</select>`:''}
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${esc(o.fabric||'')}</b><div class="m">${esc(wk(o.tailor).name)} · due ${fmtD(o.due)}</div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${TASKS.filter(t=>t.m==='send'&&needs(o,t.k)).map(t=>{const v=tv(o,t.k);return `<span class="pill ${v==='done'?'s-ready':v==='doing'||isSent(o,t.k)?'s-cut':'s-wait'}">${t.t}: ${v==='done'?'done':v==='doing'?'working':isSent(o,t.k)?'sent':'not sent'}</span>`}).join('')}${allStepsDone(o)?'<span class="pill s-ready">Waiting for tailor\'s Ready</span>':''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`})():''}</div>`);
-  document.querySelectorAll('[data-tsel]').forEach(s=>s.onchange=()=>{const o=orders.find(x=>x.rno===+s.dataset.tsel);o.tailor=+s.value||0;toast(s.value?`#${o.rno} given to ${wk(o.tailor).name}`:'Tailor removed');route()});
+  document.querySelectorAll('[data-tsel]').forEach(s=>s.onchange=()=>{const o=orders.find(x=>x.rno===+s.dataset.tsel);o.tailor=+s.value||0;toast(s.value?`${ono(o)} given to ${wk(o.tailor).name}`:'Tailor removed');route()});
   document.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.mv);stepTask(o,b.dataset.k,b.dataset.k==='sew'?wk(o.tailor):null);route()});
   bindRows();
 }
@@ -1523,6 +1519,175 @@ document.getElementById('q').addEventListener('input',()=>{const h=(location.has
 document.getElementById('themeBtn').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('layer').innerHTML=''});
 addEventListener('hashchange',()=>{document.getElementById('layer').innerHTML='';route()});
+/* ================= Numbers per branch, barcodes and the printed invoices (same as the AL THOB exe) =================
+   Order no.  : <branch code>-<number>, own series per branch from 50001 (OLY-50001, MLZ-50001 …).
+   Invoice no.: <branch code>-INV-<number>, own series per branch from 1001. The branch the shop exe (AL THOB) runs in
+                keeps the exe's own invoice number (the exe gives it when the order comes down) – never two invoices.
+   Orders made in the shop exe keep the exe's own order / invoice number.
+   Prints: A4 tax invoice (InvoiceA4.cs: gold bars, BILL TO / ORDER DETAILS, items, payments & delivery, totals, ZATCA QR)
+           and the 80 mm receipt (Docs.Invoice: simplified tax invoice) – with the order's barcode. */
+let SHOP={CompanyEn:'AL THOB AL SAUDI',CompanyAr:'الثوب السعودي للخياطة الرجالية',Tagline:'',VatNo:'',CrNo:'',Address:'',Phone:'',Email:'',Currency:'SAR',VatRate:VAT_RATE,PricesIncludeVat:true,logo:'',qr:''};
+let EXE_BRANCH=0;   // the branch the shop exe syncs (live: meta/exe)
+const CNT={};       // live: the per-branch counters (counters/ord_<branch>, inv_<branch>)
+const bcode=id=>((BRANCHES.find(b=>b.id===id)||{}).code||'ST');
+const ono=o=>o?(o.bno||('#'+o.rno)):'';
+const onoR=r=>{const o=orders.find(x=>x.rno===r);return o?ono(o):'#'+r};
+const oinv=o=>!o||o.gift?'':(o.binv||(o.invoiceNo?String(o.invoiceNo):''));
+const ordMatch=(o,q)=>{q=String(q||'').trim().toLowerCase();if(!q)return false;return String(o.rno)===q||(o.bno||'').toLowerCase()===q||String(o.bseq||'')===q||(o.binv||'').toLowerCase()===q||String(o.invoiceNo||'')===q||String(o.exeNo||'')===q};
+/* the next numbers of a branch (the live layer makes them sure in a transaction) */
+function branchNos(branch,gift){
+  const os=orders.filter(o=>o.branch===branch);const r={};
+  r.bseq=Math.max(50000,+CNT['ord_'+branch]||0,...os.map(o=>+o.bseq||0))+1;r.bno=`${bcode(branch)}-${r.bseq}`;
+  if(!gift&&branch!==EXE_BRANCH){r.binvSeq=Math.max(1000,+CNT['inv_'+branch]||0,...os.map(o=>+o.binvSeq||0))+1;r.binv=`${bcode(branch)}-INV-${r.binvSeq}`}
+  return r}
+/* demo: numbers for the sample orders */
+if(typeof LIVE==='undefined'||!LIVE){const by={};orders.slice().sort((a,b)=>a.created-b.created||a.rno-b.rno).forEach(o=>{const k=o.branch;const x=by[k]=by[k]||{o:50000,i:1000};o.bseq=++x.o;o.bno=`${bcode(k)}-${o.bseq}`;if(!o.gift){o.binvSeq=++x.i;o.binv=`${bcode(k)}-INV-${o.binvSeq}`}})}
+
+/* ---------- CODE128 (set B) as SVG ---------- */
+const C128=['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
+function code128svg(text,h=46,mod=2){
+  text=String(text||'').replace(/[^\x20-\x7e]/g,'');if(!text)return '';
+  const codes=[104];for(const ch of text)codes.push(ch.charCodeAt(0)-32);
+  let sum=104;codes.slice(1).forEach((c,i)=>sum+=c*(i+1));codes.push(sum%103,106);
+  let x=10*mod,bars='';
+  codes.forEach(c=>{const p=C128[c];for(let i=0;i<p.length;i++){const w=+p[i]*mod;if(i%2===0)bars+=`<rect x="${x}" y="0" width="${w}" height="${h}"/>`;x+=w}});
+  const W=x+10*mod;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" preserveAspectRatio="none" shape-rendering="crispEdges" style="background:#fff"><g fill="#000">${bars}</g></svg>`}
+const barcodeHtml=(text,h=46,w='')=>`<div class="bc" style="${w?`width:${w};`:''}"><div class="bcs">${code128svg(text,h)}</div><div class="bct">${esc(text)}</div></div>`;
+
+/* ---------- ZATCA phase-1 QR (seller, VAT no., time, total, VAT) ---------- */
+function zatcaTlv(seller,vatNo,time,total,vat){
+  const enc=new TextEncoder(),parts=[];
+  [[1,seller],[2,vatNo],[3,time.toISOString().replace(/\.\d+Z$/,'Z')],[4,(+total).toFixed(2)],[5,(+vat).toFixed(2)]].forEach(([t,v])=>{const b=enc.encode(String(v||''));parts.push(t,b.length,...b)});
+  let s='';new Uint8Array(parts).forEach(b=>s+=String.fromCharCode(b));return btoa(s)}
+function qrDataUrl(text,size=220){try{if(typeof QRCode==='undefined')return '';const d=document.createElement('div');d.style.cssText='position:fixed;left:-9999px';document.body.appendChild(d);
+  new QRCode(d,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M});const c=d.querySelector('canvas');const u=c?c.toDataURL('image/png'):'';d.remove();return u}catch(e){return ''}}
+
+/* ---------- the order's money, payments and deliveries (as the exe's InvoiceA4 loads them) ---------- */
+function invData(o){
+  const rate=+SHOP.VatRate||VAT_RATE,incl=SHOP.PricesIncludeVat!==false;
+  const L=[...(o.lines||[]).map(l=>({...l,src:l.src})),...(o.emb||[]).map(e=>({src:'EMB',code:e.code,item:e.item,qty:e.qty,rate:e.rate}))];
+  if(!L.length)L.push({src:'IN',code:'',item:o.fabric||'Thobe',qty:o.qty,rate:o.price||(o.qty?o.total/o.qty:o.total)});
+  const gross=o.gross!=null?+o.gross:L.reduce((s,l)=>s+(+l.qty||0)*(+l.rate||0),0),disc=+o.disc||0,total=+o.total||0,vat=o.vat!=null?+o.vat:vatOf(total);
+  const pays=payLog.filter(p=>p.rno===o.rno).sort((a,b)=>(a.t==='Deposit'?0:1)-(b.t==='Deposit'?0:1)||a.d-b.d);
+  const down=pays.filter(p=>p.t==='Deposit'),later=pays.filter(p=>p.t!=='Deposit'&&p.amt>0);
+  const dels=delLog.filter(d=>d.rno===o.rno).sort((a,b)=>a.d-b.d);const x=oInfo(o);
+  const byM={};pays.filter(p=>p.amt>0).forEach(p=>{const k=pmName(p)||'-';byM[k]=(byM[k]||0)+p.amt});
+  return{rate,incl,L,gross,disc,total,vat,paid:+o.paid||0,due:Math.round((total-(+o.paid||0))*100)/100,pays,down,later,dels,x,
+    downAmt:down.reduce((s,p)=>s+p.amt,0),downDate:down[0]?down[0].d:o.created,laterAmt:later.reduce((s,p)=>s+p.amt,0),laterDate:later.length?later[later.length-1].d:null,
+    methods:Object.entries(byM).map(([k,v])=>`${+v.toFixed(2)} ${k}`).join(' + '),branch:BRANCHES.find(b=>b.id===o.branch)||{}}}
+const dmy=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+const shopAddr=b=>[b.address,b.city].filter(Boolean).join(', ')||SHOP.Address;
+function printWin(title,css,body,pageCss){const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return null}
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+   .bc{display:inline-flex;flex-direction:column;align-items:center}.bcs svg{display:block;width:100%;height:auto}.bct{font:700 12px Arial;letter-spacing:.06em;margin-top:2px}${css}@page{${pageCss}}</style></head><body>${body}
+   <script>window.onload=()=>setTimeout(()=>print(),250)<\/script></body></html>`);w.document.close();return w}
+
+/* ---------- A4 tax invoice: the exe's InvoiceA4 (design 810 px wide) ---------- */
+function printInvoiceA4(o){
+  if(o.gift){toast('A free gift has no invoice');return}
+  const d=invData(o),c=cust(o.cid),b=d.branch,M=sar2,inv=oinv(o)||'(pending)';
+  const payState=d.due<=0.5?'PAID':'DUE '+M(d.due),delState=d.x.dq>=o.qty?'delivered':d.x.dq>0?'partly delivered':'pending delivery';
+  const qr=SHOP.VatNo?qrDataUrl(zatcaTlv(SHOP.CompanyAr||SHOP.CompanyEn,SHOP.VatNo,o.created,d.total,d.vat)):'';
+  const rows=[];for(let i=0;i<12;i++){const l=d.L[i];if(!l){rows.push('<tr class="e"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');continue}
+    const amt=(+l.qty||0)*(+l.rate||0),tx=d.incl?amt/(1+d.rate):amt,v=d.incl?amt-tx:amt*d.rate,tot=d.incl?amt:amt+v;
+    rows.push(`<tr><td class="c">${i+1}</td><td class="c">${esc(l.item)}${l.src==='OUT'?' (قماش العميل)':''}</td><td class="c">${l.code||''}</td><td class="c">${+l.qty}</td><td class="r">${M(l.rate)}</td><td class="r">${M(tx)}</td><td class="r">${M(v)}</td><td class="r">${M(tot)}</td></tr>`)}
+  const subEx=d.incl?d.gross/(1+d.rate):d.gross,discEx=d.incl?d.disc/(1+d.rate):d.disc,discPct=d.gross>0?d.disc/d.gross*100:0;
+  const lastDel=d.dels.length?d.dels[d.dels.length-1].d:null,pend=Math.max(0,o.qty-d.x.dq);
+  const LR=(l,v,cls='')=>`<tr><th>${l}</th><td class="${cls}">${esc(v??'')}</td></tr>`;
+  const css=`.pg{width:810px;margin:0 auto;position:relative;padding:8px 0;font-size:12px}
+   .hd{display:flex;gap:12px;align-items:flex-start;min-height:160px}.hd .lg{width:160px;height:115px;margin-top:12px;display:flex;align-items:center;justify-content:center}.hd .lg img{max-width:100%;max-height:100%}
+   .hd .tx{flex:1;text-align:right}.hd .en{color:#b8860b;font-weight:700;font-size:22px;margin-top:20px}.hd .ar{color:#b8860b;font-weight:700;font-size:16px;margin:2px 0 6px}.hd .tx div{margin:3px 0}
+   .bar{background:#bf9000;color:#fff;font-weight:700;text-align:center;font-size:16px;padding:7px;margin:6px 0 14px}
+   .two{display:grid;grid-template-columns:423px 383px;gap:4px}.two h3{margin:0;background:#bf9000;color:#fff;font-size:11px;padding:6px 4px}
+   .two table{width:100%;border-collapse:collapse}.two th{font-size:10.5px;text-align:left;padding:4px;border-bottom:1px solid #bebebe;width:63%;white-space:nowrap}.two td{font-size:13px;padding:3px;border-bottom:1px solid #bebebe}
+   .rt th{width:50%}.rt td{text-align:center;font-weight:700;background:#fff2cc}.rt .bl{color:#0033cc}.rt .gr{color:#008000}.rt .rd{color:#b22222}.rt .pm{background:#fff;outline:1px solid #0033cc;outline-offset:-3px;font-size:11px}.rt .st{background:#fff;font-size:11px}
+   .it{width:100%;border-collapse:collapse;margin-top:16px}.it th{background:#bf9000;color:#fff;font-size:11px;height:46px;border-right:1px solid #e8d8a8}.it td{height:23px;border-bottom:1px solid #bebebe;border-right:1px solid #bebebe;padding:0 4px;font-size:11.5px}.it tr.e td{background:#fef9ec}.it tbody tr:last-child td{border-bottom:2px solid #b8860b}
+   .c{text-align:center}.r{text-align:right}
+   .bt{display:grid;grid-template-columns:423px 383px;gap:4px;margin-top:20px}.pd table,.tt table{width:100%;border-collapse:collapse}.pd .h td{background:#fff2cc;color:#5a3c00;font-weight:700;font-size:12px;padding:4px}.pd td{border-bottom:1px solid #bebebe;padding:2px 4px;font-size:11px}.pd td.v{text-align:right;font-weight:700;font-size:13px}.pd td.d{color:#888;text-align:center}
+   .tt td{padding:3px 4px;font-size:12px;text-align:right}.tt .p{color:#0033cc;font-weight:700;background:#fff2cc;text-align:center;width:66px}.tt .big td{background:#fff2cc;font-weight:700;font-size:15px}
+   .strip{background:#fff2cc;border:1px solid #e6c878;text-align:center;font-weight:700;padding:6px;margin-top:14px;font-size:12px}
+   .ft{display:flex;align-items:flex-start;gap:16px;margin-top:10px;min-height:130px}.ft img{width:128px;height:128px;border:1px solid #000;padding:3px}.ft .bc{width:250px;margin-top:10px}
+   .sg{flex:1;display:flex;justify-content:flex-end;gap:60px;margin-top:10px}.sg div{width:185px;border-top:1px solid #888;text-align:center;color:#888;font-size:10px;padding-top:2px}
+   .foot{text-align:center;font-size:12px;margin-top:8px}`;
+  const body=`<div class="pg">
+   <div class="hd"><div class="lg">${SHOP.logo?`<img src="${SHOP.logo}" alt="">`:''}</div><div class="tx"><div class="en">${esc(SHOP.CompanyEn)}</div><div class="ar">${esc(SHOP.CompanyAr)}   ${esc(SHOP.Tagline)}</div>
+    <div><b>VAT Reg. No. / الرقم الضريبي: ${esc(SHOP.VatNo)}</b></div><div>CR No. / السجل التجاري: ${esc(SHOP.CrNo)}</div><div>${esc(b.name?`${b.name} – ${shopAddr(b)}`:SHOP.Address)}</div><div>${esc(b.phone||SHOP.Phone)}${SHOP.Email?'   |   '+esc(SHOP.Email):''}</div></div></div>
+   <div class="bar">TAX INVOICE   /   فاتورة ضريبية</div>
+   <div class="two"><div><h3>BILL TO  /  بيانات العميل</h3><table>${LR('Customer Name / اسم العميل',c.name)}${LR('Customer No / رقم العميل',c.id,'b')}${LR('Mobile / الجوال',c.phone)}${LR('Delivery Date / تاريخ التسليم',dmy(o.due))}${LR('Address / العنوان',c.addr||'')}${LR('Customer VAT No / الرقم الضريبي',c.vat||'')}</table></div>
+    <div class="rt"><h3>ORDER DETAILS  /  بيانات الطلب</h3><table>${LR('Order No / رقم الطلب',ono(o).replace(/^#/,''),'bl')}${LR('Invoice No / رقم الفاتورة',inv,'gr')}${LR('Booking Date / تاريخ الحجز',dmy(o.created),'gr')}${LR('Print Date / تاريخ الطباعة',dmy(new Date()),'bl')}${LR('Payment Method / طريقة الدفع',d.methods||'','bl pm')}${LR('Status / الحالة',`${payState} – ${delState}`,(d.due<=0.5?'gr':'rd')+' st')}</table></div></div>
+   <table class="it"><thead><tr><th style="width:60px">#</th><th style="width:202px">Item / الصنف</th><th style="width:68px">Code / الرمز</th><th style="width:95px">Qty / الكمية</th><th style="width:97px">Unit Price /<br>السعر</th><th style="width:103px">Taxable / المبلغ</th><th style="width:95px">VAT ${Math.round(d.rate*1000)/10}% /<br>الضريبة</th><th style="width:90px">Total / الإجمالي</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+   <div class="bt"><div class="pd"><table><tr class="h"><td colspan="2">PAYMENTS &amp; DELIVERY  /  الدفعات والتسليم</td><td class="d" style="background:#fff;color:#111;font-weight:400">Date / التاريخ</td></tr>
+     <tr><td><b>Down Payment / العربون</b></td><td class="v">${M(d.downAmt)}</td><td class="d">${dmy(d.downDate)}</td></tr>
+     <tr><td><b>Paid Later / دفعات لاحقة</b></td><td class="v">${M(d.laterAmt)}</td><td class="d">${dmy(d.laterDate)}</td></tr>
+     <tr><td><b>Discount on Due / خصم</b></td><td class="v">${M(0)}</td><td class="d"></td></tr>
+     <tr><td><b>Total Qty / إجمالي القطع</b></td><td class="v">${o.qty}</td><td class="d">${dmy(o.created)}</td></tr>
+     <tr><td><b>Delivered Qty / المسلَّم</b></td><td class="v">${d.x.dq}</td><td class="d">${d.x.dq?dmy(lastDel):''}</td></tr>
+     <tr><td><b>Pending Qty / المتبقي</b></td><td class="v" style="${pend?'color:red':''}">${pend}</td><td class="d">${dmy(o.due)}</td></tr></table></div>
+    <div class="tt"><table><tr><td>Subtotal (Excl. VAT) / المجموع قبل الضريبة</td><td></td><td>${M(subEx)}</td></tr><tr><td>Discount / الخصم</td><td class="p">${+discPct.toFixed(2)}%</td><td>${M(discEx)}</td></tr>
+     <tr><td>Taxable Amount / الوعاء الضريبي</td><td></td><td>${M(d.total-d.vat)}</td></tr><tr><td>VAT ${Math.round(d.rate*1000)/10}% / ضريبة القيمة المضافة</td><td class="p">${(d.rate*100).toFixed(1)}%</td><td>${M(d.vat)}</td></tr>
+     <tr class="big"><td>TOTAL (Incl. VAT) / الإجمالي مع الضريبة</td><td></td><td>${M(d.total)}</td></tr><tr><td>Amount Paid / المبلغ المدفوع</td><td></td><td>${M(d.paid)}</td></tr><tr><td>Balance Due / المبلغ المتبقي</td><td></td><td>${M(d.due)}</td></tr></table></div></div>
+   <div class="strip">Total in ${esc(SHOP.Currency||'SAR')} (Incl. VAT): ${M(d.total)}   |   Paid: ${M(d.paid)}   |   Balance Due: ${M(d.due)}   |   الإجمالي شامل الضريبة</div>
+   <div class="ft">${qr?`<img src="${qr}" alt="">`:''}${SHOP.qr?`<img src="${SHOP.qr}" alt="" style="border:0">`:''}${barcodeHtml(ono(o).replace(/^#/,''),44)}<div class="sg"><div>Received By / استلمت بواسطة</div><div>Authorised Signature / التوقيع المعتمد</div></div></div>
+   <div class="foot">${esc(SHOP.CompanyEn)}  –  ${esc(SHOP.CompanyAr)}  –  ${esc(SHOP.Tagline)}   |   Thank you for your business   |   شكراً لتعاملكم معنا</div></div>
+  ${d.pays.length?`<div class="pg" style="page-break-before:always"><div class="bar">PAYMENT HISTORY   /   سجل الدفعات</div><table class="it"><thead><tr><th>#</th><th>Date / التاريخ</th><th>Receipt</th><th>Paid / المدفوع</th><th>Discount / خصم</th><th>Method / الطريقة</th><th>Status</th><th>Deliv. Qty /<br>مسلَّم</th></tr></thead><tbody>
+   ${d.pays.map((p,i)=>{const dq=d.dels.filter(x=>+x.d===+p.d&&p.t!=='Deposit').reduce((s,x)=>s+x.qty,0);return `<tr><td class="c">${i+1}</td><td class="c">${dmy(p.d)}</td><td class="c">${p.t==='Deposit'?'Down Pmt':esc(p.ref||'')}</td><td class="r">${M(p.amt)}</td><td class="r">${M(0)}</td><td class="c">${esc(pmName(p))}</td><td class="c">${p.t==='Deposit'?'BOOKING':p.amt<0?'REFUND':'PAID'}</td><td class="c">${dq||0}</td></tr>`}).join('')}</tbody></table></div>`:''}`;
+  printWin(`Invoice A4 ${inv}`,css,body,'size:A4;margin:8mm');
+}
+
+/* ---------- 80 mm receipt: the exe's Docs.Invoice (simplified tax invoice) ---------- */
+function printReceipt(o){
+  if(o.gift){toast('A free gift has no invoice');return}
+  const d=invData(o),c=cust(o.cid),b=d.branch,M=sar2;
+  const qr=SHOP.VatNo?qrDataUrl(zatcaTlv(SHOP.CompanyAr||SHOP.CompanyEn,SHOP.VatNo,o.created,d.total,d.vat),200):'';
+  const R=(l,v,cls='')=>v===''||v==null?'':`<div class="rw ${cls}"><span>${l}</span><b>${esc(v)}</b></div>`;
+  const css=`.rc{width:72mm;margin:0 auto;font-size:11.5px;padding:2mm 0}.ce{text-align:center}.ce img{max-width:150px;max-height:110px}.t1{font-size:15px;font-weight:700}.t2{font-size:14px;font-weight:700}.sm{font-size:10.5px}
+   .rule{border-top:1px dashed #000;margin:4px 0}.dbl{border-top:3px double #000;margin:4px 0}.rw{display:flex;justify-content:space-between;gap:6px;padding:1px 0}.rw span{flex:0 0 47%}.rw b{text-align:right;font-weight:400}.rw.bd b,.rw.bd span{font-weight:700}.rw.big b,.rw.big span{font-size:14px}
+   .ln{font-size:11px;margin-top:2px}.qr{text-align:center;margin:6px 0}.qr img{width:150px;height:150px}.bc{width:100%;margin:4px 0}`;
+  const body=`<div class="rc">
+   <div class="ce">${SHOP.logo?`<img src="${SHOP.logo}" alt="">`:''}<div class="t1" dir="rtl">${esc(SHOP.CompanyAr)}</div><div class="t2">${esc(SHOP.CompanyEn)}</div><div class="sm">${esc(SHOP.Tagline)}</div>
+    <div class="sm">VAT No / الرقم الضريبي: ${esc(SHOP.VatNo)}</div>${SHOP.CrNo?`<div class="sm">CR No / السجل التجاري: ${esc(SHOP.CrNo)}</div>`:''}<div class="sm">${esc(b.name?`${b.name} – ${shopAddr(b)}`:SHOP.Address)}</div><div class="sm">${esc(b.phone||SHOP.Phone)}</div></div>
+   <div class="rule"></div><div class="ce"><b>SIMPLIFIED TAX INVOICE</b><br><b>فاتورة ضريبية مبسطة</b></div><div class="rule"></div>
+   ${R('Invoice No / رقم الفاتورة',oinv(o)||'(pending)','bd')}<div class="rw bd big"><span>Order No / رقم الطلب</span><b>${esc(ono(o).replace(/^#/,''))}</b></div>
+   ${R('Date / التاريخ',dmy(o.created))}${R('Customer No / رقم العميل',c.id)}${R('Customer / العميل',c.name)}${R('Mobile / الجوال',c.phone)}${R('Delivery / التسليم',dmy(o.due))}${o.sample?R('Sample / عينة','Yes / نعم'):''}
+   <div class="rule"></div>
+   ${d.L.map(l=>`<div class="ln">${esc(l.item)}${l.code?'  ['+esc(l.code)+']':''}${l.src==='OUT'?'  (قماش العميل)':''}</div><div class="rw"><span>   ${+l.qty} x ${M(l.rate)}</span><b>${M((+l.qty||0)*(+l.rate||0))}</b></div>`).join('')}
+   <div class="rule"></div>
+   ${R('Subtotal / المجموع',M(d.gross))}${d.disc>0.005?R('Discount / الخصم','-'+M(d.disc)):''}${R('Taxable / الخاضع للضريبة',M(d.total-d.vat))}${R(`VAT ${Math.round(d.rate*1000)/10}% / الضريبة`,M(d.vat))}
+   <div class="dbl"></div><div class="rw bd big"><span>TOTAL / الإجمالي</span><b>${M(d.total)} ${esc(SHOP.Currency||'SAR')}</b></div><div class="dbl"></div>
+   ${R('Paid / المدفوع',M(d.paid))}<div class="rw bd"><span>Balance / المتبقي</span><b>${M(d.due)}</b></div>${R('Payment / الدفع',o.pm||'')}
+   <div class="rule"></div>${barcodeHtml(ono(o).replace(/^#/,''),52)}
+   ${qr?`<div class="qr"><img src="${qr}" alt=""></div>`:''}${SHOP.qr?`<div class="qr"><img src="${SHOP.qr}" alt="" style="width:110px;height:110px"></div>`:''}
+   <div class="ce" style="font-weight:700;margin-top:4px">شكراً لزيارتكم  -  Thank you</div></div>`;
+  printWin(`Invoice ${oinv(o)||ono(o)}`,css,body,'size:80mm auto;margin:3mm');
+}
+/* which one: receipt or A4 */
+function printOrder(o){
+  const close=drawer(`Print ${ono(o)}`,`<div class="muted" style="font-size:13px">${esc(cust(o.cid).name)} · invoice ${esc(oinv(o)||(o.gift?'free gift':'pending'))}</div>`,
+   `<div style="display:grid;gap:10px"><button class="btn pri" id="prR" style="justify-content:center;padding:14px">🧾 Receipt (80 mm)</button><button class="btn" id="prA" style="justify-content:center;padding:14px">📄 A4 tax invoice</button>
+    <div style="text-align:center;margin-top:8px">${barcodeHtml(ono(o).replace(/^#/,''),50,'260px')}</div></div>`,'');
+  document.getElementById('prR').onclick=()=>{close();printReceipt(o)};document.getElementById('prA').onclick=()=>{close();printInvoiceA4(o)};
+}
+
+/* ---------- measurement sheet header (order no. + barcode) and its print ---------- */
+function jHeadHtml(o,c){
+  return `<div class="jhd"><div class="jhb">${o?barcodeHtml(ono(o).replace(/^#/,''),40):'<span class="muted">No order chosen</span>'}</div>
+   <div class="jhi"><div><span>رقم أمر التشغيل · Order</span><b class="num">${o?esc(ono(o).replace(/^#/,'')):'—'}</b></div><div><span>العميل · Customer</span><b class="num">${c?c.id:''}</b></div>
+    <div><span>الاسم · Name</span><b dir="auto">${c?esc(c.name):''}</b></div><div><span>الجوال · Mobile</span><b class="num">${c?esc(c.phone):''}</b></div>
+    <div><span>تاريخ أمر التشغيل · Booked</span><b class="num">${o?dmy(o.created):''}</b></div><div><span>التسليم · Delivery</span><b class="num">${o?dmy(o.due):''}</b></div><div><span>عدد الثياب · Pcs</span><b class="num">${o?o.qty:''}</b></div></div></div>`}
+function printSheet(meas,o,c){
+  const host=document.createElement('div');host.style.cssText='position:fixed;left:-10000px;top:0;width:1080px';document.body.appendChild(host);
+  const s=jSheet(host,JSON.parse(JSON.stringify(meas||{})),{ro:true});host.style.width='1080px';s.fit();
+  host.querySelectorAll('input,textarea').forEach(e=>{if(e.tagName==='TEXTAREA')e.textContent=e.value;else e.setAttribute('value',e.value)});
+  host.querySelectorAll('select').forEach(e=>{[...e.options].forEach(op=>{if(op.selected)op.setAttribute('selected','')})});
+  const css=[...document.querySelectorAll('style')].map(x=>x.textContent).join('\n');
+  const html=host.innerHTML;host.remove();
+  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><base href="${location.origin}/"><title>Measurement ${esc(o?ono(o):c?c.name:'')}</title><style>${css}
+   body{background:#fff;margin:0;padding:6px;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}.jhd{margin-bottom:4px}@page{size:A4 landscape;margin:6mm}</style></head><body>${jHeadHtml(o,c)}<div class="jwrap" style="width:1080px">${html}</div>
+   <script>window.onload=()=>setTimeout(()=>print(),500)<\/script></body></html>`);w.document.close();
+}
+
 /* ================= AL THOB exe-style pages: shop dashboard, daily report (exe + tailoring), worker work by period,
    workshop flow editor. Loaded after core.js, before live.js. ================= */
 
@@ -1588,14 +1753,14 @@ const stageT=k=>(TASK_DEF[k]||{t:k}).t;
 /* order list drawer, used by the clickable tiles */
 function orderListDrawer(title,list,money){
   const close=drawer(title,`<div class="muted" style="font-size:13px">${pl(list.length,'order')} · ${sumBy(list,o=>o.qty)} pcs${money?` · total ${sar(sumBy(list,o=>o.total))} SAR · due ${sar(sumBy(list,o=>o.total-o.paid))} SAR`:''}</div>`,
-   xTable([{t:'Order',f:o=>`<b class="num">#${o.rno}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Booked',f:o=>fmtD(o.created)},{t:'Delivery',f:o=>`<span class="${late(o)?'tbad':''}">${fmtD(o.due)}</span>`},{t:'Pcs',r:1,f:o=>o.qty},
+   xTable([{t:'Order',f:o=>`<b class="num">${ono(o)}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Booked',f:o=>fmtD(o.created)},{t:'Delivery',f:o=>`<span class="${late(o)?'tbad':''}">${fmtD(o.due)}</span>`},{t:'Pcs',r:1,f:o=>o.qty},
      ...(money?[{t:'Total',r:1,f:o=>sar2(o.total)},{t:'Due',r:1,f:o=>sar2(o.total-o.paid)}]:[]),{t:'Status',f:o=>{const x=oInfo(o);return `<span class="pill ${WHERE_C(x.where)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}`}}],
      list.slice(0,500),{attr:o=>`data-lr="${o.rno}"`,h:'calc(100vh - 220px)',empty:'No orders.'}),'');
   document.querySelectorAll('[data-lr]').forEach(r=>r.onclick=()=>{close();openOrder(+r.dataset.lr)});
 }
 function payListDrawer(title,list){
   drawer(title,`<div class="muted" style="font-size:13px">${pl(list.length,'payment')} · ${sar2(sumBy(list,p=>p.amt))} SAR</div>`,
-   xTable([{t:'Date',f:p=>fmtD(p.d)},{t:'Order',f:p=>`<b class="num">#${p.rno}</b>`},{t:'Customer',f:p=>{const o=orders.find(x=>x.rno===p.rno);return o?esc(cust(o.cid).name):'—'}},{t:'Type',f:p=>p.amt<0?'Refund':p.t==='Deposit'?'Down payment':'Due payment'},{t:'Method',f:p=>esc(pmName(p))},{t:'Amount',r:1,f:p=>`<b>${sar2(p.amt)}</b>`}],
+   xTable([{t:'Date',f:p=>fmtD(p.d)},{t:'Order',f:p=>`<b class="num">${onoR(p.rno)}</b>`},{t:'Customer',f:p=>{const o=orders.find(x=>x.rno===p.rno);return o?esc(cust(o.cid).name):'—'}},{t:'Type',f:p=>p.amt<0?'Refund':p.t==='Deposit'?'Down payment':'Due payment'},{t:'Method',f:p=>esc(pmName(p))},{t:'Amount',r:1,f:p=>`<b>${sar2(p.amt)}</b>`}],
      list.slice().sort((a,b)=>b.d-a.d).slice(0,800),{h:'calc(100vh - 220px)',empty:'No payments.'}),'');
 }
 
@@ -1654,7 +1819,7 @@ function shopDash(){
   const body=()=>{const el=$('dashTabBody');let h='';
     if(dashTab==='due'){const g={};dueAll.forEach(o=>{const x=g[o.cid]=g[o.cid]||{c:cust(o.cid),n:0,t:0,d:0,last:o.created};x.n++;x.t+=o.total;x.d+=o.total-o.paid;if(o.created>x.last)x.last=o.created});
       const r=Object.values(g).sort((a,b)=>b.d-a.d);h=xTable([{t:'Customer',f:x=>`<b>${esc(x.c.name)}</b>`},{t:'Mobile',f:x=>`<span class="num">${esc(x.c.phone||'')}</span>`},{t:'Orders',r:1,f:x=>x.n},{t:'Last order',f:x=>fmtD(x.last)},...(money?[{t:'Order total',r:1,f:x=>sar2(x.t)},{t:'Due',r:1,f:x=>`<b class="tbad">${sar2(x.d)}</b>`}]:[])],r,{attr:x=>`data-dc="${x.c.id}"`,h:'460px',empty:'No customer owes money.',foot:['Total',r.length+' customers',sumBy(r,x=>x.n),'',...(money?[sar2(sumBy(r,x=>x.t)),sar2(sumBy(r,x=>x.d))]:[])]})}
-    else if(dashTab==='late'){const r=lateL.slice().sort((a,b)=>a.due-b.due);h=xTable([{t:'Order',f:o=>`<b class="num">#${o.rno}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Delivery date',f:o=>fmtD(o.due)},{t:'Days late',r:1,f:o=>`<b class="tbad">${-daysLeft(o)}</b>`},{t:'Pcs',r:1,f:o=>o.qty},{t:'Cut',r:1,f:o=>I(o).cut},{t:'Stitched',r:1,f:o=>I(o).sew},{t:'Made at',f:o=>esc(bname(o.made))},{t:'Tailor',f:o=>esc(o.tailor?wk(o.tailor).name:'—')}],r,{attr:o=>`data-lr="${o.rno}"`,h:'460px',empty:'Nothing late. 👍'})}
+    else if(dashTab==='late'){const r=lateL.slice().sort((a,b)=>a.due-b.due);h=xTable([{t:'Order',f:o=>`<b class="num">${ono(o)}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Delivery date',f:o=>fmtD(o.due)},{t:'Days late',r:1,f:o=>`<b class="tbad">${-daysLeft(o)}</b>`},{t:'Pcs',r:1,f:o=>o.qty},{t:'Cut',r:1,f:o=>I(o).cut},{t:'Stitched',r:1,f:o=>I(o).sew},{t:'Made at',f:o=>esc(bname(o.made))},{t:'Tailor',f:o=>esc(o.tailor?wk(o.tailor).name:'—')}],r,{attr:o=>`data-lr="${o.rno}"`,h:'460px',empty:'Nothing late. 👍'})}
     else if(dashTab==='plan'){const r=[];for(let i=-1;i<14;i++){const d=i<0?null:addD(today,i);const os=open.filter(o=>o.st!=='ready'&&(i<0?o.due<today:sameDay(o.due,d)));if(!os.length&&i<0)continue;
         r.push({d,os,pcs:sumBy(os,o=>o.qty),cut:sumBy(os,o=>o.qty-I(o).cut),sew:sumBy(os,o=>o.qty-I(o).sew)})}
       h=`<p class="muted" style="font-size:12.5px;margin:10px 16px 0">Pieces that must be ready on each day (not ready yet). Tap a day to see the orders.</p>`+xTable([{t:'Delivery day',f:x=>x.d?`<b>${x.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</b>`:'<b class="tbad">Already late</b>'},{t:'Orders',r:1,f:x=>x.os.length},{t:'Pcs',r:1,f:x=>x.pcs},{t:'Still to cut',r:1,f:x=>x.cut||'—'},{t:'Still to stitch',r:1,f:x=>x.sew?`<b>${x.sew}</b>`:'—'}],r,{attr:x=>`data-pd2="${x.d?dkey2(x.d):'late'}"`,h:'460px'})}
@@ -1694,16 +1859,16 @@ function dailyExe(){
   const pays=payLog.filter(p=>sameDay(p.d,D)&&inB(p)),dels=delLog.filter(p=>sameDay(p.d,D)&&inB(p)),booked=orders.filter(o=>sameDay(o.created,D)&&inB(o));
   const rows=[],usedDel=new Set();
   pays.forEach(p=>{const o=orders.find(x=>x.rno===p.rno)||{};const dl=dels.filter(d=>d.rno===p.rno&&!usedDel.has(d));const dq=dl.length&&p.t!=='Deposit'?(dl.forEach(d=>usedDel.add(d)),sumBy(dl,d=>d.qty)):0;
-    rows.push({o,inv:o.invoiceNo||'',rno:p.rno,name:o.cid?cust(o.cid).name:'—',tot:p.t==='Deposit'?o.total||0:0,down:p.amt>0&&p.t==='Deposit'?p.amt:0,due:p.amt>0&&p.t!=='Deposit'?p.amt:0,disc:p.t==='Deposit'?(o.disc||0):0,ref:p.amt<0?-p.amt:0,m:pmName(p),type:p.amt<0?'Refund':p.t==='Deposit'?'New order':dq?'Delivery + payment':'Due payment',dq,rc:p.ref||'',user:p.by||(p.exe?'Shop exe':''),br:p.branch})});
-  booked.filter(o=>!pays.some(p=>p.rno===o.rno&&p.t==='Deposit')).forEach(o=>rows.push({o,inv:o.invoiceNo||'',rno:o.rno,name:cust(o.cid).name,tot:o.total,down:0,due:0,disc:o.disc||0,ref:0,m:'',type:'New order (no payment)',dq:0,rc:'',user:o.by||'',br:o.branch}));
-  dels.filter(d=>!usedDel.has(d)).forEach(d=>{const o=orders.find(x=>x.rno===d.rno)||{};rows.push({o,inv:o.invoiceNo||'',rno:d.rno,name:o.cid?cust(o.cid).name:'—',tot:0,down:0,due:0,disc:0,ref:0,m:'',type:'Delivery',dq:d.qty,rc:'',user:d.by||'',br:d.branch})});
+    rows.push({o,inv:oinv(o),rno:p.rno,name:o.cid?cust(o.cid).name:'—',tot:p.t==='Deposit'?o.total||0:0,down:p.amt>0&&p.t==='Deposit'?p.amt:0,due:p.amt>0&&p.t!=='Deposit'?p.amt:0,disc:p.t==='Deposit'?(o.disc||0):0,ref:p.amt<0?-p.amt:0,m:pmName(p),type:p.amt<0?'Refund':p.t==='Deposit'?'New order':dq?'Delivery + payment':'Due payment',dq,rc:p.ref||'',user:p.by||(p.exe?'Shop exe':''),br:p.branch})});
+  booked.filter(o=>!pays.some(p=>p.rno===o.rno&&p.t==='Deposit')).forEach(o=>rows.push({o,inv:oinv(o),rno:o.rno,name:cust(o.cid).name,tot:o.total,down:0,due:0,disc:o.disc||0,ref:0,m:'',type:'New order (no payment)',dq:0,rc:'',user:o.by||'',br:o.branch}));
+  dels.filter(d=>!usedDel.has(d)).forEach(d=>{const o=orders.find(x=>x.rno===d.rno)||{};rows.push({o,inv:oinv(o),rno:d.rno,name:o.cid?cust(o.cid).name:'—',tot:0,down:0,due:0,disc:0,ref:0,m:'',type:'Delivery',dq:d.qty,rc:'',user:d.by||'',br:d.branch})});
   rows.sort((a,b)=>a.rno-b.rno);
   const coll=sumBy(pays.filter(p=>p.amt>0),p=>p.amt),ref=-sumBy(pays.filter(p=>p.amt<0),p=>p.amt);
   const cashIn=sumBy(pays.filter(p=>/cash/i.test(pmName(p))),p=>p.amt);
   const byM={},byU={};pays.forEach(p=>{const m=pmName(p)||'Other',u=p.by||(p.exe?'Shop exe':'—');byM[m]=(byM[m]||0)+p.amt;(byU[u]=byU[u]||{n:0,a:0}).n++;byU[u].a+=p.amt});
   const touched=new Set(rows.map(r=>r.rno)).size;
   const tiles=[['Report for',D.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})],['New orders / pcs',`${booked.length} / ${sumBy(booked,o=>o.qty)}`],['Sales value',sar2(sumBy(booked,o=>o.total))],['Collected',sar2(coll)],['Refunds',sar2(ref)],['Net cash',sar2(cashIn)],['Pieces delivered',sumBy(dels,d=>d.qty)],['Orders touched',touched]];
-  const cols=[['Invoice',r=>esc(r.inv)],['Order No',r=>`<b class="num">${r.rno}</b>`],['Name',r=>esc(r.name)],['Order Total',r=>r.tot?sar2(r.tot):'',1],['Down Payment',r=>r.down?sar2(r.down):'',1],['Paid Due',r=>r.due?sar2(r.due):'',1],['Discount',r=>r.disc?sar2(r.disc):'',1],['Refund',r=>r.ref?`<span class="tbad">${sar2(r.ref)}</span>`:'',1],['Method',r=>esc(r.m)],['Type',r=>esc(r.type)],['Delivered Pcs',r=>r.dq||'',1],['Receipt',r=>esc(r.rc)],['User',r=>esc(r.user)],...(B?[]:[['Branch',r=>esc(bname(r.br))]])];
+  const cols=[['Invoice',r=>esc(r.inv)],['Order No',r=>`<b class="num">${esc(onoR(r.rno))}</b>`],['Name',r=>esc(r.name)],['Order Total',r=>r.tot?sar2(r.tot):'',1],['Down Payment',r=>r.down?sar2(r.down):'',1],['Paid Due',r=>r.due?sar2(r.due):'',1],['Discount',r=>r.disc?sar2(r.disc):'',1],['Refund',r=>r.ref?`<span class="tbad">${sar2(r.ref)}</span>`:'',1],['Method',r=>esc(r.m)],['Type',r=>esc(r.type)],['Delivered Pcs',r=>r.dq||'',1],['Receipt',r=>esc(r.rc)],['User',r=>esc(r.user)],...(B?[]:[['Branch',r=>esc(bname(r.br))]])];
   const F=k=>sumBy(rows,r=>r[k]);
   V(`<div class="panel"><div class="panel-b" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${dayNav(D)}<span class="sp" style="flex:1"></span><button class="btn" id="dxPrint">Print A4</button><button class="btn" id="dxCsv">Export CSV</button></div></div>
   <div class="okpi">${tiles.map(([l,v],i)=>`<div class="${i===3?'okc':i===4&&ref?'bad':''}"><span>${l}</span><b style="${i===0?'font-size:17px':''}">${v}</b></div>`).join('')}</div>
@@ -1715,7 +1880,7 @@ function dailyExe(){
   </div>`);
   dayNavBind();
   document.querySelectorAll('#view [data-lr]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.lr));
-  const H=cols.map(c=>c[0]),plain=r=>[r.inv,r.rno,r.name,r.tot?sar2(r.tot):'',r.down?sar2(r.down):'',r.due?sar2(r.due):'',r.disc?sar2(r.disc):'',r.ref?sar2(r.ref):'',r.m,r.type,r.dq||'',r.rc,r.user,...(B?[]:[bname(r.br)])];
+  const H=cols.map(c=>c[0]),plain=r=>[r.inv,onoR(r.rno).replace(/^#/,''),r.name,r.tot?sar2(r.tot):'',r.down?sar2(r.down):'',r.due?sar2(r.due):'',r.disc?sar2(r.disc):'',r.ref?sar2(r.ref):'',r.m,r.type,r.dq||'',r.rc,r.user,...(B?[]:[bname(r.br)])];
   document.getElementById('dxCsv').onclick=()=>csvOut(`daily_report_${dkey2(D)}`,[H,...rows.map(plain)]);
   document.getElementById('dxPrint').onclick=()=>printRep('Daily report',`${B?bname(B):'All branches'} · ${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}`,
     pTiles(tiles)+pTable(H,rows.map(plain),['Total','','',sar2(F('tot')),sar2(F('down')),sar2(F('due')),sar2(F('disc')),sar2(F('ref')),'','',F('dq'),'','',...(B?[]:[''])],[3,4,5,6,7,10])
@@ -1739,11 +1904,11 @@ function dailyTailor(){
   V(`<div class="panel"><div class="panel-b" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${dayNav(D)}<span class="sp" style="flex:1"></span><button class="btn" id="dtPrint">Print A4</button><button class="btn" id="dtCsv">Export CSV</button></div></div>
   <div class="okpi">${ks.map(k=>`<div><span>${stageT(k)}</span><b>${S(k)}<small>pcs</small></b></div>`).join('')}<div class="okc"><span>Orders finished</span><b>${readyToday.length}<small>${sumBy(readyToday,o=>o.qty)} pcs</small></b></div><div><span>Sent to factory</span><b>${sent.length}<small>${sumBy(sent,o=>o.qty)} pcs</small></b></div></div>
   <div class="panel"><div class="panel-h"><h2>Work by worker</h2><span class="sp"></span><span class="muted" style="font-size:12px">${esc(B?bname(B):'All branches & factories')} · tap a worker for his full work</span></div>
-   ${xTable([{t:'Worker',f:x=>`<b>${esc(x.w.name)}</b>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},{t:'Present',f:x=>{const a=att(x.w);return a==='a'?'<span class="tbad">Absent</span>':a==='o'?'<span class="muted">Off</span>':a?'Yes':''}},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',f:x=>x.n.size?`<span class="num muted">${[...x.n].slice(0,8).map(n=>'#'+n).join(' ')}${x.n.size>8?' …':''}</span>`:''}],
+   ${xTable([{t:'Worker',f:x=>`<b>${esc(x.w.name)}</b>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},{t:'Present',f:x=>{const a=att(x.w);return a==='a'?'<span class="tbad">Absent</span>':a==='o'?'<span class="muted">Off</span>':a?'Yes':''}},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',f:x=>x.n.size?`<span class="num muted">${[...x.n].slice(0,8).map(n=>onoR(n)).join(' ')}${x.n.size>8?' …':''}</span>`:''}],
      rows,{attr:x=>`data-ow="${x.w.id}"`,h:'calc(100vh - 380px)',empty:'No workshop work on this day.',foot:['Total','','','',...ks.map(k=>S(k)),sumBy(rows,x=>x.t),'']})}</div>
   <div class="grid2" style="grid-template-columns:1fr 1fr">
    <div class="panel"><div class="panel-h"><h2>By branch & factory</h2></div>${xTable([{t:'Place',f:x=>`${bTag(x.b.id)} <b>${esc(x.b.name)}</b>`},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''}))],byPlace,{empty:'No work.'})}</div>
-   <div class="panel"><div class="panel-h"><h2>Finished this day</h2><span class="sp"></span><span class="muted" style="font-size:12px">Ready for pickup or delivered</span></div>${xTable([{t:'Order',f:o=>`<b class="num">#${o.rno}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Pcs',r:1,f:o=>o.qty},{t:'Delivery',f:o=>fmtD(o.due)},{t:'Branch',f:o=>esc(bname(o.branch))}],readyToday,{attr:o=>`data-lr="${o.rno}"`,empty:'No order finished.'})}</div>
+   <div class="panel"><div class="panel-h"><h2>Finished this day</h2><span class="sp"></span><span class="muted" style="font-size:12px">Ready for pickup or delivered</span></div>${xTable([{t:'Order',f:o=>`<b class="num">${ono(o)}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Pcs',r:1,f:o=>o.qty},{t:'Delivery',f:o=>fmtD(o.due)},{t:'Branch',f:o=>esc(bname(o.branch))}],readyToday,{attr:o=>`data-lr="${o.rno}"`,empty:'No order finished.'})}</div>
   </div>`);
   dayNavBind();
   document.querySelectorAll('#view [data-ow]').forEach(r=>r.onclick=()=>{const P=perGet('w');Object.assign(P,perMake('day',D));openWorker(+r.dataset.ow)});
@@ -1764,8 +1929,8 @@ function workerWorkHtml(w,P){
   const money=RA().money||ROLE==='tailor';
   return `<div class="okpi" style="margin-top:10px"><div><span>Pieces</span><b>${tot}</b><em>${ks.map(k=>`${stageT(k)} ${sumBy(ent.filter(p=>p.stage===k),p=>p.qty)}`).join(' · ')||'—'}</em></div><div><span>Orders</span><b>${os.size}</b></div><div><span>Days worked</span><b>${dl.length}</b><em>avg ${dl.length?Math.round(tot/dl.length*10)/10:0} pcs/day</em></div>${money&&w.pay==='piece'?`<div class="okc"><span>Pay for this work</span><b>${sar(tot*(+w.rate||0))}<small>SAR</small></b><em>${tot} × ${w.rate}</em></div>`:''}</div>
    <p class="h4" style="margin:12px 0 6px">Day by day</p>
-   ${xTable([{t:'Date',f:x=>`<b>${x.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</b>`},...(ks.length>1?ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})):[]),{t:'Pcs',r:1,f:x=>`<b>${x.t}</b>`},{t:'Orders',f:x=>`<span class="num muted">${[...x.n].slice(0,6).map(n=>'#'+n).join(' ')}${x.n.size>6?' …':''}</span>`}],dl,{h:'300px',empty:'No work in this period.',foot:dl.length?['Total',...(ks.length>1?ks.map(k=>sumBy(ent.filter(p=>p.stage===k),p=>p.qty)):[]),tot,os.size+' orders']:null})}
-   ${ent.some(p=>p.rno)?`<p class="h4" style="margin:12px 0 6px">Orders worked on</p>${xTable([{t:'Date',f:p=>fmtD(p.d)},{t:'Order',f:p=>`<b class="num">#${p.rno}</b>`},{t:'Customer',f:p=>{const o=orders.find(x=>x.rno===p.rno);return o?esc(cust(o.cid).name):'—'}},{t:'Work',f:p=>stageT(p.stage)},{t:'Pcs',r:1,f:p=>p.qty}],ent.filter(p=>p.rno).slice(0,300),{attr:p=>`data-r="${p.rno}"`,h:'300px'})}`:''}`}
+   ${xTable([{t:'Date',f:x=>`<b>${x.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</b>`},...(ks.length>1?ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})):[]),{t:'Pcs',r:1,f:x=>`<b>${x.t}</b>`},{t:'Orders',f:x=>`<span class="num muted">${[...x.n].slice(0,6).map(n=>onoR(n)).join(' ')}${x.n.size>6?' …':''}</span>`}],dl,{h:'300px',empty:'No work in this period.',foot:dl.length?['Total',...(ks.length>1?ks.map(k=>sumBy(ent.filter(p=>p.stage===k),p=>p.qty)):[]),tot,os.size+' orders']:null})}
+   ${ent.some(p=>p.rno)?`<p class="h4" style="margin:12px 0 6px">Orders worked on</p>${xTable([{t:'Date',f:p=>fmtD(p.d)},{t:'Order',f:p=>`<b class="num">${onoR(p.rno)}</b>`},{t:'Customer',f:p=>{const o=orders.find(x=>x.rno===p.rno);return o?esc(cust(o.cid).name):'—'}},{t:'Work',f:p=>stageT(p.stage)},{t:'Pcs',r:1,f:p=>p.qty}],ent.filter(p=>p.rno).slice(0,300),{attr:p=>`data-r="${p.rno}"`,h:'300px'})}`:''}`}
 function wwMount(w){const sec=document.getElementById('wwSec');if(!sec)return;const P=perGet('w');
   const draw=()=>{sec.innerHTML=`<p class="h4">Work · ${perLabel(P)}</p>${perBar('wwPer',P)}${workerWorkHtml(w,P)}<div style="margin-top:8px"><button class="btn sm" id="wwCsv">Export CSV</button></div>`;
     perBind('wwPer',P,draw);sec.querySelectorAll('[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r));
@@ -2045,7 +2210,14 @@ async function createOrder(o){
   const {doc,runTransaction}=fb;let rno=o.rno;const old=o.rno;
   await runTransaction(db,async tx=>{
     for(let i=0;i<50;i++){const s=await tx.get(doc(db,'orders',String(rno)));if(!s.exists())break;rno++}
-    o.rno=rno;tx.set(doc(db,'orders',String(rno)),{...plain('orders',o),upd:new Date()})});
+    // the branch's own order / invoice numbers (OLY-50001, OLY-INV-1001): counters per branch, never twice
+    const b=o.branch,others=orders.filter(x=>x!==o&&x.branch===b);
+    const rO=doc(db,'counters','ord_'+b),rI=doc(db,'counters','inv_'+b);const cO=await tx.get(rO),cI=await tx.get(rI);
+    o.bseq=Math.max(50000,cO.exists()?+cO.data().n||0:0,...others.map(x=>+x.bseq||0))+1;o.bno=`${bcode(b)}-${o.bseq}`;
+    const giveInv=!o.gift&&b!==EXE_BRANCH;
+    if(giveInv){o.binvSeq=Math.max(1000,cI.exists()?+cI.data().n||0:0,...others.map(x=>+x.binvSeq||0))+1;o.binv=`${bcode(b)}-INV-${o.binvSeq}`}else{delete o.binvSeq;delete o.binv}
+    o.rno=rno;tx.set(doc(db,'orders',String(rno)),{...plain('orders',o),upd:new Date()});
+    tx.set(rO,{n:o.bseq});if(giveInv)tx.set(rI,{n:o.binvSeq})});
   for(const p of payLog)if(p.rno===old&&!synced.payments.has(p._id||''))p.rno=rno;
   synced.orders.set(String(o.rno),snap('orders',o));
 }
@@ -2162,6 +2334,9 @@ function startListeners(){
   else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
   else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
+  unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
+  // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices
+  unsubs.push(onSnapshot(fb.doc(db,'meta','exe'),x=>{const d=x.exists()?x.data():null;if(!d)return;EXE_BRANCH=+d.branch||0;if(d.shop&&typeof d.shop==='object')SHOP={...SHOP,...d.shop}},()=>{}));
   // workshop flow (Settings → Workshop flow): one for all branches
   unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
   flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'});

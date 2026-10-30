@@ -62,7 +62,14 @@ async function createOrder(o){
   const {doc,runTransaction}=fb;let rno=o.rno;const old=o.rno;
   await runTransaction(db,async tx=>{
     for(let i=0;i<50;i++){const s=await tx.get(doc(db,'orders',String(rno)));if(!s.exists())break;rno++}
-    o.rno=rno;tx.set(doc(db,'orders',String(rno)),{...plain('orders',o),upd:new Date()})});
+    // the branch's own order / invoice numbers (OLY-50001, OLY-INV-1001): counters per branch, never twice
+    const b=o.branch,others=orders.filter(x=>x!==o&&x.branch===b);
+    const rO=doc(db,'counters','ord_'+b),rI=doc(db,'counters','inv_'+b);const cO=await tx.get(rO),cI=await tx.get(rI);
+    o.bseq=Math.max(50000,cO.exists()?+cO.data().n||0:0,...others.map(x=>+x.bseq||0))+1;o.bno=`${bcode(b)}-${o.bseq}`;
+    const giveInv=!o.gift&&b!==EXE_BRANCH;
+    if(giveInv){o.binvSeq=Math.max(1000,cI.exists()?+cI.data().n||0:0,...others.map(x=>+x.binvSeq||0))+1;o.binv=`${bcode(b)}-INV-${o.binvSeq}`}else{delete o.binvSeq;delete o.binv}
+    o.rno=rno;tx.set(doc(db,'orders',String(rno)),{...plain('orders',o),upd:new Date()});
+    tx.set(rO,{n:o.bseq});if(giveInv)tx.set(rI,{n:o.binvSeq})});
   for(const p of payLog)if(p.rno===old&&!synced.payments.has(p._id||''))p.rno=rno;
   synced.orders.set(String(o.rno),snap('orders',o));
 }
@@ -179,6 +186,9 @@ function startListeners(){
   else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
   else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
+  unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
+  // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices
+  unsubs.push(onSnapshot(fb.doc(db,'meta','exe'),x=>{const d=x.exists()?x.data():null;if(!d)return;EXE_BRANCH=+d.branch||0;if(d.shop&&typeof d.shop==='object')SHOP={...SHOP,...d.shop}},()=>{}));
   // workshop flow (Settings → Workshop flow): one for all branches
   unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
   flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'});
