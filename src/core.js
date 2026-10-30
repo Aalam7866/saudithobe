@@ -24,19 +24,29 @@ const ico=(k,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 
 /* ================= Reference data ================= */
 const STAGES=[{k:'cut',t:'Cutting',c:'s-cut'},{k:'sew',t:'Tailoring',c:'s-sew'},{k:'ready',t:'Ready for pickup',c:'s-ready'},{k:'done',t:'Delivered',c:'s-done'}];
+/* ironing is switched off for now: when the tailor finishes, the order is ready for pickup */
+const IRON_ON=false;
 /* workshop tasks: cutting first, tailor after cutting, hinge + tatreez start as soon as the tailor starts, ironing after the tailor */
 const TASKS=[
  {k:'cut',t:'Cutting',role:'Cutter',avail:o=>true},
  {k:'sew',t:'Tailor',role:'Tailor',avail:o=>o.t.cut==='done'},
  {k:'hinge',t:'Hinge',role:'Hinge',avail:o=>o.hinge&&o.t.sew!=='wait'},
  {k:'tat',t:'Tatreez',role:'Tatreez',avail:o=>o.tatreez&&o.t.sew!=='wait'},
- {k:'iron',t:'Ironing',role:'Ironing',avail:o=>o.t.sew==='done'}];
+ {k:'iron',t:'Ironing',role:'Ironing',avail:o=>o.t.sew==='done'}].filter(t=>IRON_ON||t.k!=='iron');
 const TK=Object.fromEntries(TASKS.map(t=>[t.k,t]));const ROLE2TASK={Cutter:'cut',Tailor:'sew',Hinge:'hinge',Tatreez:'tat',Ironing:'iron'};
-const WORKSHOP_ROLES=['Tailor','Cutter','Hinge','Tatreez','Ironing'];
+const WORKSHOP_ROLES=['Tailor','Cutter','Hinge','Tatreez','Ironing'].filter(r=>IRON_ON||r!=='Ironing');
 function syncSt(o){if(o.st==='done')return;o.st=o.t.sew==='done'?'ready':o.t.cut==='done'?'sew':'cut'}
 const pending=(o,k)=>o.st!=='done'&&TK[k].avail(o)&&o.t[k]!=='done'&&!(k==='tat'&&!o.tatreez)&&!(k==='hinge'&&!o.hinge);
 const SI=Object.fromEntries(STAGES.map((s,i)=>[s.k,i]));
 const FABRICS=['Toyobo (Japan)','Shakespeare (UK)','Loriana','Korean summer','Daniel Hechter','Egyptian cotton'];
+/* the shop's fabric stock and embroidery list (live: sent by the AL THOB exe) – the order page works like the exe's order window */
+const STOCK=FABRICS.map((f,i)=>({code:1111+i,name:f,company:'',colour:'',rate:[380,320,260,220,300,240][i],stock:[40,12,25,8,0,30][i]}));
+const EMBL=[{code:1,model:'Name on pocket',price:30},{code:2,model:'Collar line',price:45},{code:3,model:'Cuff design',price:35}];
+const PMETHODS=['Cash','Span','Mada','Visa','Bank Transfer','Cheque','STC Pay'];
+const OUT_ITEM='تفصيل ثوب قماش خارجي',OUT_RATE=180,VAT_RATE=0.15;
+/* the website's money groups (daily report): Cash / Card (mada) / Transfer */
+const webCat=m=>/cash/i.test(m)?'Cash':/mada|span|visa|card/i.test(m)?'Card (mada)':/transfer|stc|cheque/i.test(m)?'Transfer':m;
+const vatOf=net=>Math.round(net*VAT_RATE/(1+VAT_RATE)*100)/100;
 /* Measurement sheet: the same boxes, tick boxes and drawings as the shop exe's paper (AL THOB · MeasurementLayout = Sheet).
    Keys are the exe's own (measurements.data), so the sync copies them 1:1. Values are text; a tick / drawing is "1".
    [key, label, type]  type: '' = box · 'big' = text area · 'tick' = tick box */
@@ -65,7 +75,7 @@ function mForm(pre,m){
 function mRead(pre){const m={};MALL.forEach(([k,,ty])=>{const e=document.getElementById(pre+k);if(!e)return;if(ty==='tick'){if(e.checked)m[k]='1'}else{const v=e.value.trim();if(v)m[k]=v}});return m}
 function mFill(pre,m){MALL.forEach(([k,,ty])=>{const e=document.getElementById(pre+k);if(!e)return;if(ty==='tick'){e.checked=mVal(m,k)==='1';e.closest('.chip').classList.toggle('on',e.checked)}else e.value=mVal(m,k)})}
 function mTicks(){document.querySelectorAll('.mtick input').forEach(c=>c.onchange=()=>c.closest('.chip').classList.toggle('on',c.checked))}
-const ROLES=['Tailor','Cutter','Hinge','Tatreez','Ironing','Cashier','Branch manager','Factory supervisor'];
+const ROLES=['Tailor','Cutter','Hinge','Tatreez','Ironing','Cashier','Branch manager','Factory supervisor'].filter(r=>IRON_ON||r!=='Ironing');
 
 /* Design catalogue — mirrors F:\AL THOB\thobe_design folders */
 const DESIGN_=[
@@ -402,6 +412,7 @@ function openOrder(rno){
      ${RA().money?`<div><span>Total</span><b>${sar(o.total)}</b></div><div><span>Paid</span><b style="color:var(--ok)">${sar(o.paid)}</b></div><div><span>Balance</span><b style="color:${rem?'var(--bad)':'var(--ok)'}">${sar(rem)}</b></div>`:''}</div>
     <div><p class="h4">Workshop · ${o.made===o.branch?bname(o.made)+' workshop':bname(o.made)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${TASKS.map(t=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="row" style="padding-block:8px"><div class="grow"><b>${t.t}</b><span>${wid?wk(wid).name:'Not assigned yet'}</span></div>${taskPill(o,t.k)}${canTask()&&pending(o,t.k)?`<button class="btn sm" data-tk="${t.k}">${taskBtn(o,t.k)}</button>`:''}</div>`}).join('')}</div></div>
     <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0"><div class="wav" style="width:36px;height:36px;font-size:14px">${initials(wk(o.tailor).name)}</div><div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
+    ${orderItems(o)}
     <div><p class="h4">Style</p><div class="kv">${DESIGN_.map(g=>`<div><span>${g.t}</span><b style="font-family:var(--f-body);font-size:13px">${g.opts.find(x=>x[0]===o.design[g.k])[1]}</b></div>`).join('')}<div><span>Fabric</span><b style="font-family:var(--f-body);font-size:13px">${o.fabric}</b></div></div></div>
     <div><p class="h4">Measurements · ${esc(prof.name)}</p>${mShow(prof.m)}</div>
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
@@ -427,30 +438,68 @@ function newOrder(){
       <div class="field"><label for="fProf">Measurement profile</label><select id="fProf"><option value="0">Self</option></select></div>
       <div class="field"><label for="fName">Name</label><input id="fName" placeholder="Customer name"></div>
       <div class="field"><label for="fPhone">Mobile</label><input id="fPhone" class="num" placeholder="05xxxxxxxx"></div>
+      <div class="field"><label for="fAddr">Address</label><input id="fAddr" dir="auto"></div>
       <div class="field"><label for="fBranch">Branch</label><select id="fBranch">${SHOPS().map(b=>`<option value="${b.id}" ${b.id===br?'selected':''}>${b.name} · ${b.city}</option>`).join('')}</select></div>
     </div></div></div>
     <div class="panel"><div class="panel-h"><h2>Measurements</h2><span class="sp"></span><span class="muted" style="font-size:12px">The shop's measurement sheet · filled in from the customer's saved profile</span></div>
      <div class="panel-b" style="display:flex;flex-direction:column;gap:14px">${mForm('m_',{})}</div></div>
     <div class="panel"><div class="panel-h"><h2>Style</h2><span class="sp"></span><span class="muted" style="font-size:12px" id="dsum"></span></div>
      <div class="dtabs" id="dtabs"></div><div class="dopts" id="dopts"></div></div>
-    <div class="panel"><div class="panel-h"><h2>Order & payment</h2></div><div class="panel-b"><div class="fgrid">
-      <div class="field"><label for="fQty">Thobes</label><input id="fQty" type="number" min="1" value="2" class="num"></div>
-      <div class="field"><label for="fPrice">Price per thobe (SAR)</label><input id="fPrice" type="number" min="0" value="260" class="num"></div>
-      <div class="field"><label for="fPaid">Deposit (SAR)</label><input id="fPaid" type="number" min="0" value="200" class="num"></div>
-      <div class="field"><label for="fFabric">Fabric</label><select id="fFabric">${FABRICS.map(f=>`<option>${f}</option>`).join('')}</select></div>
+    <div class="panel"><div class="panel-h" style="flex-wrap:wrap;gap:8px"><h2>Items</h2><span class="sp"></span><button class="btn sm pri" id="addIn">${ico('plus')}Shop fabric</button><button class="btn sm" id="addOut">${ico('plus')}Customer's fabric</button></div>
+     <div class="tbl-wrap"><table class="lines"><thead><tr><th>Type</th><th>Fabric</th><th style="width:76px">Pcs</th><th class="mny" style="width:96px">Rate</th><th class="mny" style="width:90px">Amount</th><th style="width:40px"></th></tr></thead><tbody id="lnBody"></tbody></table></div>
+     <div class="panel-b muted" style="font-size:12px;padding-top:8px">IN = shop fabric from stock (code, rate) · OUT = customer's own fabric (tailoring only)</div></div>
+    <div class="panel"><div class="panel-h"><h2>Embroidery · <span dir="rtl">التطريز</span></h2><span class="sp"></span><button class="btn sm" id="addEmb">${ico('plus')}Embroidery</button></div>
+     <div class="tbl-wrap"><table class="lines"><thead><tr><th>Design</th><th>On fabric</th><th style="width:76px">Pcs</th><th class="mny" style="width:96px">Rate</th><th class="mny" style="width:90px">Amount</th><th style="width:40px"></th></tr></thead><tbody id="embBody"></tbody></table></div></div>
+    <div class="panel"><div class="panel-h"><h2>Order</h2></div><div class="panel-b"><div class="fgrid">
       <div class="field"><label for="fMade">Stitch at</label><select id="fMade"></select></div>
       <div class="field"><label for="fTailor">Tailor</label><select id="fTailor"></select></div>
-      <div class="field"><label for="fDue">Pickup date</label><input id="fDue" type="date" value="${due0.toISOString().slice(0,10)}"></div>
-      <div class="field" style="grid-column:1/-1;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="fHinge" style="width:auto"><label for="fHinge" style="color:var(--text);margin-inline-end:18px">Needs Hinge</label><input type="checkbox" id="fTat" style="width:auto"><label for="fTat" style="color:var(--text)">Needs Tatreez (embroidery)</label></div>
-      <div class="field" style="grid-column:1/-1"><label for="fNote">Notes</label><textarea id="fNote" rows="2" placeholder="e.g. embroider name, sleeve 1 cm longer"></textarea></div>
+      <div class="field"><label for="fDue">Delivery date</label><input id="fDue" type="date" min="${dkey2(today)}" value="${dkey2(due0)}"></div>
+      <div class="field"><label for="fHingeQ">Hinge button pcs</label><input id="fHingeQ" type="number" min="0" value="0" class="num"></div>
+      <div class="field"><label for="fZipQ">Zip pcs</label><input id="fZipQ" type="number" min="0" value="0" class="num"></div>
+      <div class="field" style="grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap"><input type="checkbox" id="fSample" style="width:auto"><label for="fSample" style="color:var(--text);margin-inline-end:18px">Customer left a sample thobe</label><input type="checkbox" id="fGift" style="width:auto"><label for="fGift" style="color:var(--text)">Free gift · هدية (no invoice)</label></div>
+      <div class="field" style="grid-column:1/-1"><label for="fNote">Notes</label><textarea id="fNote" rows="2" placeholder="e.g. sleeve 1 cm longer"></textarea></div>
+    </div></div></div>
+    <div class="panel" id="payPanel"><div class="panel-h"><h2>Payment</h2></div><div class="panel-b"><div class="fgrid">
+      <div class="field"><label for="fDisc">Discount (SAR)</label><input id="fDisc" type="number" min="0" value="0" class="num"></div>
+      <div class="field"><label for="fPaid">Down payment (SAR)</label><input id="fPaid" type="number" min="0" value="0" class="num"></div>
+      <div class="field"><label for="fMethod">Payment method</label><select id="fMethod"><option value="">—</option>${PMETHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+      <div class="field"><label for="fRef">Reference / SPAN</label><input id="fRef" placeholder="card slip no."></div>
     </div></div></div>
    </div>
    <aside class="slip"><div class="head"><b>New receipt</b><span class="num">#${nextR}</span></div>
     <dl id="slipdl"></dl>
-    <div class="tot"><div><span class="muted">Total</span><span class="num" id="tTot"></span></div><div><span class="muted">Deposit</span><span class="num" id="tPaid"></span></div><div class="big"><span>Balance</span><span class="num" id="tRem"></span></div></div>
+    <div class="tot" id="slipTot"><div><span class="muted">Subtotal</span><span class="num" id="tGross"></span></div><div><span class="muted">Discount</span><span class="num" id="tDisc"></span></div><div><span class="muted">VAT 15% (included)</span><span class="num" id="tVat"></span></div><div><span class="muted">Total</span><span class="num" id="tTot"></span></div><div><span class="muted">Down payment</span><span class="num" id="tPaid"></span></div><div class="big"><span>Balance</span><span class="num" id="tRem"></span></div></div>
     <div class="act"><button class="btn pri" id="saveBtn">Save order and issue receipt</button><a class="btn" href="#orders">Cancel</a></div>
    </aside></div>`);
   const $=id=>document.getElementById(id);
+  const money=RA().money;
+  draft.lines=[];draft.emb=[];
+  const stockOpt=code=>`<option value="">Choose fabric…</option>`+STOCK.map(it=>`<option value="${it.code}" ${it.code===code?'selected':''}>${it.code} · ${esc(it.name)}${it.colour?' · '+esc(it.colour):''} · ${sar(it.rate)} SAR${it.stock!=null?` · stock ${Math.floor(it.stock)}`:''}</option>`).join('');
+  const lineName=(l,i)=>`${i+1}) ${l.src==='OUT'?'قماش العميل: '+l.item:l.item+(l.code?` (${l.code})`:'')}`;
+  const drawLines=()=>{
+    $('lnBody').innerHTML=draft.lines.map((l,i)=>`<tr><td><span class="tag">${l.src}</span></td>
+      <td>${l.src==='IN'?`<select data-li="${i}" data-f="code" style="max-width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--surface)">${stockOpt(l.code)}</select>`:`<input data-li="${i}" data-f="item" dir="auto" value="${esc(l.item)}" style="width:100%;border:1px solid var(--line);border-radius:7px;padding:6px">`}</td>
+      <td><input data-li="${i}" data-f="qty" type="number" min="1" class="num" value="${l.qty}" style="width:64px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
+      <td class="mny"><input data-li="${i}" data-f="rate" type="number" min="0" class="num" value="${l.rate}" style="width:84px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
+      <td class="num mny" id="la${i}">${sar(l.qty*l.rate)}</td><td><button class="btn sm" data-lx="${i}" aria-label="Remove line">${ico('x')}</button></td></tr>`).join('')||'<tr><td colspan="6"><div class="empty" style="padding:14px">Add the fabric: from the shop stock, or the customer\'s own fabric.</div></td></tr>';
+    $('embBody').innerHTML=draft.emb.map((e,i)=>`<tr><td><select data-ei="${i}" data-f="code" style="max-width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--surface)"><option value="">Choose…</option>${EMBL.map(x=>`<option value="${x.code}" ${x.code===e.code?'selected':''}>${x.code} · ${esc(x.model)} · ${sar(x.price)} SAR</option>`).join('')}</select></td>
+      <td><select data-ei="${i}" data-f="fab" style="max-width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--surface)"><option value="-1">—</option>${draft.lines.map((l,k)=>`<option value="${k}" ${k===e.fab?'selected':''}>${esc(lineName(l,k))}</option>`).join('')}</select></td>
+      <td><input data-ei="${i}" data-f="qty" type="number" min="1" class="num" value="${e.qty}" style="width:64px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
+      <td class="mny"><input data-ei="${i}" data-f="rate" type="number" min="0" class="num" value="${e.rate}" style="width:84px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
+      <td class="num mny" id="ea${i}">${sar(e.qty*e.rate)}</td><td><button class="btn sm" data-ex="${i}" aria-label="Remove embroidery">${ico('x')}</button></td></tr>`).join('')||'<tr><td colspan="6"><div class="empty" style="padding:14px">No embroidery.</div></td></tr>';
+    document.querySelectorAll('[data-li]').forEach(el=>{el.oninput=el.onchange=()=>{const l=draft.lines[+el.dataset.li],f=el.dataset.f;
+      if(f==='code'){const it=STOCK.find(x=>x.code===+el.value);l.code=it?it.code:0;l.item=it?it.name:'';if(it)l.rate=it.rate;drawLines();return}
+      l[f]=f==='item'?el.value:Math.max(0,+el.value||0);const a=$('la'+el.dataset.li);if(a)a.textContent=sar(l.qty*l.rate);slip()}});
+    document.querySelectorAll('[data-ei]').forEach(el=>{el.oninput=el.onchange=()=>{const e=draft.emb[+el.dataset.ei],f=el.dataset.f;
+      if(f==='code'){const x=EMBL.find(y=>y.code===+el.value);e.code=x?x.code:0;e.item=x?x.model:'';if(x)e.rate=x.price;drawLines();return}
+      e[f]=Math.max(f==='fab'?-1:0,+el.value||0);const a=$('ea'+el.dataset.ei);if(a)a.textContent=sar(e.qty*e.rate);slip()}});
+    document.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{draft.lines.splice(+b.dataset.lx,1);draft.emb.forEach(e=>{if(e.fab>=draft.lines.length)e.fab=-1});drawLines()});
+    document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{draft.emb.splice(+b.dataset.ex,1);drawLines()});
+    document.querySelectorAll('.lines .mny').forEach(x=>x.hidden=!money);
+    slip();
+  };
+  const sums=()=>{const pcs=draft.lines.reduce((s,l)=>s+(+l.qty||0),0);const gross=Math.round((draft.lines.reduce((s,l)=>s+l.qty*l.rate,0)+draft.emb.reduce((s,e)=>s+e.qty*e.rate,0))*100)/100;
+    const disc=Math.min(gross,Math.max(0,+$('fDisc').value||0)),total=Math.round((gross-disc)*100)/100,paid=money?Math.max(0,+$('fPaid').value||0):0;return{pcs,gross,disc,total,vat:vatOf(total),paid}};
   const fillMade=()=>{const b=+$('fBranch').value;const keep=$('fMade').value;$('fMade').innerHTML=`<option value="${b}">${bname(b)} workshop</option>`+FACS().map(f=>`<option value="${f.id}">${f.name}</option>`).join('');$('fMade').value=keep&&[...$('fMade').options].some(x=>x.value===keep)?keep:String((FACS()[0]||{id:b}).id)};
   const fillTailors=()=>{$('fTailor').innerHTML=tailorsOf(+$('fMade').value).map(w=>`<option value="${w.id}">${w.name}${w.status==='leave'?' (on leave)':''}</option>`).join('')};
   const drawDesign=()=>{
@@ -462,30 +511,66 @@ function newOrder(){
     document.querySelectorAll('.dopt').forEach(b=>b.onclick=()=>{draft.design[draft.tab]=b.dataset.o;drawDesign();slip()});
   };
   const slip=()=>{
-    const qty=+$('fQty').value||0,price=+$('fPrice').value||0,paid=+$('fPaid').value||0,tot=qty*price;
-    const c=$('fCust').value?cust(+$('fCust').value):null;const t=wk(+$('fTailor').value);
-    $('slipdl').innerHTML=[['Customer',c?c.name:($('fName').value||'—')],['Branch',bname(+$('fBranch').value)],['Stitch at',isFac(+$('fMade').value)?bname(+$('fMade').value):'Shop workshop'],['Thobes',`${qty} × ${sar(price)}`],['Fabric',$('fFabric').value],['Tailor',t?t.name:'—'],['Pickup',$('fDue').value?fmtD(new Date($('fDue').value)):'—'],
+    const m=sums();const c=$('fCust').value?cust(+$('fCust').value):null;const t=wk(+$('fTailor').value);
+    $('slipdl').innerHTML=[['Customer',c?c.name:($('fName').value||'—')],['Branch',bname(+$('fBranch').value)],['Stitch at',isFac(+$('fMade').value)?bname(+$('fMade').value):'Shop workshop'],['Pieces',String(m.pcs)],
+      ...draft.lines.map((l,i)=>[l.src==='OUT'?'Customer fabric':'Fabric '+(l.code||''),`${l.qty} × ${l.item||'—'}${money?` · ${sar(l.qty*l.rate)}`:''}`]),
+      ...draft.emb.map(e=>['Embroidery',`${e.qty} × ${e.item||'—'}`]),
+      ['Tailor',t?t.name:'—'],['Delivery',$('fDue').value?fmtD(new Date($('fDue').value)):'—'],
+      ...(+$('fHingeQ').value?[['Hinge button',$('fHingeQ').value+' pcs']]:[]),...(+$('fZipQ').value?[['Zip',$('fZipQ').value+' pcs']]:[]),
+      ...($('fSample').checked?[['Sample','Customer left a sample thobe']]:[]),...($('fGift').checked?[['Free gift','No invoice']]:[]),
       ...DESIGN_.map(g=>[g.t,g.opts.find(o=>o[0]===draft.design[g.k])[1]])].map(([a,b])=>`<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join('');
-    if(!$('tTot'))return;$('tTot').textContent=sar(tot)+' SAR';$('tPaid').textContent=sar(paid)+' SAR';$('tRem').textContent=sar(Math.max(0,tot-paid))+' SAR';
+    if(!money)return;
+    $('tGross').textContent=sar(m.gross)+' SAR';$('tDisc').textContent=m.disc?'− '+sar(m.disc)+' SAR':'0';$('tVat').textContent=m.vat.toFixed(2)+' SAR';$('tTot').textContent=sar(m.total)+' SAR';$('tPaid').textContent=sar(m.paid)+' SAR';$('tRem').textContent=sar(Math.max(0,m.total-m.paid))+' SAR';
   };
   const fillM=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;const p=c?c.profiles[+$('fProf').value]||c.profiles[0]:null;mFill('m_',p?p.m:{})};
-  $('fCust').onchange=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;$('fName').value=c?c.name:'';$('fPhone').value=c?c.phone:'';
+  $('fCust').onchange=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;$('fName').value=c?c.name:'';$('fPhone').value=c?c.phone:'';$('fAddr').value=c?(c.addr||''):'';
     $('fProf').innerHTML=(c?c.profiles:[{name:'Self'}]).map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');if(c){$('fBranch').value=c.branch;fillMade();fillTailors()}fillM();slip()};
   $('fProf').onchange=fillM;
   $('fBranch').onchange=()=>{fillMade();fillTailors();slip()};
   $('fMade').onchange=()=>{fillTailors();slip()};
-  ['fQty','fPrice','fPaid','fFabric','fTailor','fDue','fName'].forEach(id=>$(id).oninput=slip);
+  ['fTailor','fDue','fName','fDisc','fPaid','fHingeQ','fZipQ','fSample','fGift'].forEach(id=>$(id).oninput=$(id).onchange=slip);
+  $('addIn').onclick=()=>{draft.lines.push({src:'IN',code:0,item:'',qty:1,rate:0});drawLines()};
+  $('addOut').onclick=()=>{draft.lines.push({src:'OUT',code:0,item:OUT_ITEM,qty:1,rate:OUT_RATE});drawLines()};
+  $('addEmb').onclick=()=>{if(!EMBL.length){toast('The embroidery list is empty (add designs in the shop exe: Embroidery)');return}draft.emb.push({code:0,item:'',fab:draft.lines.length?0:-1,qty:1,rate:0});drawLines()};
   $('saveBtn').onclick=()=>{
     let cid=+$('fCust').value;
-    if(!cid){if(!$('fName').value.trim()||!$('fPhone').value.trim()){toast('Enter the customer name and mobile number');$('fName').focus();return}
-      const m=mRead('m_');cid=customers.length+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
-    const qty=+$('fQty').value||1,price=+$('fPrice').value||0;
-    const dep=+$('fPaid').value||0;if(RA().money&&dep)payLog.push({d:today,rno:nextR,branch:+$('fBranch').value,amt:dep,m:'Cash',t:'Deposit'});
-    orders.unshift({rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty,price,total:qty*price,paid:RA().money?(+$('fPaid').value||0):0,created:new Date(today),due:new Date($('fDue').value||due0),st:'cut',t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},tatreez:$('fTat').checked,hinge:$('fHinge').checked,tailor:+$('fTailor').value,fabric:$('fFabric').value,design:{...draft.design},profile:+$('fProf').value||0,note:$('fNote').value});
-    toast(`${RA().money?`Receipt #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(+$('fMade').value)} cutting`);orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
+    if(!cid&&(!$('fName').value.trim()||!$('fPhone').value.trim())){toast('Enter the customer name and mobile number');$('fName').focus();return}
+    const lines=draft.lines.filter(l=>l.qty>0);
+    if(!lines.length){toast('Add at least one item (shop fabric or customer\'s fabric)');return}
+    const bad=lines.findIndex(l=>l.src==='IN'?!l.code:!String(l.item).trim());if(bad>=0){toast(`Line ${draft.lines.indexOf(lines[bad])+1}: ${lines[bad].src==='IN'?'choose the fabric':'write the fabric name'}`);return}
+    const emb=draft.emb.filter(e=>e.qty>0);if(emb.some(e=>!e.code)){toast('Choose the embroidery design or remove the line');return}
+    const m=sums();const hq=Math.max(0,+$('fHingeQ').value||0),zq=Math.max(0,+$('fZipQ').value||0);
+    if(hq>m.pcs){toast(`Hinge button pcs (${hq}) is more than the order pcs (${m.pcs})`);return}
+    if(zq>m.pcs){toast(`Zip pcs (${zq}) is more than the order pcs (${m.pcs})`);return}
+    if(money&&(+$('fDisc').value||0)>m.gross+0.01){toast('Discount is more than the subtotal');return}
+    if(m.paid>m.total+0.01){toast('Down payment is more than the total');return}
+    const method=$('fMethod').value;if(m.paid>0&&!method){toast('Choose the payment method');$('fMethod').focus();return}
+    if($('fDue').value&&new Date($('fDue').value+'T00:00:00')<today){toast('Delivery date is before today');return}
+    if(!cid){const mm=mRead('m_');cid=customers.length+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),addr:$('fAddr').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m:mm}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
+    else{const c=cust(cid);if($('fAddr').value.trim()&&c.addr!==$('fAddr').value.trim())c.addr=$('fAddr').value.trim()}
+    if(m.paid>0)payLog.push({d:today,rno:nextR,branch:+$('fBranch').value,amt:m.paid,m:webCat(method),pm:method,ref:$('fRef').value.trim(),t:'Deposit'});
+    orders.unshift({rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty:m.pcs,price:m.pcs?Math.round(m.total/m.pcs*100)/100:0,total:m.total,paid:m.paid,created:new Date(today),due:new Date(($('fDue').value||dkey2(due0))+'T00:00:00'),st:'cut',
+      t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},tatreez:emb.length>0,hinge:hq>0,hingeQty:hq,zipQty:zq,sample:$('fSample').checked,gift:$('fGift').checked,
+      lines:lines.map(l=>({src:l.src,code:l.code||0,item:String(l.item).trim(),qty:+l.qty,rate:+l.rate})),emb:emb.map(e=>({code:e.code,item:e.item,fab:e.fab,qty:+e.qty,rate:+e.rate})),
+      gross:m.gross,disc:m.disc,vat:m.vat,pm:method,ref:$('fRef').value.trim(),
+      tailor:+$('fTailor').value,fabric:lines.map(l=>l.src==='OUT'?'Customer fabric: '+l.item:l.item).join(' + '),design:{...draft.design},profile:+$('fProf').value||0,note:$('fNote').value});
+    toast(`${money?`Receipt #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(+$('fMade').value)} cutting`);orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
   };
-  fillMade();fillTailors();drawDesign();slip();mTicks();
-  if(!RA().money){['fPrice','fPaid'].forEach(id=>$(id).closest('.field').hidden=true);document.querySelector('.slip .tot').innerHTML='<div class="muted" style="font-size:13px">Prices and deposit are added by the cashier.</div>';$('saveBtn').textContent='Save order and send to cashier'}
+  fillMade();fillTailors();drawDesign();drawLines();mTicks();
+  if(!money){$('payPanel').hidden=true;$('slipTot').innerHTML='<div class="muted" style="font-size:13px">Prices and payment are added by the cashier.</div>';$('saveBtn').textContent='Save order and send to cashier'}
+}
+
+/* the order's items as the shop exe keeps them: fabric lines (IN = shop stock / OUT = customer's fabric), embroidery, totals */
+function orderItems(o){
+  const L=o.lines||[],E=o.emb||[],money=RA().money;
+  const extra=[o.invoiceNo?['Invoice no.',String(o.invoiceNo)]:null,o.exeNo&&o.exeNo!==o.rno?['Shop order no.',String(o.exeNo)]:null,o.hingeQty?['Hinge button',o.hingeQty+' pcs']:null,o.zipQty?['Zip',o.zipQty+' pcs']:null,
+    o.sample?['Sample','Customer left a sample thobe']:null,o.gift?['Free gift','No invoice']:null,money&&o.pm?['Paid by',o.pm+(o.ref?' · '+o.ref:'')]:null].filter(Boolean);
+  if(!L.length&&!E.length&&!extra.length)return '';
+  return `<div><p class="h4">Items</p>${L.length||E.length?`<div class="tbl-wrap" style="border:1px solid var(--line);border-radius:8px"><table><thead><tr><th>Type</th><th>Item</th><th>Pcs</th>${money?'<th>Rate</th><th>Amount</th>':''}</tr></thead><tbody>
+    ${L.map(l=>`<tr><td><span class="tag">${esc(l.src)}</span></td><td dir="auto">${esc(l.item)}${l.code?` <span class="muted num">(${l.code})</span>`:''}</td><td class="num">${l.qty}</td>${money?`<td class="num">${sar(l.rate)}</td><td class="num">${sar(l.qty*l.rate)}</td>`:''}</tr>`).join('')}
+    ${E.map(e=>`<tr><td><span class="tag">EMB</span></td><td dir="auto">${esc(e.item)}${e.code?` <span class="muted num">(${e.code})</span>`:''}${e.fab>=0&&L[e.fab]?` <span class="muted">← ${esc(L[e.fab].item)}</span>`:''}</td><td class="num">${e.qty}</td>${money?`<td class="num">${sar(e.rate)}</td><td class="num">${sar(e.qty*e.rate)}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
+    ${money&&(o.disc||o.vat)?`<div class="kv" style="margin-top:8px">${o.gross?`<div><span>Subtotal</span><b>${sar(o.gross)}</b></div>`:''}<div><span>Discount</span><b>${sar(o.disc||0)}</b></div><div><span>VAT 15% (included)</span><b>${(+o.vat||0).toFixed(2)}</b></div></div>`:''}
+    ${extra.length?`<div class="kv" style="margin-top:8px">${extra.map(([k,v])=>`<div><span>${k}</span><b style="font-family:var(--f-body);font-size:13px">${esc(v)}</b></div>`).join('')}</div>`:''}</div>`;
 }
 
 /* ================= Measurements ================= */
@@ -716,7 +801,7 @@ function daily(){
   const summaryText=()=>{let t=`*Saudi Thobe daily report*\n${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short',year:'numeric'})} · ${curBranch?bname(curBranch):'All branches'}\n`;
     if(shopsOnly&&money){t+=`\nSales booked: ${sar(T('sale'))} SAR (${T('n')} orders, ${T('pcs')} pcs)\nCollected: ${sar(T('tot'))} SAR\n  Deposits ${sar(T('dep'))} · Delivery payments ${sar(T('bal'))}\n  Cash ${sar(T('cash'))} · mada ${sar(T('mada'))} · Transfer ${sar(T('tr'))}\nDelivered: ${T('dn')} orders, ${T('dq')} pcs\n`;
       rows.forEach(r=>t+=`\n${r.b.name}: sale ${sar(r.sale)} · collected ${sar(r.tot)} · delivered ${r.dq} pcs`)}
-    t+=`\n\nTailoring: cut ${ps(prod,'cut')} · stitched ${ps(prod,'sew')} · hinge ${ps(prod,'hinge')} · tatreez ${ps(prod,'tat')} · ironed ${ps(prod,'iron')} pcs`;
+    t+=`\n\nTailoring: cut ${ps(prod,'cut')} · stitched ${ps(prod,'sew')} · hinge ${ps(prod,'hinge')} · tatreez ${ps(prod,'tat')}${IRON_ON?` · ironed ${ps(prod,'iron')}`:''} pcs`;
     shopsIn.forEach(b=>{const pp=prod.filter(p=>p.made===b.id);if(pp.length)t+=`\n${b.name}: stitched ${ps(pp,'sew')} pcs`});return t};
   V(`<div class="rowtools"><div class="chips">${[0,1,2,3,4,5,6].map(i=>{const d=addD(today,-i);return `<button class="chip ${repDay===i?'on':''}" data-day="${i}">${i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})}</button>`}).join('')}</div><span class="sp"></span>
    <button class="btn" id="copyRep">${ico('wa')}Copy for WhatsApp</button></div>
@@ -738,7 +823,7 @@ function daily(){
   <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${shopsIn.map(b=>{const pp=prod.filter(p=>p.made===b.id);const ws=tailors.filter(w=>w.branch===b.id);const inProd=orders.filter(o=>o.made===b.id&&(o.st==='cut'||o.st==='sew')).reduce((s,o)=>s+o.qty,0);
     const recv=isFac(b.id)?sentToFac.filter(o=>o.made===b.id).reduce((s,o)=>s+o.qty,0):null;
     return `<div class="bcard"><div class="bh" ${isFac(b.id)?'style="background:var(--ink-2)"':''}><div style="flex:1"><span class="code">${b.code}</span>${isFac(b.id)?' <span class="code" style="border-color:#8a8576;color:#cfc9b8">Factory</span>':''}<h3 style="margin-top:8px">${b.name}${isFac(b.id)?'':' workshop'}</h3><p>${ws.filter(w=>attOf(w)!=='a').length} of ${ws.length} workers present</p></div></div>
-     <div class="bs"><div><span>Cut</span><b>${ps(pp,'cut')}</b></div><div><span>Stitched</span><b>${ps(pp,'sew')}</b></div><div><span>Ironed</span><b>${ps(pp,'iron')}</b></div></div>
+     <div class="bs"><div><span>Cut</span><b>${ps(pp,'cut')}</b></div><div><span>Stitched</span><b>${ps(pp,'sew')}</b></div>${IRON_ON?`<div><span>Ironed</span><b>${ps(pp,'iron')}</b></div>`:`<div><span>Hinge</span><b>${ps(pp,'hinge')}</b></div>`}</div>
      <div class="bs"><div><span>Hinge</span><b>${ps(pp,'hinge')}</b></div><div><span>Tatreez</span><b>${ps(pp,'tat')}</b></div><div><span>Ready</span><b>${ps(pp,'sew')}</b></div></div>
      <div class="bm"><div><span class="muted">Still in production</span><span class="num">${inProd} pcs</span></div>${recv!==null?`<div><span class="muted">Received from shops</span><span class="num">${recv} pcs</span></div>${SHOPS().map(s=>{const q=sentToFac.filter(o=>o.made===b.id&&o.branch===s.id).reduce((a,o)=>a+o.qty,0);return q?`<div><span class="muted">· ${s.name}</span><span class="num">${q} pcs</span></div>`:''}).join('')}`:''}</div></div>`}).join('')}</div>
   <div class="panel"><div class="panel-h"><h2>Each worker today</h2><span class="sp"></span><span class="muted" style="font-size:12px">Pieces done ${dayLabel.toLowerCase()} · month to date</span></div><div class="tbl-wrap"><table>
@@ -892,7 +977,7 @@ function board(){
   const ready=list.filter(o=>o.st==='ready');
   V(`<div class="msg" style="border-color:var(--brass)">Every new order from any branch lands in <b>Cutting</b>. When cutting is finished it moves to the <b>Tailor</b>. The moment the tailor starts, it also shows in <b>Hinge</b> and <b>Tatreez</b> (only orders ticked for them), so they work at the same time. When the tailor finishes, the owner and that branch's manager get a <b>Ready</b> popup.</div>
   <div class="rowtools"><span class="muted" style="font-size:13px">${fid?bname(fid):'All workshops'} · ${list.filter(o=>o.st!=='ready').reduce((s,o)=>s+o.qty,0)} thobes in production · ${ready.reduce((s,o)=>s+o.qty,0)} ready</span></div>
-  <div class="board" style="grid-template-columns:repeat(5,minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
+  <div class="board" style="grid-template-columns:repeat(${TASKS.length},minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
    ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${BRANCHES.find(b=>b.id===o.branch).code}</span></span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?wk(wid).name:'Not assigned'} · due ${fmtD(o.due)}</div>
     ${t.k==='sew'||t.k==='cut'?`<div class="mm">${mmLine(o,['tool','sadr','kom','raqba'])}</div>`:''}
@@ -1068,7 +1153,7 @@ function enterWorker(w){
 /* ================= Reports ================= */
 function reports(){
   const all=O();
-  const byFab=FABRICS.map(f=>({k:f,v:all.filter(o=>o.fabric===f).reduce((s,o)=>s+o.qty,0)})).sort((a,b)=>b.v-a.v);
+  const byFab=[...new Set(all.map(o=>o.fabric).filter(Boolean))].map(f=>({k:f,v:all.filter(o=>o.fabric===f).reduce((s,o)=>s+o.qty,0)})).sort((a,b)=>b.v-a.v);
   const bars=arr=>{const mx=Math.max(...arr.map(a=>a.v))||1;return `<div class="rows">${arr.map(a=>`<div class="row" style="padding-block:8px"><div class="grow"><b style="font-weight:500">${a.k}</b></div><div class="load" style="width:45%"><i style="width:${a.v/mx*100}%"></i></div><span class="num" style="min-width:34px;text-align:right">${a.v}</span></div>`).join('')}</div>`};
   const byT=tailorsOf(curBranch).map(w=>({k:`${w.name} · ${BRANCHES.find(b=>b.id===w.branch).code}`,v:wStats(w).doneQ})).sort((a,b)=>b.v-a.v);
   V(`<div class="grid2">

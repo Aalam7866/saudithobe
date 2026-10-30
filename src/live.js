@@ -6,8 +6,8 @@
    make to them is written back by flush() (field-level diff, so two people editing the
    same order at once do not overwrite each other).
    ===================================================================================== */
-const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog};
-const KEY={branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
+const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,items:STOCK,emb:EMBL};
+const KEY={items:x=>String(x.code),emb:x=>String(x.code),branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
 const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
@@ -34,6 +34,7 @@ async function doFlush(){
   if(!db||!USER||!USER.uid)return;
   const {doc,setDoc,updateDoc,deleteDoc,runTransaction}=fb;
   for(const col of Object.keys(COL)){
+    if(col==='items'||col==='emb')continue;          // the shop exe's lists: never written from here
     const arr=COL[col],seen=new Set();
     for(const x of arr){
       const id=idOf(col,x);seen.add(id);
@@ -162,6 +163,9 @@ function startListeners(){
   sub('branches',collection(db,'branches'));
   sub('staff',collection(db,'staff'));
   sub('customers',collection(db,'customers'));
+  // the shop's fabric stock and embroidery list (sent by the AL THOB exe; read-only here)
+  sub('items',collection(db,'items'));
+  sub('emb',collection(db,'emb'));
   sub('orders',query(collection(db,'orders'),where('created','>=',since(150))));
   sub('orders',query(collection(db,'orders'),where('st','in',['cut','sew','ready'])));
   sub('payments',query(collection(db,'payments'),where('d','>=',since(45))));

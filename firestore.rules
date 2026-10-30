@@ -123,6 +123,15 @@ service cloud.firestore {
       allow create: if active();
       allow update, delete: if isOwner();
     }
+    // the shop's fabric stock and embroidery list: written by the shop exe (owner login), read by everyone signed in
+    match /items/{code} {
+      allow read: if active();
+      allow write: if isOwner();
+    }
+    match /emb/{code} {
+      allow read: if active();
+      allow write: if isOwner();
+    }
     // salary deductions: owner / that branch's manager / factory supervisor add them; a worker reads only his own
     match /ded/{id} {
       allow read: if isOwner() || (active() && managesBranch(resource.data.branch)) || (active() && resource.data.sid == me().sid);

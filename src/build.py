@@ -28,6 +28,8 @@ s = s[: s.rfind('})();')]
 # demo data only in demo
 R("const BRANCHES=[\n {id:1", "const BRANCHES=!DEMO?[]:[\n {id:1")
 R("const workers=WNAMES.map(", "const workers=!DEMO?[]:WNAMES.map(")
+R("const STOCK=FABRICS.map(", "const STOCK=!DEMO?[]:FABRICS.map(")
+R("const EMBL=[{code:1,", "const EMBL=!DEMO?[]:[{code:1,")
 R("const customers=NAMES.map(", "const customers=!DEMO?[]:NAMES.map(")
 R("for(let i=0;i<64;i++){", "for(let i=0;i<(DEMO?64:0);i++){")
 R("[[1,380,'Cash'],[1,520,'Card (mada)'],[2,260,'Cash'],[1,190,'Transfer'],[3,440,'Card (mada)']].forEach(", "(DEMO?[[1,380,'Cash'],[1,520,'Card (mada)'],[2,260,'Cash'],[1,190,'Transfer'],[3,440,'Card (mada)']]:[]).forEach(")
