@@ -128,7 +128,7 @@ let rerenderT=null;
 function rerender(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{if(busy()){staleView=true;return}staleView=false;route()},120)}
 const PARTS={};
 function normalize(col,x){
-  if(col==='orders'){x.t={cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait',...(x.t||{})};x.tw=x.tw||{};x.design={...Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),...(x.design||{})};
+  if(col==='orders'){x.t={cut:'wait',sew:'wait',hinge:'wait',tat:'wait',btm:'wait',iron:'wait',...(x.t||{})};x.tw=x.tw||{};x.sent=x.sent||{};if(x.hold==null)x.hold=false;x.design={...Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),...(x.design||{})};
     if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
   if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
   if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
@@ -180,8 +180,8 @@ function startListeners(){
   else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   // workshop flow (Settings → Workshop flow): one for all branches
-  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{if(x.exists()&&Array.isArray(x.data().steps)){const before=JSON.stringify(FLOW);setFlow(x.data().steps);if(JSON.stringify(FLOW)!==before)rerender()}},()=>{}));
-  flowSaver=steps=>fb.setDoc(fb.doc(db,'meta','flow'),{steps,at:new Date(),by:USER.name||'Owner'});
+  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
+  flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'});
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
 }

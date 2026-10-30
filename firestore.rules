@@ -17,7 +17,7 @@ service cloud.firestore {
     // who may manage people of branch b: the owner, that branch's manager, that factory's supervisor
     function managesBranch(b) { return isOwner() || ((role() == 'manager' || isSupervisor()) && br() == b); }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
-    function workshopJob(j) { return j in ['Tailor', 'Cutter', 'Hinge', 'Tatreez', 'Ironing']; }
+    function workshopJob(j) { return j in ['Tailor', 'Cutter', 'Hinge', 'Tatreez', 'Bottom cutting', 'Ironing']; }
     // what a non-owner may create: factory supervisor → workshop workers; branch manager → cashier / measurement
     function mayCreatePerson(d) {
       return isOwner()
@@ -105,7 +105,7 @@ service cloud.firestore {
         // measurement: order details, never money
         || (isRole(['measure']) && !changed().hasAny(['paid', 'total', 'price', 'st']))
         // workshop: only the work steps
-        || (isRole(['tailor']) && changed().hasOnly(['t', 'tw', 'st', 'tailor', 'upd']) && request.resource.data.st in ['cut', 'sew', 'ready']);
+        || (isRole(['tailor']) && changed().hasOnly(['t', 'tw', 'st', 'tailor', 'sent', 'hold', 'upd']) && request.resource.data.st in ['cut', 'sew', 'ready']);
       allow delete: if isOwner();
     }
 

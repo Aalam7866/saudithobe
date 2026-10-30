@@ -265,23 +265,28 @@ function bwMount(){const box=document.getElementById('bwPanel');if(!box)return;c
 
 /* ================= Workshop flow editor (Settings) ================= */
 let flowSaver=null; // live.js: saves to Firestore meta/flow
-function flowClean(steps){const out=[],seen=new Set();(Array.isArray(steps)?steps:[]).forEach(f=>{if(f&&TASK_DEF[f.k]&&!seen.has(f.k)){seen.add(f.k);out.push({k:f.k,m:f.m==='with'?'with':'after',on:f.k==='sew'?true:!!f.on})}});
-  FLOW_DEFAULT.forEach(f=>{if(!seen.has(f.k))out.push({...f,on:f.k==='sew'||f.k==='cut'?true:false})});
+const FMODE={after:'After',with:'Together',send:'Tailor sends'};
+function flowClean(steps){const out=[],seen=new Set();(Array.isArray(steps)?steps:[]).forEach(f=>{if(f&&TASK_DEF[f.k]&&!seen.has(f.k)){seen.add(f.k);out.push({k:f.k,m:FMODE[f.m]?f.m:'after',on:f.k==='sew'?true:!!f.on})}});
+  FLOW_DEFAULT.forEach(f=>{if(!seen.has(f.k))out.push({...f})});
+  out.forEach(f=>{if(f.k==='sew'||f.k==='cut')f.m=f.m==='send'?'after':f.m});
   const fi=out.findIndex(f=>f.on);if(fi>=0)out[fi].m='after';return out}
-function setFlow(steps){const c=flowClean(steps);FLOW.length=0;FLOW.push(...c);applyFlow();orders.forEach(o=>{if(o.t&&o.st!=='done')syncSt(o)})}
-const flowText=fl=>{const on=fl.filter(f=>f.on);let s='',i=0;on.forEach((f,j)=>{if(f.m==='with'&&j>0)s+=` + ${TASK_DEF[f.k].t}`;else s+=(j?' → ':'')+TASK_DEF[f.k].t});return (s||'—')+' → Ready for pickup'};
+function setFlow(steps,opt){const c=flowClean(steps);FLOW.length=0;FLOW.push(...c);if(opt&&typeof opt.tready==='boolean')FLOW_OPT.tready=opt.tready;applyFlow();if(typeof LIVE==='undefined'||!LIVE)orders.forEach(o=>{if(o.t&&o.st!=='done'&&o.st!=='ready')syncSt(o)})}
+const flowText=(fl,tr)=>{const on=fl.filter(f=>f.on);let s='';const sends=[];on.forEach((f,j)=>{if(f.m==='send')sends.push(TASK_DEF[f.k].t);else if(f.m==='with'&&j>0)s+=` + ${TASK_DEF[f.k].t}`;else s+=(s?' → ':'')+TASK_DEF[f.k].t});
+  return (s||'—')+(sends.length?` → tailor sends (if needed): ${sends.join(' / ')}`:'')+(tr?' → tailor ticks Ready':'')+' → Ready for pickup'};
 function flowEditorHtml(){return `<div class="panel" id="flowPanel"><div class="panel-h"><h2>Workshop flow</h2><span class="sp"></span><span class="muted" style="font-size:12px">Drag the steps to change the order</span></div><div class="panel-b" id="flowBox"></div></div>`}
-function flowEditorMount(){const box=document.getElementById('flowBox');if(!box)return;let ed=JSON.parse(JSON.stringify(FLOW));const own=isOwner();
-  const draw=()=>{ed=flowClean(ed);const ch=JSON.stringify(ed)!==JSON.stringify(FLOW);
-    box.innerHTML=`<p class="muted" style="margin:0 0 10px;font-size:13px">Every order goes through these steps. <b>After</b> = starts when the step before is finished. <b>Together</b> = can start as soon as the step before has started (e.g. hinge and tatreez while the tailor stitches). Off = not used. The order is ready for pickup when all its <b>After</b> steps are done.</p>
+function flowEditorMount(){const box=document.getElementById('flowBox');if(!box)return;let ed=JSON.parse(JSON.stringify(FLOW)),tr=FLOW_OPT.tready;const own=isOwner();
+  const draw=()=>{ed=flowClean(ed);const ch=JSON.stringify(ed)!==JSON.stringify(FLOW)||tr!==FLOW_OPT.tready;const first=ed.findIndex(x=>x.on);
+    box.innerHTML=`<p class="muted" style="margin:0 0 10px;font-size:13px"><b>After</b> = starts when the step before is finished. <b>Together</b> = can start as soon as the step before has started. <b>Tailor sends</b> = when the tailor has stitched it, he sends it there (only orders that need it: hinge, tatreez, bottom cutting for zip) and it comes back to him. Off = not used.</p>
      <ol class="flow" id="flowList">${ed.map((f,i)=>`<li class="fstep ${f.on?'':'off'}" draggable="${own}" data-fi="${i}">
        <span class="grip" aria-hidden="true">⋮⋮</span><span class="fno num">${f.on?ed.slice(0,i+1).filter(x=>x.on).length:'–'}</span>
-       <div class="grow"><b>${TASK_DEF[f.k].t}</b><span class="muted" style="font-size:12px">Worker job: ${TASK_DEF[f.k].role==='Cutter'?'Cutting':TASK_DEF[f.k].role}</span></div>
-       ${own?`<div class="seg sm"><button type="button" class="${f.m==='after'?'on':''}" data-fm="${i}" data-v="after" ${ed.findIndex(x=>x.on)===i?'disabled':''}>After</button><button type="button" class="${f.m==='with'?'on':''}" data-fm="${i}" data-v="with" ${ed.findIndex(x=>x.on)===i?'disabled':''}>Together</button></div>
+       <div class="grow"><b>${TASK_DEF[f.k].t}</b><span class="muted" style="font-size:12px">Worker job: ${TASK_DEF[f.k].role==='Cutter'?'Cutting':TASK_DEF[f.k].role}${f.k==='btm'?' · zip orders':f.k==='hinge'?' · hinge orders':f.k==='tat'?' · tatreez orders':''}</span></div>
+       ${own?`<div class="seg sm">${Object.entries(FMODE).filter(([m])=>m!=='send'||(f.k!=='cut'&&f.k!=='sew')).map(([m,t])=>`<button type="button" class="${f.m===m?'on':''}" data-fm="${i}" data-v="${m}" ${first===i?'disabled':''}>${t}</button>`).join('')}</div>
        <label class="tgl" title="${f.k==='sew'?'Tailoring is always on':'On / off'}"><input type="checkbox" data-fo="${i}" ${f.on?'checked':''} ${f.k==='sew'?'disabled':''}><span></span></label>
        <span class="fmv"><button type="button" class="iconbtn" data-up="${i}" aria-label="Move up" ${i?'':'disabled'}>▲</button><button type="button" class="iconbtn" data-dn="${i}" aria-label="Move down" ${i<ed.length-1?'':'disabled'}>▼</button></span>`
-       :`<span class="pill ${f.on?'s-ready':'s-wait'}">${f.on?(f.m==='with'?'Together':'After'):'Off'}</span>`}</li>`).join('')}</ol>
-     <div class="fpath"><span class="muted">Flow:</span> <b>${esc(flowText(ed))}</b></div>
+       :`<span class="pill ${f.on?'s-ready':'s-wait'}">${f.on?FMODE[f.m]:'Off'}</span>`}</li>`).join('')}</ol>
+     <div class="fstep" style="margin-top:8px"><span class="fno num" style="background:var(--ok)">✓</span><div class="grow"><b>Tailor ticks Ready</b><span class="muted" style="font-size:12px">When everything is done the order comes back to the tailor; he ticks Ready → popup for the owner and that branch. Off = ready by itself.</span></div>
+       ${own?`<label class="tgl"><input type="checkbox" id="flowTr" ${tr?'checked':''}><span></span></label>`:`<span class="pill ${tr?'s-ready':'s-wait'}">${tr?'On':'Off'}</span>`}</div>
+     <div class="fpath"><span class="muted">Flow:</span> <b>${esc(flowText(ed,tr))}</b></div>
      ${own?`<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn pri" id="flowSave" ${ch?'':'disabled'}>Save flow for all branches</button><button class="btn" id="flowUndo" ${ch?'':'disabled'}>Cancel changes</button><button class="btn" id="flowDef">Reset to default</button></div>`:'<p class="muted" style="font-size:12px;margin:10px 0 0">Only the owner can change the flow.</p>'}`;
     if(!own)return;
     const mv=(a,b)=>{if(b<0||b>=ed.length||a===b)return;const [x]=ed.splice(a,1);ed.splice(b,0,x);draw()};
@@ -289,16 +294,17 @@ function flowEditorMount(){const box=document.getElementById('flowBox');if(!box)
     box.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>mv(+b.dataset.dn,+b.dataset.dn+1));
     box.querySelectorAll('[data-fm]').forEach(b=>b.onclick=()=>{ed[+b.dataset.fm].m=b.dataset.v;draw()});
     box.querySelectorAll('[data-fo]').forEach(c=>c.onchange=()=>{ed[+c.dataset.fo].on=c.checked;draw()});
-    let from=-1;box.querySelectorAll('.fstep').forEach(li=>{
+    const $=x=>document.getElementById(x);
+    $('flowTr').onchange=e=>{tr=e.target.checked;draw()};
+    let from=-1;box.querySelectorAll('.fstep[data-fi]').forEach(li=>{
       li.ondragstart=e=>{from=+li.dataset.fi;li.classList.add('drag');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',String(from))}catch(_){}};
       li.ondragend=()=>li.classList.remove('drag');
       li.ondragover=e=>{e.preventDefault();box.querySelectorAll('.fstep').forEach(x=>x.classList.toggle('over',x===li))};
       li.ondragleave=()=>li.classList.remove('over');
       li.ondrop=e=>{e.preventDefault();const to=+li.dataset.fi;if(from>=0)mv(from,to);from=-1}});
-    const $=x=>document.getElementById(x);
-    $('flowUndo').onclick=()=>{ed=JSON.parse(JSON.stringify(FLOW));draw()};
-    $('flowDef').onclick=()=>{ed=JSON.parse(JSON.stringify(FLOW_DEFAULT));draw()};
+    $('flowUndo').onclick=()=>{ed=JSON.parse(JSON.stringify(FLOW));tr=FLOW_OPT.tready;draw()};
+    $('flowDef').onclick=()=>{ed=JSON.parse(JSON.stringify(FLOW_DEFAULT));tr=true;draw()};
     $('flowSave').onclick=async()=>{const s=$('flowSave');s.disabled=true;s.textContent='Saving…';
-      try{if(flowSaver)await flowSaver(flowClean(ed));setFlow(ed);toast(`Flow saved: ${flowText(FLOW)}`);ed=JSON.parse(JSON.stringify(FLOW));draw()}
+      try{if(flowSaver)await flowSaver(flowClean(ed),tr);setFlow(ed,{tready:tr});toast('Flow saved for all branches');ed=JSON.parse(JSON.stringify(FLOW));draw()}
       catch(e){toast('Could not save: '+(e.code||e.message));s.disabled=false;s.textContent='Save flow for all branches'}}};
   draw()}

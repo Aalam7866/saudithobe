@@ -25,28 +25,45 @@ const ico=(k,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 /* ================= Reference data ================= */
 const STAGES=[{k:'cut',t:'Cutting',c:'s-cut'},{k:'sew',t:'Tailoring',c:'s-sew'},{k:'ready',t:'Ready for pickup',c:'s-ready'},{k:'done',t:'Delivered',c:'s-done'}];
 /* workshop flow (Settings → Workshop flow, drag to change): the steps in order; "after" = starts when the previous main
-   step is finished, "with" = starts as soon as the previous main step starts (hinge, tatreez); off = not used (ironing).
-   The order is ready for pickup when every main ("after") step it needs is done. */
-const TASK_DEF={cut:{t:'Cutting',role:'Cutter'},sew:{t:'Tailor',role:'Tailor'},hinge:{t:'Hinge',role:'Hinge'},tat:{t:'Tatreez',role:'Tatreez'},iron:{t:'Ironing',role:'Ironing'}};
-const FLOW_DEFAULT=[{k:'cut',m:'after',on:true},{k:'sew',m:'after',on:true},{k:'hinge',m:'with',on:true},{k:'tat',m:'with',on:true},{k:'iron',m:'after',on:false}];
+   step is finished, "with" = starts as soon as the previous main step starts; "send" = after stitching the tailor sends it
+   (hinge, tatreez, bottom cutting for zip); off = not used (ironing). When every step the order needs is done the tailor
+   ticks Ready (FLOW_OPT.tready) – or, with that off, it is ready by itself. */
+const TASK_DEF={cut:{t:'Cutting',role:'Cutter'},sew:{t:'Tailor',role:'Tailor'},hinge:{t:'Hinge',role:'Hinge'},tat:{t:'Tatreez',role:'Tatreez'},btm:{t:'Bottom cutting',role:'Bottom cutting'},iron:{t:'Ironing',role:'Ironing'}};
+const FLOW_DEFAULT=[{k:'cut',m:'after',on:true},{k:'sew',m:'after',on:true},{k:'hinge',m:'send',on:true},{k:'tat',m:'send',on:true},{k:'btm',m:'send',on:true},{k:'iron',m:'after',on:false}];
+const FLOW_OPT={tready:true};
 let FLOW=JSON.parse(JSON.stringify(FLOW_DEFAULT));
-const needs=(o,k)=>k==='hinge'?!!o.hinge:k==='tat'?!!o.tatreez:true;
-const TASKS=[],TK={};const ROLE2TASK={Cutter:'cut',Tailor:'sew',Hinge:'hinge',Tatreez:'tat',Ironing:'iron'};
+const needs=(o,k)=>k==='hinge'?!!o.hinge:k==='tat'?!!o.tatreez:k==='btm'?(+o.zipQty||0)>0:true;
+const tv=(o,k)=>(o.t&&o.t[k])||'wait';
+const isSent=(o,k)=>!!(o.sent&&o.sent[k]);
+const TASKS=[],TK={};const ROLE2TASK={Cutter:'cut',Tailor:'sew',Hinge:'hinge',Tatreez:'tat','Bottom cutting':'btm',Ironing:'iron'};
 const WORKSHOP_ROLES=[],ROLES=[];
 const ironOn=()=>FLOW.some(f=>f.k==='iron'&&f.on);
 function applyFlow(){
   const on=FLOW.filter(f=>f.on);TASKS.length=0;
   on.forEach((f,i)=>{let pm=null;for(let j=i-1;j>=0;j--)if(on[j].m==='after'){pm=on[j].k;break}
-    TASKS.push({k:f.k,...TASK_DEF[f.k],m:f.m,prev:pm,avail:o=>!pm?true:f.m==='with'?o.t[pm]!=='wait':o.t[pm]==='done'})});
+    TASKS.push({k:f.k,...TASK_DEF[f.k],m:f.m,prev:pm,avail:o=>f.m==='send'?(tv(o,f.k)!=='wait'||(tv(o,'sew')==='done'&&isSent(o,f.k))):!pm?true:f.m==='with'?tv(o,pm)!=='wait':tv(o,pm)==='done'})});
   Object.keys(TK).forEach(k=>delete TK[k]);TASKS.forEach(t=>TK[t.k]=t);
   const used=r=>{const k=ROLE2TASK[r];return !k||on.some(f=>f.k===k)};
-  WORKSHOP_ROLES.length=0;WORKSHOP_ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Ironing'].filter(used));
-  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Ironing','Cashier','Branch manager','Factory supervisor'].filter(used));
+  WORKSHOP_ROLES.length=0;WORKSHOP_ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing'].filter(used));
+  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Cashier','Branch manager','Factory supervisor'].filter(used));
 }
 applyFlow();
-function syncSt(o){if(o.st==='done')return;const mains=TASKS.filter(t=>t.m==='after'&&needs(o,t.k));
-  o.st=mains.length&&mains.every(t=>o.t[t.k]==='done')?'ready':(mains[0]&&o.t[mains[0].k]==='done')?'sew':'cut'}
-const pending=(o,k)=>o.st!=='done'&&!!TK[k]&&TK[k].avail(o)&&o.t[k]!=='done'&&needs(o,k);
+/* all the steps this order needs are done (main steps + the ones the tailor sends) */
+const allStepsDone=o=>TASKS.filter(t=>t.m!=='with'&&needs(o,t.k)).every(t=>tv(o,t.k)==='done')&&TASKS.filter(t=>t.m==='with'&&needs(o,t.k)).every(t=>tv(o,t.k)==='done');
+/* stitched, now with the tailor: send for hinge / tatreez / bottom cutting, then tick Ready */
+const atTailor=o=>o.st!=='done'&&o.st!=='ready'&&tv(o,'sew')==='done'&&!!TK.sew;
+const toSend=o=>TASKS.filter(t=>t.m==='send'&&needs(o,t.k)&&tv(o,t.k)==='wait'&&!isSent(o,t.k));
+function syncSt(o){if(o.st==='done'||o.st==='ready')return;const mains=TASKS.filter(t=>t.m==='after'&&needs(o,t.k));
+  // hold = the website's tailor will tick Ready (the shop exe then never marks it ready by itself)
+  const tr=FLOW_OPT.tready&&!!TK.sew;o.hold=tr&&tv(o,'sew')==='done';
+  if(mains.length&&allStepsDone(o)&&!tr){o.st='ready';o.hold=false;return}
+  o.st=(mains[0]&&tv(o,mains[0].k)==='done')||tv(o,'sew')==='done'?'sew':'cut'}
+/* the tailor: send this order to hinge / tatreez / bottom cutting */
+function sendTask(o,k){o.sent={...(o.sent||{}),[k]:true};if(!o.tw[k]){const w=firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}toast(`#${o.rno}: sent for ${TK[k].t.toLowerCase()}`)}
+/* the tailor: everything is done, the order is ready for pickup → popup for the owner and that branch */
+function markReady(o){if(!allStepsDone(o)){toast('Not finished yet: '+TASKS.filter(t=>needs(o,t.k)&&tv(o,t.k)!=='done').map(t=>t.t).join(', '));return}
+  o.st='ready';o.hold=false;toast(`#${o.rno} ready for pickup · owner and ${bname(o.branch)} notified`);notifyReady(o)}
+const pending=(o,k)=>o.st!=='done'&&!!TK[k]&&TK[k].avail(o)&&tv(o,k)!=='done'&&needs(o,k);
 const SI=Object.fromEntries(STAGES.map((s,i)=>[s.k,i]));
 const FABRICS=['Toyobo (Japan)','Shakespeare (UK)','Loriana','Korean summer','Daniel Hechter','Egyptian cotton'];
 /* the shop's fabric stock and embroidery list (live: sent by the AL THOB exe) – the order page works like the exe's order window */
@@ -149,9 +166,11 @@ orders.forEach(o=>{const D='done',W='wait',G='doing';const x=o.ost;o.tatreez=!!o
   o.t=x==='new'?{cut:W,sew:W,hinge:W,tat:W,iron:W}:x==='cut'?{cut:G,sew:W,hinge:W,tat:W,iron:W}:x==='sew'?{cut:D,sew:r3()<.3?W:G,hinge:r3()<.5?D:G,tat:r3()<.4?D:G,iron:W}:x==='iron'?{cut:D,sew:G,hinge:D,tat:r3()<.6?D:G,iron:W}:{cut:D,sew:D,hinge:D,tat:D,iron:x==='ready'&&r3()<.4?W:D};
   if(o.t.sew===W){o.t.hinge=W;o.t.tat=W}
   o.tw={cut:o.t.cut!==W?(firstOf('Cutter',o.made)||{}).id:null,hinge:o.t.hinge!==W?(firstOf('Hinge',o.made)||{}).id:null,tat:o.t.tat!==W?(firstOf('Tatreez',o.made)||{}).id:null,iron:o.t.iron!==W?(firstOf('Ironing',o.made)||{}).id:null};
-  if(x!=='done')o.st='cut';syncSt(o);delete o.ost});
+  o.t.btm=W;o.sent={};if(r3()<.25){o.zipQty=o.qty}
+  if(o.t.sew===D){['hinge','tat'].forEach(k=>{if(o.t[k]!==W)o.sent[k]=true});if(o.zipQty&&x!=='sew'){o.t.btm=D;o.sent.btm=true}}
+  if(x!=='done'&&x!=='ready')o.st='cut';syncSt(o);delete o.ost});
 const notices=[];
-function notifyReady(o,silent){const n={id:notices.length+1,rno:o.rno,branch:o.branch,made:o.made,tailor:o.tailor,qty:o.qty,at:new Date(),seen:{},open:['hinge','tat'].filter(k=>pending(o,k)).map(k=>TK[k].t)};notices.push(n);if(!silent)showPopups()}
+function notifyReady(o,silent){const n={id:notices.length+1,rno:o.rno,branch:o.branch,made:o.made,tailor:o.tailor,qty:o.qty,at:new Date(),seen:{},open:TASKS.filter(t=>t.k!=='sew'&&t.k!=='cut'&&needs(o,t.k)&&tv(o,t.k)!=='done').map(t=>t.t)};notices.push(n);if(!silent)showPopups()}
 orders.filter(o=>o.st==='ready').slice(0,2).forEach(o=>notifyReady(o,true));
 const payLog=[];orders.forEach(o=>{if(+o.created>=+addD(today,-13)&&o.paid)payLog.push({d:new Date(o.created),rno:o.rno,branch:o.branch,amt:o.paid,m:rnd()>.5?'Card (mada)':'Cash',t:'Deposit'})});
 [[1,380,'Cash'],[1,520,'Card (mada)'],[2,260,'Cash'],[1,190,'Transfer'],[3,440,'Card (mada)']].forEach(([b,a,m],i)=>payLog.push({d:today,rno:1240+i*7,branch:b,amt:a,m,t:'Balance'}));
@@ -188,13 +207,13 @@ for(let k=0;k<14;k++){const d=addD(today,-k);if(d.getDay()===5)continue;
     if(w.role==='Tatreez')prodLog.push({d,w:w.id,made:w.branch,stage:'tat',qty:(k===0?1:f?4:2)+Math.floor(r2()*4)});});}
 function stepTask(o,k,by){const cur=o.t[k];if(cur==='done')return;
   if(k!=='sew'&&!o.tw[k]){const w=by&&by.role===TK[k].role?by:firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}
-  if(cur==='wait'){o.t[k]='doing';toast(`#${o.rno}: ${TK[k].t} started${k==='sew'&&(o.hinge||o.tatreez)?' · now showing in '+[o.hinge?'Hinge':'',o.tatreez?'Tatreez':''].filter(Boolean).join(' and '):''}`)}
+  if(tv(o,k)==='wait'){o.t[k]='doing';toast(`#${o.rno}: ${TK[k].t} started`)}
   else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});
     if(k==='sew'){const t=wk(o.tailor);t.mdone=(t.mdone||0)+o.qty}
-    toast(`#${o.rno}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?' · owner and '+bname(o.branch)+' manager notified':''}`)}
+    toast(`#${o.rno}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):TK[k].m==='send'?' · back to the tailor':''}`)}
   const before=o.st;syncSt(o);if(before!=='ready'&&o.st==='ready')notifyReady(o)}
-const taskBtn=(o,k)=>o.t[k]==='wait'?`Start ${TK[k].t.toLowerCase()}`:`Finish ${TK[k].t.toLowerCase()}`;
-const taskPill=(o,k)=>{const v=o.t[k];if((k==='tat'&&!o.tatreez)||(k==='hinge'&&!o.hinge))return '<span class="pill s-done">Not needed</span>';if(v==='done')return '<span class="pill s-ready">Done</span>';if(v==='doing')return '<span class="pill s-cut">In progress</span>';return TK[k].avail(o)?'<span class="pill s-new">Waiting</span>':'<span class="pill s-done">Not yet</span>'};
+const taskBtn=(o,k)=>tv(o,k)==='wait'?`Start ${TK[k].t.toLowerCase()}`:`Finish ${TK[k].t.toLowerCase()}`;
+const taskPill=(o,k)=>{const v=tv(o,k);if(!needs(o,k))return '<span class="pill s-done">Not needed</span>';if(v==='done')return '<span class="pill s-ready">Done</span>';if(v==='doing')return '<span class="pill s-cut">In progress</span>';return TK[k].avail(o)?'<span class="pill s-new">Waiting</span>':'<span class="pill s-done">Not yet</span>'};
 const canTask=()=>ROLE==='tailor';
 const canAssign=()=>RA().stage;
 
@@ -604,7 +623,7 @@ function newOrder(){
     const method=$('fMethod').value;
     if(m.paid>0)payLog.push({d:today,rno:nextR,branch:+$('fBranch').value,amt:m.paid,m:webCat(method),pm:method,ref:$('fRef').value.trim(),t:'Deposit',by:USER.name||''});
     const o={rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty:m.pcs,price:m.pcs?Math.round(m.total/m.pcs*100)/100:0,total:m.total,paid:m.paid,
-      created:new Date(bk+'T00:00:00'),due:new Date(dv+'T00:00:00'),st:'cut',t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},
+      created:new Date(bk+'T00:00:00'),due:new Date(dv+'T00:00:00'),st:'cut',t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',btm:'wait',iron:'wait'},tw:{},sent:{},
       tatreez:emb.length>0,hinge:hq>0,hingeQty:hq,zipQty:zq,sample:$('fSample').checked,gift:$('fGift').checked,
       lines:lines.map(l=>({src:l.src,code:l.code||0,item:String(l.item).trim(),qty:+l.qty,rate:+l.rate})),emb:emb.map(e=>({code:e.code,item:e.item,fab:e.fab,qty:+e.qty,rate:+e.rate})),
       gross:m.gross,disc:m.disc,vat:m.vat,pm:method,ref:$('fRef').value.trim(),meas,
@@ -1034,7 +1053,7 @@ function daily(){
      const month=w.role==='Tailor'?st.doneQ:prodLog.filter(p=>p.w===w.id&&p.d.getMonth()===D.getMonth()).reduce((s,p)=>s+p.qty,0);
      const earnToday=w.role!=='Tailor'?null:w.pay==='piece'?q*w.rate:w.pay==='target'?(month>=w.target?Math.min(q,month-w.target)*w.comm:0):null;
      return `<tr><td><b>${w.name}</b></td><td>${bTag(w.branch)} ${bname(w.branch)}</td><td>${w.role}</td><td>${isFri?'<span class="pill s-done">Friday</span>':a==='a'?'<span class="pill s-late">Absent</span>':w.status==='leave'?'<span class="pill s-cut">Leave</span>':'<span class="pill s-ready">Present</span>'}</td>
-      <td class="num"><b>${q}</b> ${{Tailor:'stitched',Cutter:'cut',Ironing:'ironed',Hinge:'hinge',Tatreez:'tatreez'}[w.role]}</td><td class="num">${month}</td>
+      <td class="num"><b>${q}</b> ${{Tailor:'stitched',Cutter:'cut',Ironing:'ironed',Hinge:'hinge',Tatreez:'tatreez','Bottom cutting':'bottom cut'}[w.role]}</td><td class="num">${month}</td>
       <td>${w.role==='Tailor'&&w.pay==='target'?`<div style="display:flex;gap:8px;align-items:center"><div class="load" style="width:70px"><i style="width:${Math.min(100,month/w.target*100)}%;${month>=w.target?'background:var(--ok)':''}"></i></div><span class="num" style="font-size:12px">${month}/${w.target}</span></div>`:'<span class="muted">—</span>'}</td>
       ${money?`<td class="num">${earnToday===null?'<span class="muted">salary</span>':sar(earnToday)}</td>`:''}</tr>`}).join('')||'<tr><td colspan="8" class="muted">No workshop staff here.</td></tr>'}</tbody></table></div></div>`);
   document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{repDay=+b.dataset.day;daily()});
@@ -1079,7 +1098,12 @@ function till(){
 const ME=()=>workers.find(w=>w.name===USER.name)||workers.find(w=>w.role==='Tailor'&&w.branch===USER.branch)||workers.find(w=>w.role==='Tailor');
 function mmLine(o){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return MEAS.filter(([k])=>mVal(p.m,k)!=='').slice(0,4).map(([k,t])=>`<span dir="rtl">${esc(t)}</span> ${esc(mVal(p.m,k))}`).join(' ')||'<span>No measurement yet</span>'}
 function myJobs(w){const k=ROLE2TASK[w.role];if(!k)return[];
-  return orders.filter(o=>pending(o,k)&&(k==='sew'?o.tailor===w.id:(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).sort((a,b)=>a.due-b.due)}
+  return orders.filter(o=>(pending(o,k)||(k==='sew'&&atTailor(o)))&&(k==='sew'?o.tailor===w.id:(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).sort((a,b)=>a.due-b.due)}
+/* tailor's card after stitching: send for hinge / tatreez / bottom cutting, see where it is, then Ready */
+function tailorBack(o){const ts=TASKS.filter(t=>t.m==='send'&&needs(o,t.k));
+  const parts=ts.map(t=>{const v=tv(o,t.k);return v==='done'?`<span class="pill s-ready">${t.t} done</span>`:v==='doing'?`<span class="pill s-cut">At ${t.t.toLowerCase()}</span>`:isSent(o,t.k)?`<span class="pill s-wait">Sent for ${t.t.toLowerCase()}</span>`:`<button class="btn pri" data-send="${o.rno}" data-k="${t.k}">Send for ${t.t.toLowerCase()}</button>`});
+  const done=allStepsDone(o);
+  return parts.join('')+(FLOW_OPT.tready?`<button class="btn ${done?'pri':''}" data-rdy="${o.rno}" ${done?'':'disabled title="Waiting for the other steps"'} style="${done?'background:var(--ok);border-color:var(--ok)':''}">✓ Ready</button>`:'')}
 function mywork(){
   const w=ROLE==='tailor'?ME():(workers.find(x=>x.role==='Tailor'&&x.branch===(curBranch||4))||ME());
   const k=ROLE2TASK[w.role]||'sew';const s=wStats(w);const jobs=myJobs(w);
@@ -1091,11 +1115,13 @@ function mywork(){
   ${w.pay==='target'&&k==='sew'?`<div class="panel"><div class="panel-b">${targetBar(w,s)}</div></div>`:''}
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
-    <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${BRANCHES.find(b=>b.id===o.branch).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${o.note?' · '+esc(o.note):''}</div></div>${taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
+    <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${BRANCHES.find(b=>b.id===o.branch).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
     <details class="jmore" data-js="${o.rno}"><summary class="btn sm">Measurements & style</summary>${jHas(o.meas)||jHas(p.m)?`<div class="jwrap jro" style="margin-top:10px"></div>${jStylesHtml(jHas(o.meas)?o.meas:p.m)}`:''}<div class="jb"${jHas(o.meas)||jHas(p.m)?' hidden':''}><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
-    <div class="jf"><button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button><button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
+    <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
+  document.querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.send);sendTask(o,b.dataset.k);route()});
+  document.querySelectorAll('[data-rdy]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.rdy);markReady(o);route()});
   // the order's JAMEEL sheet (read only), drawn when the card's button is opened
   document.querySelectorAll('details[data-js]').forEach(d=>d.addEventListener('toggle',()=>{if(!d.open)return;const h=d.querySelector('.jro');if(!h||h.dataset.done)return;h.dataset.done=1;
     const o=orders.find(x=>x.rno===+d.dataset.js);const p0=cust(o.cid).profiles[0]||{m:{}};jSheet(h,JSON.parse(JSON.stringify(jHas(o.meas)?o.meas:p0.m)),{ro:true})}));
@@ -1105,7 +1131,7 @@ function mywork(){
 /* ================= Worker: my work & pay (by month / by date) ================= */
 const ymKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 const ymName=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'})};
-const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',iron:'Ironing'};
+const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',btm:'Bottom cutting',iron:'Ironing'};
 /* one worker's month: his work entries, pay (per thobe / salary / basic + target + commission) and deductions */
 function monthPay(w,ym){
   const ent=prodLog.filter(p=>p.w===w.id&&ymKey(p.d)===ym).sort((a,b)=>b.d-a.d);
@@ -1180,13 +1206,15 @@ function board(){
   const fid=curBranch;const inScope=o=>!fid||o.made===fid||o.branch===fid;
   const list=orders.filter(o=>inScope(o)&&o.st!=='done');
   const ready=list.filter(o=>o.st==='ready');
-  V(`<div class="msg" style="border-color:var(--brass)">Every new order from any branch lands in <b>Cutting</b>. When cutting is finished it moves to the <b>Tailor</b>. The moment the tailor starts, it also shows in <b>Hinge</b> and <b>Tatreez</b> (only orders ticked for them), so they work at the same time. When the tailor finishes, the owner and that branch's manager get a <b>Ready</b> popup.</div>
+  V(`<div class="msg" style="border-color:var(--brass)">Every new order from any branch lands in <b>Cutting</b>. When cutting is finished it moves to the <b>Tailor</b>. When the tailor finishes stitching he sends it for <b>Hinge</b>, <b>Tatreez</b> or <b>Bottom cutting</b> (zip) when the order needs them. When those are done it comes back to him and he ticks <b>Ready</b>; then the owner and that branch get a popup. Change the steps in Settings → Workshop flow.</div>
   <div class="rowtools"><span class="muted" style="font-size:13px">${fid?bname(fid):'All workshops'} · ${list.filter(o=>o.st!=='ready').reduce((s,o)=>s+o.qty,0)} thobes in production · ${ready.reduce((s,o)=>s+o.qty,0)} ready</span></div>
-  <div class="board" style="grid-template-columns:repeat(${TASKS.length},minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
+  <div class="board" style="grid-template-columns:repeat(${TASKS.length+(FLOW_OPT.tready?1:0)},minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
    ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${BRANCHES.find(b=>b.id===o.branch).code}</span></span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?wk(wid).name:'Not assigned'} · due ${fmtD(o.due)}</div>
     ${t.k==='sew'||t.k==='cut'?`<div class="mm">${mmLine(o,['tool','sadr','kom','raqba'])}</div>`:''}
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}</div>`);
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">#${o.rno}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
+    <b style="font-size:13px">${pl(o.qty,'thobe')} · ${esc(o.fabric||'')}</b><div class="m">${esc(wk(o.tailor).name)} · due ${fmtD(o.due)}</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${TASKS.filter(t=>t.m==='send'&&needs(o,t.k)).map(t=>{const v=tv(o,t.k);return `<span class="pill ${v==='done'?'s-ready':v==='doing'||isSent(o,t.k)?'s-cut':'s-wait'}">${t.t}: ${v==='done'?'done':v==='doing'?'working':isSent(o,t.k)?'sent':'not sent'}</span>`}).join('')}${allStepsDone(o)?'<span class="pill s-ready">Waiting for tailor\'s Ready</span>':''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`})():''}</div>`);
   document.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.mv);stepTask(o,b.dataset.k);route()});
   bindRows();
 }
