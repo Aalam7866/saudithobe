@@ -37,6 +37,10 @@ service cloud.firestore {
       allow read: if active();
       allow write: if isOwner();
     }
+    match /meta/flow {
+      allow read: if active();
+      allow write: if isOwner();
+    }
 
     // ---------------- logins
     match /uids/{uid} {

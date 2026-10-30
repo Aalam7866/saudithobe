@@ -179,6 +179,9 @@ function startListeners(){
   else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
   else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
+  // workshop flow (Settings → Workshop flow): one for all branches
+  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{if(x.exists()&&Array.isArray(x.data().steps)){const before=JSON.stringify(FLOW);setFlow(x.data().steps);if(JSON.stringify(FLOW)!==before)rerender()}},()=>{}));
+  flowSaver=steps=>fb.setDoc(fb.doc(db,'meta','flow'),{steps,at:new Date(),by:USER.name||'Owner'});
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
 }
@@ -191,6 +194,7 @@ function ensurePayRange(from){
   payFrom=f;const {collection,query,where}=fb;
   sub('payments',query(collection(db,'payments'),where('d','>=',f)));
   sub('deliveries',query(collection(db,'deliveries'),where('d','>=',f)));
+  if(!(ROLE==='tailor'&&USER.job!=='Factory supervisor'))sub('prod',query(collection(db,'prod'),where('d','>=',f)));
 }
 
 /* ---------- sign in ---------- */
