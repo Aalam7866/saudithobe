@@ -431,8 +431,23 @@ function oInfo(o){
   const hq=+o.hingeQty||(o.hinge?pcs:0),hd=Math.min(hq,Math.max(ps('hinge'),o.t.hinge==='done'?hq:0));
   const due=Math.round((o.total-o.paid)*100)/100;
   const status=dq>=pcs&&pcs>0?'Delivered':dq>0?'Partly delivered':o.st==='ready'?'Ready':o.due<today?'Late':sew>=pcs&&pcs>0?'Stitched':sew>0||cut>0||o.t.cut!=='wait'?'In progress':'Pending';
-  return{dq,cut,sew,hq,hd,due,status};
+  return{dq,cut,sew,hq,hd,due,status,where:oWhere(o,pcs,dq,cut,sew)};
 }
+/* where the order is now, in short (Orders → Status) */
+const SHORT={hinge:'hinge',tat:'tatreez',btm:'bottom cut',iron:'ironing'};
+function oWhere(o,pcs,dq,cut,sew){
+  if(dq>=pcs&&pcs>0)return 'Delivered';if(dq>0)return `Delivered ${dq}/${pcs}`;if(o.st==='ready')return 'Ready';
+  const T=k=>tv(o,k);
+  if(T('sew')==='done'||(sew>=pcs&&pcs>0)){const ts=TASKS.filter(t=>t.k!=='cut'&&t.k!=='sew'&&needs(o,t.k));
+    const at=ts.filter(t=>T(t.k)==='doing');if(at.length)return 'At '+at.map(t=>SHORT[t.k]||t.t).join(' + ');
+    const sent=ts.filter(t=>T(t.k)==='wait'&&isSent(o,t.k));if(sent.length)return 'Sent '+sent.map(t=>SHORT[t.k]||t.t).join(' + ');
+    if(ts.every(t=>T(t.k)==='done'))return ts.length?'Back to tailor':'Stitched';
+    const done=ts.filter(t=>T(t.k)==='done');return done.length?done.map(t=>(SHORT[t.k]||t.t)).join(' + ')+' done':'Stitched'}
+  if(T('sew')==='doing'||sew>0)return sew>0&&sew<pcs?`Stitching ${sew}/${pcs}`:'Stitching';
+  if(T('cut')==='done'||(cut>=pcs&&pcs>0))return 'Cut done';
+  if(T('cut')==='doing'||cut>0)return cut>0&&cut<pcs?`Cutting ${cut}/${pcs}`:'Cutting';
+  return 'Not cut'}
+const WHERE_C=w=>/^Delivered \d/.test(w)?'s-info':w==='Delivered'?'s-done':w==='Ready'||w==='Back to tailor'?'s-ready':w==='Not cut'?'s-wait':w==='Stitched'||/done$/.test(w)?'s-info':'s-cut';
 const OSTAT_C={Delivered:'s-done','Partly delivered':'s-info',Ready:'s-ready',Late:'s-late',Stitched:'s-ready','In progress':'s-cut',Pending:'s-wait'};
 let oSort={k:'rno',d:-1};
 function ordersView(){
@@ -469,7 +484,7 @@ function ordersView(){
       <td class="num">${esc(c.phone)}</td>
       <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
       ${money?`<td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num ${x.due>0.5?'tbad':'tok'}">${x.due>0.5?sar(x.due):'—'}</td>`:''}
-      <td><span class="pill ${OSTAT_C[x.status]||''}">${x.status}</span></td>
+      <td><span class="pill ${WHERE_C(x.where)}" title="${esc(x.status)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}</td>
       <td>${bar(x.cut,o.qty)}</td><td>${bar(x.sew,o.qty)}</td><td>${x.hq?bar(x.hd,x.hq):'<span class="muted">—</span>'}</td>
       <td>${o.st==='ready'||o.st==='done'?'<span class="tick">✓</span>':''}</td><td class="r num">${x.dq?x.dq:'<span class="muted">0</span>'}</td>
       ${money?`<td>${o.pm?esc(o.pm):'<span class="muted">—</span>'}</td>`:''}<td>${o.tailor&&wk(o.tailor).id?esc(wk(o.tailor).name):'<span class="muted">—</span>'}</td>
@@ -1574,7 +1589,7 @@ const stageT=k=>(TASK_DEF[k]||{t:k}).t;
 function orderListDrawer(title,list,money){
   const close=drawer(title,`<div class="muted" style="font-size:13px">${pl(list.length,'order')} · ${sumBy(list,o=>o.qty)} pcs${money?` · total ${sar(sumBy(list,o=>o.total))} SAR · due ${sar(sumBy(list,o=>o.total-o.paid))} SAR`:''}</div>`,
    xTable([{t:'Order',f:o=>`<b class="num">#${o.rno}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Booked',f:o=>fmtD(o.created)},{t:'Delivery',f:o=>`<span class="${late(o)?'tbad':''}">${fmtD(o.due)}</span>`},{t:'Pcs',r:1,f:o=>o.qty},
-     ...(money?[{t:'Total',r:1,f:o=>sar2(o.total)},{t:'Due',r:1,f:o=>sar2(o.total-o.paid)}]:[]),{t:'Status',f:o=>{const s=oInfo(o).status;return `<span class="pill ${OSTAT_C[s]}">${s}</span>`}}],
+     ...(money?[{t:'Total',r:1,f:o=>sar2(o.total)},{t:'Due',r:1,f:o=>sar2(o.total-o.paid)}]:[]),{t:'Status',f:o=>{const x=oInfo(o);return `<span class="pill ${WHERE_C(x.where)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}`}}],
      list.slice(0,500),{attr:o=>`data-lr="${o.rno}"`,h:'calc(100vh - 220px)',empty:'No orders.'}),'');
   document.querySelectorAll('[data-lr]').forEach(r=>r.onclick=()=>{close();openOrder(+r.dataset.lr)});
 }

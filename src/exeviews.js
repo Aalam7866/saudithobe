@@ -64,7 +64,7 @@ const stageT=k=>(TASK_DEF[k]||{t:k}).t;
 function orderListDrawer(title,list,money){
   const close=drawer(title,`<div class="muted" style="font-size:13px">${pl(list.length,'order')} · ${sumBy(list,o=>o.qty)} pcs${money?` · total ${sar(sumBy(list,o=>o.total))} SAR · due ${sar(sumBy(list,o=>o.total-o.paid))} SAR`:''}</div>`,
    xTable([{t:'Order',f:o=>`<b class="num">#${o.rno}</b>`},{t:'Customer',f:o=>esc(cust(o.cid).name)},{t:'Booked',f:o=>fmtD(o.created)},{t:'Delivery',f:o=>`<span class="${late(o)?'tbad':''}">${fmtD(o.due)}</span>`},{t:'Pcs',r:1,f:o=>o.qty},
-     ...(money?[{t:'Total',r:1,f:o=>sar2(o.total)},{t:'Due',r:1,f:o=>sar2(o.total-o.paid)}]:[]),{t:'Status',f:o=>{const s=oInfo(o).status;return `<span class="pill ${OSTAT_C[s]}">${s}</span>`}}],
+     ...(money?[{t:'Total',r:1,f:o=>sar2(o.total)},{t:'Due',r:1,f:o=>sar2(o.total-o.paid)}]:[]),{t:'Status',f:o=>{const x=oInfo(o);return `<span class="pill ${WHERE_C(x.where)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}`}}],
      list.slice(0,500),{attr:o=>`data-lr="${o.rno}"`,h:'calc(100vh - 220px)',empty:'No orders.'}),'');
   document.querySelectorAll('[data-lr]').forEach(r=>r.onclick=()=>{close();openOrder(+r.dataset.lr)});
 }
