@@ -387,7 +387,7 @@ function lineChart(data){
 
 /* ================= Orders ================= */
 /* Orders: the same columns and filters as the AL THOB exe's Orders page (+ tailor, fabric, made at, branch at the end) */
-const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due amount'],['ready','Ready (not delivered)'],['done','Delivered'],['late','Late'],['gift','Free gifts']];
+const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due'],['ready','Ready'],['done','Delivered'],['late','Late'],['gift','Free gifts']];
 function oInfo(o){
   const pcs=+o.qty||0,dq=o.st==='done'?pcs:Math.min(pcs,delLog.filter(d=>d.rno===o.rno).reduce((s,d)=>s+(+d.qty||0),0));
   const ps=k=>prodLog.filter(p=>p.rno===o.rno&&p.stage===k).reduce((s,p)=>s+(+p.qty||0),0);
@@ -397,32 +397,60 @@ function oInfo(o){
   const status=dq>=pcs&&pcs>0?'Delivered':dq>0?'Partly delivered':o.st==='ready'?'Ready':o.due<today?'Late':sew>=pcs&&pcs>0?'Stitched':sew>0||cut>0||o.t.cut!=='wait'?'In progress':'Pending';
   return{dq,cut,sew,hq,hd,due,status};
 }
-const OSTAT_C={Delivered:'s-done','Partly delivered':'s-sew',Ready:'s-ready',Late:'s-late',Stitched:'s-ready','In progress':'s-cut',Pending:''};
+const OSTAT_C={Delivered:'s-done','Partly delivered':'s-info',Ready:'s-ready',Late:'s-late',Stitched:'s-ready','In progress':'s-cut',Pending:'s-wait'};
+let oSort={k:'rno',d:-1};
 function ordersView(){
-  const q=document.getElementById('q').value.trim().toLowerCase();const all=O().slice().sort((a,b)=>b.rno-a.rno);const money=RA().money;
-  const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
+  const q=document.getElementById('q').value.trim().toLowerCase();const money=RA().money;
+  const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
   const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='gift'?!!o.gift:true};
   const hit=o=>{if(!q)return true;const c=cust(o.cid);return String(o.rno)===q||String(o.invoiceNo||'')===q||String(o.cid)===q||String(o.exeNo||'')===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
   if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
-  const fl=all.filter(o=>pass(o,orderFilter)&&hit(o));
-  const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
-  V(`<div class="rowtools" style="flex-wrap:wrap;gap:10px;align-items:center">
-    <label class="muted" for="oFilt" style="font-size:13px">Show:</label><select id="oFilt" class="btn sm" style="padding:6px 10px">${OFILTERS.map(([k,t])=>`<option value="${k}" ${k===orderFilter?'selected':''}>${t} (${all.filter(o=>pass(o,k)).length})</option>`).join('')}</select>
-    <span class="muted" style="font-size:13px">${pl(fl.length,'order')} · search above: name, mobile, order, invoice or customer no.</span></div>
-  <div class="panel"><div class="tbl-wrap otbl"><table>
-   <thead><tr><th>Order No</th><th>Invoice</th><th>Cust No</th><th>Customer</th><th>Mobile</th><th>Booked</th><th>Delivery</th><th>Pcs</th>${money?'<th>Total</th><th>Paid</th><th>Due</th>':''}<th>Status</th><th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th>Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
-   <tbody>${fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return `<tr class="click" data-r="${o.rno}">
-    <td><span class="rid">#${o.rno}</span>${o.exeNo&&o.exeNo!==o.rno?`<span class="muted num" style="display:block;font-size:11px">shop ${o.exeNo}</span>`:''}</td>
-    <td class="num">${o.gift?'<span class="tag">Gift</span>':o.invoiceNo||'—'}</td><td class="num">${o.cid}</td>
-    <td class="who" style="white-space:nowrap"><b dir="auto">${esc(c.name)}</b></td><td class="num" style="white-space:nowrap">${esc(c.phone)}</td>
-    <td class="num" style="white-space:nowrap">${D(o.created)}</td><td class="num" style="white-space:nowrap">${D(o.due)}</td><td class="num">${o.qty}</td>
-    ${money?`<td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td><td class="num" style="color:${x.due>0.5?'var(--bad)':'var(--ok)'};font-weight:600">${x.due>0.5?sar(x.due):'0'}</td>`:''}
-    <td style="white-space:nowrap"><span class="pill ${OSTAT_C[x.status]||''}">${x.status}</span></td>
-    <td class="num">${x.cut}</td><td class="num">${x.sew}</td><td class="num">${x.hq?`${x.hd} / ${x.hq}`:''}</td><td>${o.st==='ready'||o.st==='done'?'Yes':''}</td><td class="num">${x.dq}</td>
-    ${money?`<td>${esc(o.pm||'')}</td>`:''}<td style="white-space:nowrap">${o.tailor?esc(wk(o.tailor).name):'—'}</td>
-    <td dir="auto" style="white-space:nowrap">${esc(o.fabric||'')}</td><td style="white-space:nowrap">${isFac(o.made)?bTag(o.made)+' Factory':'Shop'}</td><td style="white-space:nowrap">${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody>
-  </table>${fl.length?'':'<div class="empty">No orders match this filter.</div>'}</div></div>`);
-  document.getElementById('oFilt').onchange=e=>{orderFilter=e.target.value;ordersView()};
+  const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
+  const fl=all.filter(o=>pass(o,orderFilter)&&hit(o)).sort((a,b)=>{const A=val(a,oSort.k),B=val(b,oSort.k);return (A<B?-1:A>B?1:0)*oSort.d||b.rno-a.rno});
+  const sum=f=>fl.reduce((s,o)=>s+f(o),0);
+  const T={n:fl.length,pcs:sum(o=>o.qty),tot:sum(o=>o.total),paid:sum(o=>o.paid),due:sum(o=>Math.max(0,info.get(o.rno).due)),late:fl.filter(o=>info.get(o.rno).status==='Late').length,ready:fl.filter(o=>o.st==='ready').length};
+  const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});
+  const th=(k,t,cls='')=>`<th class="${cls}${k?' sortable':''}" ${k?`data-sort="${k}" aria-sort="${oSort.k===k?(oSort.d>0?'ascending':'descending'):'none'}"`:''}>${t}${k&&oSort.k===k?`<span class="sarr">${oSort.d>0?'▲':'▼'}</span>`:''}</th>`;
+  const bar=(a,b)=>`<div class="mbar" title="${a} of ${b}"><span class="num">${a}<em>/${b}</em></span><i><b style="width:${b?Math.min(100,a/b*100):0}%;${a>=b&&b?'background:var(--ok)':''}"></b></i></div>`;
+  V(`<div class="okpi">
+     <div><span>Orders</span><b class="num">${T.n}</b><em>${pl(T.pcs,'piece')}</em></div>
+     ${money?`<div><span>Order value</span><b class="num">${sar(T.tot)}<small>SAR</small></b><em>Paid ${sar(T.paid)}</em></div>
+     <div class="bad"><span>Due from customers</span><b class="num">${sar(T.due)}<small>SAR</small></b><em>${fl.filter(o=>info.get(o.rno).due>0.5).length} orders with balance</em></div>`:''}
+     <div class="${T.late?'bad':''}"><span>Late</span><b class="num">${T.late}</b><em>Past delivery date</em></div>
+     <div class="okc"><span>Ready for pickup</span><b class="num">${T.ready}</b><em>Waiting for the customer</em></div></div>
+   <div class="panel opanel">
+    <div class="otools">
+     <div class="seg" role="tablist">${OFILTERS.map(([k,t])=>`<button role="tab" aria-selected="${k===orderFilter}" class="${k===orderFilter?'on':''}" data-of="${k}">${t}<span class="num">${all.filter(o=>pass(o,k)).length}</span></button>`).join('')}</div>
+     <span class="sp"></span>
+     <button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
+    </div>
+    <div class="tbl-wrap otbl"><table class="ot">
+     <thead><tr>${th('rno','Order No','stk s1')}${th('cust','Customer','stk s2')}${th('inv','Invoice','r')}<th class="r">Cust No</th><th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
+      ${money?th('total','Total','r')+th('paid','Paid','r')+th('bal','Due','r'):''}${th('status','Status')}<th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th class="r">Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
+     <tbody>${fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno),lateD=x.dq<o.qty&&o.due<today;return `<tr class="click" data-r="${o.rno}" tabindex="0">
+      <td class="stk s1"><span class="rid">#${o.rno}</span>${o.exeNo&&o.exeNo!==o.rno?`<small class="sub">shop ${o.exeNo}</small>`:''}</td>
+      <td class="stk s2"><b dir="auto" class="cn">${esc(c.name)}</b></td>
+      <td class="r num">${o.gift?'<span class="tag">Gift</span>':o.invoiceNo||'<span class="muted">—</span>'}</td><td class="r num muted">${o.cid}</td><td class="num">${esc(c.phone)}</td>
+      <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
+      ${money?`<td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num ${x.due>0.5?'tbad':'tok'}">${x.due>0.5?sar(x.due):'—'}</td>`:''}
+      <td><span class="pill ${OSTAT_C[x.status]||''}">${x.status}</span></td>
+      <td>${bar(x.cut,o.qty)}</td><td>${bar(x.sew,o.qty)}</td><td>${x.hq?bar(x.hd,x.hq):'<span class="muted">—</span>'}</td>
+      <td>${o.st==='ready'||o.st==='done'?'<span class="tick">✓</span>':''}</td><td class="r num">${x.dq?x.dq:'<span class="muted">0</span>'}</td>
+      ${money?`<td>${o.pm?esc(o.pm):'<span class="muted">—</span>'}</td>`:''}<td>${o.tailor&&wk(o.tailor).id?esc(wk(o.tailor).name):'<span class="muted">—</span>'}</td>
+      <td dir="auto" class="fab" title="${esc(o.fabric||'')}">${esc(o.fabric||'')}</td><td>${isFac(o.made)?bTag(o.made)+' Factory':'Shop'}</td><td>${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody>
+     ${fl.length?`<tfoot><tr><td class="stk s1">Total</td><td class="stk s2">${pl(T.n,'order')}</td><td></td><td></td><td></td><td></td><td></td><td class="r num">${T.pcs}</td>${money?`<td class="r num">${sar(T.tot)}</td><td class="r num">${sar(T.paid)}</td><td class="r num tbad">${sar(T.due)}</td>`:''}<td colspan="${money?11:10}"></td></tr></tfoot>`:''}
+    </table>${fl.length?'':`<div class="empty">No orders match${q?` “${esc(q)}”`:''} in <b>${OFILTERS.find(f=>f[0]===orderFilter)[1]}</b>.</div>`}</div></div>`);
+  document.querySelectorAll('[data-of]').forEach(b=>b.onclick=()=>{orderFilter=b.dataset.of;ordersView()});
+  document.querySelectorAll('th[data-sort]').forEach(h=>h.onclick=()=>{const k=h.dataset.sort;oSort=oSort.k===k?{k,d:-oSort.d}:{k,d:k==='cust'||k==='status'?1:-1};ordersView()});
+  document.querySelectorAll('tr[data-r]').forEach(r=>r.onkeydown=e=>{if(e.key==='Enter')openOrder(+r.dataset.r)});
+  const rowsCsv=()=>{const H=['Order No','Invoice','Cust No','Customer','Mobile','Booked','Delivery','Pcs',...(money?['Total','Paid','Due']:[]),'Status','Cut','Stitched','Hinge','Ready','Delivered',...(money?['Method']:[]),'Tailor','Fabric','Made at','Branch'];
+    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [o.rno,o.gift?'Gift':o.invoiceNo||'',o.cid,c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
+    return [H,...R]};
+  document.getElementById('oCsv').onclick=()=>{const csv='﻿'+rowsCsv().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`orders_${dkey2(today)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+  document.getElementById('oPrint').onclick=()=>{const rs=rowsCsv();const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orders ${dkey2(today)}</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}p{margin:0 0 10px;color:#555}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Orders · ${esc(OFILTERS.find(f=>f[0]===orderFilter)[1])}</h1><p>${esc(curBranch?bname(curBranch):'All branches')} · ${today.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${pl(T.n,'order')}${money?` · total ${sar(T.tot)} SAR · due ${sar(T.due)} SAR`:''}</p><table><thead><tr>${rs[0].map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);
+    w.document.close();setTimeout(()=>w.print(),300)};
   bindRows();
 }
 function bindRows(){document.querySelectorAll('[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}

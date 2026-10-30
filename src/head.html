@@ -447,8 +447,47 @@ svg.thobe .ml.hot{stroke-width:2.6;stroke-dasharray:none}
   @keyframes slide{from{transform:translateX(30px);opacity:.4}}
 }
 .jmore{border-top:1px dashed var(--line);padding:10px 16px}.jmore>summary{list-style:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer}.jmore>summary::-webkit-details-marker{display:none}.jmore>summary::after{content:"▾";font-size:11px}.jmore[open]>summary::after{content:"▴"}.jc .jmore>.jb{border-top:0;padding-inline:0}
-.otbl{max-height:calc(100vh - 210px);overflow:auto;overscroll-behavior:contain}.otbl thead th{position:sticky;top:0;z-index:2;background:var(--ground);box-shadow:0 1px 0 var(--line)}.otbl table{min-width:1500px}.otbl::-webkit-scrollbar{height:12px;width:10px}.otbl::-webkit-scrollbar-thumb{background:#9b9b9b;border-radius:6px}.otbl::-webkit-scrollbar-track{background:var(--ground)}.otbl{scrollbar-width:auto;scrollbar-color:#9b9b9b var(--ground)}.otbl td,.otbl th{white-space:nowrap}
-@media (max-width:860px){.otbl{max-height:calc(100vh - 250px)}}
+/* ---- Orders (exe-style register) ---- */
+.okpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.okpi>div{padding:14px 18px;display:flex;flex-direction:column;gap:2px;border-inline-start:1px solid var(--line)}
+.okpi>div:first-child{border-inline-start:0}
+.okpi span{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.okpi b{font-size:24px;font-weight:600;line-height:1.2}.okpi b small{font-size:12px;color:var(--muted);margin-inline-start:4px;font-family:var(--f-body)}
+.okpi em{font-style:normal;font-size:12px;color:var(--muted)}
+.okpi .bad b{color:var(--bad)}.okpi .okc b{color:var(--ok)}
+.opanel{overflow:hidden}
+.otools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+.seg{display:flex;flex-wrap:wrap;gap:2px;background:var(--ground);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{border:0;background:transparent;border-radius:7px;padding:6px 11px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.seg button .num{font-size:11px;background:var(--line);color:var(--text);border-radius:10px;padding:0 7px}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg button.on .num{background:var(--ink);color:#fff}
+.otbl{max-height:calc(100vh - 300px);min-height:240px;overflow:auto;overscroll-behavior:contain;scrollbar-width:auto;scrollbar-color:#9b9b9b var(--ground)}
+.otbl::-webkit-scrollbar{height:12px;width:10px}.otbl::-webkit-scrollbar-thumb{background:#9b9b9b;border-radius:6px;border:2px solid var(--ground)}.otbl::-webkit-scrollbar-track{background:var(--ground)}
+.ot{min-width:1680px;border-collapse:separate;border-spacing:0;font-size:13px}
+.ot th,.ot td{white-space:nowrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+.ot thead th{position:sticky;top:0;z-index:3;background:var(--ground);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;box-shadow:inset 0 -1px 0 var(--line)}
+.ot th.sortable{cursor:pointer;user-select:none}.ot th.sortable:hover{color:var(--text)}.ot .sarr{font-size:9px;margin-inline-start:4px;color:var(--brass)}
+.ot .r{text-align:right}
+.ot tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--ground) 45%,var(--surface))}
+.ot tbody td{background:var(--surface)}
+.ot tbody tr:hover td{background:color-mix(in srgb,var(--brass) 9%,var(--surface))}
+.ot tbody tr:focus-visible td{outline:2px solid var(--brass);outline-offset:-2px}
+.ot .stk{position:sticky;z-index:2}.ot thead .stk{z-index:4}
+.ot .s1{left:0;min-width:96px}.ot .s2{left:96px;min-width:190px;box-shadow:inset -1px 0 0 var(--line)}
+.ot .sub{display:block;font-size:10.5px;color:var(--muted);font-family:var(--f-num)}
+.ot .cn{font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
+.ot .fab{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.ot .tbad{color:var(--bad);font-weight:600}.ot .tok{color:var(--muted)}
+.ot .tick{color:var(--ok);font-weight:700}
+.ot tfoot td{position:sticky;bottom:0;z-index:2;background:var(--ground);font-weight:700;border-top:1px solid var(--line);border-bottom:0}
+.ot tfoot .stk{z-index:4}
+.mbar{display:flex;align-items:center;gap:6px;min-width:84px}.mbar span{font-size:12px;width:38px}.mbar em{font-style:normal;color:var(--muted)}
+.mbar i{flex:1;height:5px;border-radius:3px;background:var(--line);overflow:hidden;display:block}.mbar i b{display:block;height:100%;background:var(--brass);border-radius:3px}
+.pill.s-wait{background:var(--line);color:var(--muted)}.pill.s-info{background:var(--info-bg,#e4ecf8);color:var(--info,#2f5f9e)}
+.seg{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}.seg::-webkit-scrollbar{display:none}.seg button{flex:none}
+@media (max-width:860px){.otbl{max-height:68vh}.ot .s1{min-width:78px}.ot .s2{left:78px;min-width:140px}.ot .cn{max-width:130px}.okpi{grid-template-columns:repeat(2,minmax(0,1fr))}.okpi>div{padding:10px 12px;border-inline-start:0;border-top:1px solid var(--line)}.okpi>div:nth-child(-n+2){border-top:0}.okpi>div:nth-child(even){border-inline-start:1px solid var(--line)}.okpi b{font-size:19px}.okpi em{display:none}.otools{padding:8px}}
 </style>
 
 <div class="app" id="app">
