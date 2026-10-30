@@ -153,7 +153,9 @@ function glyph(group,opt){
 
 /* ---- daily logs: deliveries and production (demo history, last 14 days) ---- */
 let s2=99;const r2=()=>(s2=(s2*9301+49297)%233280)/233280;const p2=a=>a[Math.floor(r2()*a.length)];
-const delLog=[],prodLog=[];
+const delLog=[],prodLog=[],dedLog=[];
+/* salary deductions: {sid, branch, d, amt, reason, by} — added by the owner / branch manager / factory supervisor */
+workers.filter(w=>w.role==='Tailor').slice(0,5).forEach((w,i)=>{dedLog.push({sid:w.id,branch:w.branch,d:addD(today,-(3+i*4)),amt:[100,50,200,75,150][i],reason:['Advance','Absent 1 day','Advance','Damaged fabric','Advance'][i],by:'Owner'})});
 payLog.filter(p=>p.t==='Balance').forEach(p=>delLog.push({d:p.d,rno:p.rno,branch:p.branch,qty:1+Math.floor(r2()*3),amt:p.amt}));
 for(let k=1;k<(DEMO?14:0);k++){const d=addD(today,-k);if(d.getDay()===5)continue;
   [1,2,3].forEach(b=>{const n=b===1?3+Math.floor(r2()*4):1+Math.floor(r2()*4);for(let j=0;j<n;j++){const amt=p2([120,190,260,330,380,520,640]),m=p2(['Cash','Cash','Card (mada)','Card (mada)','Transfer']),rno=1100+Math.floor(r2()*140);
@@ -217,6 +219,7 @@ const ROUTES=[
  {h:'settings',t:'Settings',i:'cog'},
  {h:'till',t:'Cashier desk',s:'Desk',i:'till',g:'Cashier'},
  {h:'mywork',t:'My work',s:'My work',i:'needle',g:'Workshop'},
+ {h:'mypay',t:'My work & pay',s:'My pay',i:'cash'},
  {h:'board',t:'Production board',s:'Board',i:'board'}];
 /* ================= Logins (5 roles) ================= */
 const ACCESS={
@@ -233,8 +236,8 @@ const ACCESS={
    pages:['till','daily','orders','new','payments','customers'],tabs:['till','daily','orders','new'],
    can:['Find a receipt fast','Take deposits and balances','Hand over ready thobes','Today\'s cash and card total']},
  tailor:{no:5,label:'Tailor & factory',name:'Ghulam Rasool',icon:'needle',branch:4,lock:true,home:'mywork',money:false,pay:false,stage:true,
-   pages:['mywork','board','daily','workers'],tabs:['mywork','board','daily','workers'],
-   can:['His own job cards with measurements','Board: cutting, tailor, hinge, tatreez','Factory adds tailors, cutters, hinge, tatreez','Factory daily production report','Move thobes to the next stage','His target and commission this month']}};
+   pages:['mywork','mypay'],tabs:['mywork','mypay'],
+   can:['Only his own job cards with measurements','Move his thobes to the next stage','His own daily work report, by month or by date','His salary, target, commission and deductions']}};
 const USERS=[
  {role:'owner',name:'Owner',branch:0},
  {role:'manager',name:'Faisal Al-Harthi',branch:1},{role:'manager',name:'Turki Al-Dawsari',branch:2},{role:'manager',name:'Majed Al-Ghamdi',branch:3},
@@ -246,6 +249,7 @@ const can=h=>RA().pages.includes(h);
 const isOwner=()=>ROLE==='owner';
 const isFactoryLogin=()=>ROLE==='tailor'&&isFac(USER.branch)&&(DEMO||USER.job==='Factory supervisor');
 const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?['Cashier']:[];
+const canDed=w=>isOwner()||(ROLE==='manager'&&w.branch===USER.branch)||(isFactoryLogin()&&w.branch===USER.branch);
 const managesW=w=>ROLE==='manager'&&w.branch===USER.branch||isFactoryLogin()&&w.branch===USER.branch;
 const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&w.role==='Cashier');
 const wStatusPill=w=>({leave:'<span class="pill s-cut">On leave</span>',inactive:'<span class="pill s-done">Inactive</span>',blocked:'<span class="pill s-late">Blocked</span>'}[w.status]||'');
@@ -315,7 +319,7 @@ function route(){
   drawNav(r.h);document.getElementById('title').textContent=r.t;
   const b=BRANCHES.find(x=>x.id===curBranch);
   document.getElementById('subtitle').textContent=(b?`${b.name}${b.type==='factory'?'':' branch'} · `:'All branches · ')+today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,workers:workersView,branches,reports,settings,till,mywork,board})[r.h]();
+  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,workers:workersView,branches,reports,settings,till,mywork,mypay,board})[r.h]();
   if(ROLE!=='owner'){const a=RA();document.getElementById('view').insertAdjacentHTML('afterbegin',`<div class="rolebar">${ico(a.icon)}<span>Signed in as <b>${a.name}</b> · ${a.label}${a.branch?' · '+bname(a.branch):''}. ${a.lock?'Locked to this '+(isFac(a.branch)?'factory':'branch')+'.':''} ${a.money?'':'Prices and cash are hidden for this login.'}</span></div>`);document.querySelectorAll('.rolebar svg').forEach(x=>{x.style.width='18px';x.style.color='var(--brass)'})}
   window.scrollTo(0,0);
 }
@@ -634,6 +638,9 @@ function openWorker(id){
       <div><dt>Target</dt><dd class="num">${w.target} pcs</dd></div>
       <div><dt>Extra pieces × commission</dt><dd class="num">${s.extra} × ${w.comm} = ${sar(s.extra*w.comm)} SAR</dd></div></dl>
       <div class="tot"><div class="big"><span>Total</span><span class="num">${sar(s.earn)} SAR</span></div></div></div></div>`:''}
+    ${canDed(w)?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Deductions · ${ymName(ymKey(today))} <span class="muted" style="font-weight:500">(${sar(mp.dedT)} SAR · net pay ${sar(mp.net)} SAR)</span></p>
+      <div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span>${isOwner()?`<button class="btn sm" data-dedx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`:''}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
+      <div class="fgrid" style="margin-top:8px;grid-template-columns:120px 1fr 1fr auto;align-items:end"><div class="field"><label for="dAmt">Amount</label><input id="dAmt" type="number" min="1" class="num"></div><div class="field"><label for="dWhy">Reason</label><input id="dWhy" placeholder="Advance, absent, damage…"></div><div class="field"><label for="dDay">Date</label><input id="dDay" type="date" value="${dkey2(today)}"></div><button class="btn" id="dAdd">Add</button></div></div>`})():''}
     ${(isOwner()||managesW(w))&&okW(w)?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">Today</b>${w.att[13]==='a'?'<span class="pill s-late">Absent</span>':'<span class="pill s-ready">Present</span>'}<button class="btn sm" id="attW">${w.att[13]==='a'?'Mark present':'Mark absent'}</button></div>`:''}
     <div><p class="h4">Attendance · last 14 days <span class="muted" style="font-weight:500">(${s.absent} absent)</span></p><div class="att">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div><p class="muted" style="font-size:11.5px;margin:6px 0 0">Green present · red absent · grey Friday</p></div>
     ${w.role==='Tailor'?`<div><p class="h4">Current work (${pl(s.act,'thobe')})</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${os.map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${cust(o.cid).name}</b><span>${pl(o.qty,'thobe')} · due ${fmtD(o.due)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">Nothing assigned.</div>'}</div></div>`:''}`,
@@ -642,6 +649,9 @@ function openWorker(id){
   const $=x=>document.getElementById(x);
   if($('editW'))$('editW').onclick=()=>workerForm(w);
   if($('attW'))$('attW').onclick=async()=>{const v=w.att[13]==='a'?'p':'a';if(LIVE){await setAtt(w,v)}w.att[13]=v;toast(`${w.name}: ${v==='a'?'absent':'present'} today`);route();openWorker(id)};
+  if($('dAdd'))$('dAdd').onclick=()=>{const a=+$('dAmt').value||0,why=$('dWhy').value.trim();if(a<=0){toast('Enter the amount');return}if(!why){toast('Write the reason');return}
+    dedLog.push({sid:w.id,branch:w.branch,d:new Date(($('dDay').value||dkey2(today))+'T00:00:00'),amt:a,reason:why,by:USER.name||'Owner'});toast(`${sar(a)} SAR deducted from ${w.name}`);openWorker(id)};
+  document.querySelectorAll('[data-dedx]').forEach(b=>b.onclick=()=>{const x=dedLog[+b.dataset.dedx];if(!x)return;dedLog.splice(+b.dataset.dedx,1);toast(`Deduction removed (${sar(x.amt)} SAR)`);openWorker(id)});
   if($('appW'))$('appW').onclick=()=>workerApp(w);
   if($('leaveW'))$('leaveW').onclick=()=>{w.status=w.status==='leave'?'active':'leave';toast(`${w.name}: ${w.status==='leave'?'on leave':'back at work'}`);route();openWorker(id)};
   if($('actW'))$('actW').onclick=()=>{w.status=w.status==='inactive'?'active':'inactive';toast(`${w.name} ${w.status==='inactive'?'deactivated: no new work, login off':'activated'}`);route();openWorker(id)};
@@ -796,7 +806,7 @@ function mywork(){
     <div class="kpi"><span class="l">Waiting for me</span><span class="v">${jobs.filter(o=>o.t[k]==='wait').reduce((a,o)=>a+o.qty,0)}</span><span class="d muted">${TK[k].t} · ${pl(jobs.length,'job card')}</span></div>
     <div class="kpi"><span class="l">In progress</span><span class="v">${jobs.filter(o=>o.t[k]==='doing').reduce((a,o)=>a+o.qty,0)}</span><span class="d muted">Started, not finished</span></div>
     <div class="kpi"><span class="l">${k==='sew'?'Finished this month':'Done today'}</span><span class="v">${k==='sew'?s.doneQ:prodLog.filter(p=>p.w===w.id&&+p.d===+today).reduce((a,p)=>a+p.qty,0)}<small>pcs</small></span><span class="d ${k==='sew'&&s.doneQ>=w.target?'up':'muted'}">${k==='sew'&&w.pay==='target'?(s.doneQ>=w.target?`Target reached · +${s.extra} extra`:`${w.target-s.doneQ} pcs to target`):w.role}</span></div>
-    <div class="kpi"><span class="l">My pay so far</span><span class="v">${sar(s.earn)}<small>SAR</small></span><span class="d muted">${payLabel(w)}</span></div></div>
+    <a class="kpi" href="#mypay" style="text-decoration:none;color:inherit"><span class="l">My pay this month</span><span class="v">${sar(monthPay(w,ymKey(today)).net)}<small>SAR</small></span><span class="d muted">After deductions · see details ›</span></a></div>
   ${w.pay==='target'&&k==='sew'?`<div class="panel"><div class="panel-b">${targetBar(w,s)}</div></div>`:''}
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
@@ -807,6 +817,79 @@ function mywork(){
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
   bindRows();
 }
+
+/* ================= Worker: my work & pay (by month / by date) ================= */
+const ymKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+const ymName=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'})};
+const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',iron:'Ironing'};
+/* one worker's month: his work entries, pay (per thobe / salary / basic + target + commission) and deductions */
+function monthPay(w,ym){
+  const ent=prodLog.filter(p=>p.w===w.id&&ymKey(p.d)===ym).sort((a,b)=>b.d-a.d);
+  const qty=ent.reduce((s,p)=>s+(+p.qty||0),0);
+  const ded=dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym).sort((a,b)=>b.d-a.d);
+  const dedT=ded.reduce((s,x)=>s+(+x.amt||0),0);
+  const extra=w.pay==='target'?Math.max(0,qty-(+w.target||0)):0;
+  const comm=w.pay==='target'?extra*(+w.comm||0):0;
+  const base=w.pay==='piece'?qty*(+w.rate||0):w.pay==='target'?(+w.basic||0):(+w.rate||0);
+  const earn=base+comm;
+  return{ent,qty,ded,dedT,extra,comm,base,earn,net:earn-dedT};
+}
+let payYm=ymKey(today),payDay='',payMode='m';
+function mypay(){
+  const w=ROLE==='tailor'?ME():(workers.find(x=>x.role==='Tailor'&&x.branch===(curBranch||4))||ME());
+  if(!w){V('<div class="panel"><div class="empty">Loading your work…</div></div>');return}
+  const months=[];for(let i=0;i<12;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1);months.push(ymKey(d))}
+  const ym=payMode==='d'&&payDay?payDay.slice(0,7):payYm;const mp=monthPay(w,ym);
+  const perPc=w.pay==='piece';
+  // days of the month with work
+  const days={};mp.ent.forEach(p=>{const k=dkey2(p.d);(days[k]=days[k]||{d:p.d,q:0,os:new Set(),st:{}});days[k].q+=+p.qty||0;if(p.rno)days[k].os.add(p.rno);days[k].st[p.stage]=(days[k].st[p.stage]||0)+(+p.qty||0)});
+  const dayList=Object.values(days).sort((a,b)=>b.d-a.d);
+  const dayEnt=payMode==='d'&&payDay?mp.ent.filter(p=>dkey2(p.d)===payDay):[];
+  const dayQ=dayEnt.reduce((s,p)=>s+(+p.qty||0),0);
+  const sel=`<div class="rowtools" style="flex-wrap:wrap;gap:10px;align-items:center">
+    <div class="chips"><button class="chip ${payMode==='m'?'on':''}" data-pm="m">By month</button><button class="chip ${payMode==='d'?'on':''}" data-pm="d">By date</button></div>
+    ${payMode==='m'?`<select id="pYm" class="btn sm" style="padding:6px 10px" aria-label="Month">${months.map(m=>`<option value="${m}" ${m===payYm?'selected':''}>${ymName(m)}</option>`).join('')}</select>`
+      :`<input type="date" id="pDay" class="btn sm" style="padding:6px 10px" value="${payDay||dkey2(today)}" max="${dkey2(today)}" aria-label="Date">`}
+    <span class="muted" style="font-size:13px">${esc(w.name)} · ${esc(w.role)} · ${payLabel(w)}</span></div>`;
+  const slip=`<div class="panel"><div class="panel-h"><h2>My pay · ${ymName(ym)}</h2></div><div class="panel-b">
+    ${w.pay==='target'?targetBar(w,{doneQ:mp.qty,extra:mp.extra}):''}
+    <div class="slip" style="position:static;margin-top:10px"><dl>
+     ${w.pay==='target'?`<div><dt>Basic salary</dt><dd class="num">${sar(w.basic)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div><div><dt>Target</dt><dd class="num">${w.target} pcs</dd></div><div><dt>Commission (${mp.extra} extra × ${w.comm})</dt><dd class="num">${sar(mp.comm)} SAR</dd></div>`
+      :perPc?`<div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div><div><dt>Rate</dt><dd class="num">${w.rate} SAR per thobe</dd></div><div><dt>Earned</dt><dd class="num">${sar(mp.base)} SAR</dd></div>`
+      :`<div><dt>Monthly salary</dt><dd class="num">${sar(w.rate)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>`}
+     <div><dt>Deductions</dt><dd class="num" style="color:var(--bad)">${mp.dedT?'− '+sar(mp.dedT):'0'} SAR</dd></div></dl>
+     <div class="tot"><div class="big"><span>Net pay</span><span class="num">${sar(mp.net)} SAR</span></div></div></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">${ym===ymKey(today)?'This month so far – it grows with every piece you finish.':'Whole month.'}</p></div></div>`;
+  const dedPanel=`<div class="panel"><div class="panel-h"><h2>Deductions · ${ymName(ym)}</h2><span class="sp"></span><span class="num" style="color:var(--bad);font-weight:600">${sar(mp.dedT)} SAR</span></div>
+    <div class="rows">${mp.ded.map(x=>`<div class="row"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · by '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span></div>`).join('')||'<div class="empty">No deductions this month.</div>'}</div></div>`;
+  if(payMode==='d'){
+    const d=payDay||dkey2(today);
+    V(`${sel}<div class="kpis">
+      <div class="kpi"><span class="l">Pieces on ${fmtD(new Date(d))}</span><span class="v">${dayQ}<small>pcs</small></span><span class="d muted">${pl(new Set(dayEnt.map(p=>p.rno).filter(Boolean)).size,'order')}</span></div>
+      ${perPc?`<div class="kpi"><span class="l">Earned that day</span><span class="v">${sar(dayQ*(+w.rate||0))}<small>SAR</small></span><span class="d muted">${w.rate} SAR per thobe</span></div>`:''}
+      <div class="kpi"><span class="l">Pieces in ${ymName(ym).split(' ')[0]}</span><span class="v">${mp.qty}<small>pcs</small></span><span class="d muted">Whole month</span></div>
+      <div class="kpi"><span class="l">Net pay ${ymName(ym).split(' ')[0]}</span><span class="v">${sar(mp.net)}<small>SAR</small></span><span class="d muted">After deductions</span></div></div>
+     <div class="panel"><div class="panel-h"><h2>My work · ${new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</h2></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Order</th><th>Work</th><th>Pieces</th></tr></thead><tbody>${dayEnt.map(p=>`<tr ${p.rno&&orders.some(o=>o.rno===p.rno)?`class="click" data-r="${p.rno}"`:''}><td><span class="rid">${p.rno?'#'+p.rno:'—'}</span></td><td>${STAGE_T[p.stage]||esc(p.stage)}</td><td class="num">${p.qty}</td></tr>`).join('')||'<tr><td colspan="3"><div class="empty">No work on this day.</div></td></tr>'}</tbody></table></div></div>
+     ${dedPanel}`);
+  }else{
+    V(`${sel}<div class="kpis">
+      <div class="kpi"><span class="l">Pieces done</span><span class="v">${mp.qty}<small>pcs</small></span><span class="d muted">${pl(dayList.length,'working day')}</span></div>
+      <div class="kpi"><span class="l">${w.pay==='target'?'Basic + commission':perPc?'Earned':'Salary'}</span><span class="v">${sar(mp.earn)}<small>SAR</small></span><span class="d ${mp.comm?'up':'muted'}">${w.pay==='target'?(mp.extra?`+${sar(mp.comm)} commission`:`${Math.max(0,w.target-mp.qty)} pcs to target`):payLabel(w)}</span></div>
+      <div class="kpi"><span class="l">Deductions</span><span class="v" style="color:${mp.dedT?'var(--bad)':'inherit'}">${sar(mp.dedT)}<small>SAR</small></span><span class="d muted">${pl(mp.ded.length,'entry')}</span></div>
+      <div class="kpi"><span class="l">Net pay</span><span class="v">${sar(mp.net)}<small>SAR</small></span><span class="d muted">${ymName(ym)}</span></div></div>
+     <div class="grid2">${slip}${dedPanel}</div>
+     <div class="panel"><div class="panel-h"><h2>My daily report · ${ymName(ym)}</h2><span class="sp"></span><span class="muted" style="font-size:12px">Tap a day to see its orders</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Pieces</th><th>Work</th><th>Orders</th>${perPc?'<th>Earned</th>':''}</tr></thead>
+      <tbody>${dayList.map(x=>`<tr class="click" data-pday="${dkey2(x.d)}"><td>${x.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</td><td class="num"><b>${x.q}</b></td><td>${Object.entries(x.st).map(([k,q])=>`${STAGE_T[k]||esc(k)} ${q}`).join(' · ')}</td><td class="num">${x.os.size}</td>${perPc?`<td class="num">${sar(x.q*(+w.rate||0))}</td>`:''}</tr>`).join('')||`<tr><td colspan="${perPc?5:4}"><div class="empty">No work in ${ymName(ym)}.</div></td></tr>`}</tbody></table></div></div>`);
+  }
+  document.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{payMode=b.dataset.pm;if(payMode==='d'&&!payDay)payDay=dkey2(today);mypay()});
+  const ys=document.getElementById('pYm');if(ys)ys.onchange=()=>{payYm=ys.value;mypay()};
+  const ds=document.getElementById('pDay');if(ds)ds.onchange=()=>{if(ds.value){payDay=ds.value;mypay()}};
+  document.querySelectorAll('[data-pday]').forEach(r=>r.onclick=()=>{payMode='d';payDay=r.dataset.pday;mypay()});
+  bindRows();
+}
+const dkey2=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
 /* ================= Production board ================= */
 function board(){
@@ -1051,10 +1134,10 @@ setTimeout(()=>location.reload(),addD(today,1)-new Date()+60000);
    make to them is written back by flush() (field-level diff, so two people editing the
    same order at once do not overwrite each other).
    ===================================================================================== */
-const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices};
+const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog};
 const KEY={branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
-const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff']);
+const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
 let fb=null,app=null,db=null,auth=null,ME_UID=null,writing=0;
 const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
@@ -1099,6 +1182,7 @@ async function doFlush(){
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
+    if(col==='ded')for(const id of [...synced.ded.keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,'ded',id));synced.ded.delete(id)}
   }
 }
 async function createOrder(o){
@@ -1175,7 +1259,7 @@ function normalize(col,x){
     if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
   if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
   if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
-  if(col==='payments'||col==='deliveries'||col==='prod'){if(!(x.d instanceof Date))x.d=today}
+  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'){if(!(x.d instanceof Date))x.d=today}
   return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
@@ -1210,7 +1294,14 @@ function startListeners(){
   sub('orders',query(collection(db,'orders'),where('st','in',['cut','sew','ready'])));
   sub('payments',query(collection(db,'payments'),where('d','>=',since(45))));
   sub('deliveries',query(collection(db,'deliveries'),where('d','>=',since(45))));
-  sub('prod',query(collection(db,'prod'),where('d','>=',since(45))));
+  // a worker (not the factory supervisor) gets only his own work – all of it, so he can look back month by month
+  const worker=ROLE==='tailor'&&USER.job!=='Factory supervisor';
+  if(worker)sub('prod',query(collection(db,'prod'),where('w','==',USER.sid)));
+  else sub('prod',query(collection(db,'prod'),where('d','>=',since(45))));
+  // salary deductions: the owner all, a manager / supervisor his branch, a worker only his own
+  if(ROLE==='owner')sub('ded',collection(db,'ded'));
+  else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
+  else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));

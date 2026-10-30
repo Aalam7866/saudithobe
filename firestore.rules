@@ -123,6 +123,12 @@ service cloud.firestore {
       allow create: if active();
       allow update, delete: if isOwner();
     }
+    // salary deductions: owner / that branch's manager / factory supervisor add them; a worker reads only his own
+    match /ded/{id} {
+      allow read: if isOwner() || (active() && managesBranch(resource.data.branch)) || (active() && resource.data.sid == me().sid);
+      allow create, update: if isOwner() || (active() && managesBranch(request.resource.data.branch));
+      allow delete: if isOwner();
+    }
     match /notices/{id} {
       allow read: if active();
       allow create: if active();

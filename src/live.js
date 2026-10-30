@@ -6,10 +6,10 @@
    make to them is written back by flush() (field-level diff, so two people editing the
    same order at once do not overwrite each other).
    ===================================================================================== */
-const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices};
+const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog};
 const KEY={branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
-const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff']);
+const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
 let fb=null,app=null,db=null,auth=null,ME_UID=null,writing=0;
 const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
@@ -54,6 +54,7 @@ async function doFlush(){
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
+    if(col==='ded')for(const id of [...synced.ded.keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,'ded',id));synced.ded.delete(id)}
   }
 }
 async function createOrder(o){
@@ -130,7 +131,7 @@ function normalize(col,x){
     if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
   if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
   if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
-  if(col==='payments'||col==='deliveries'||col==='prod'){if(!(x.d instanceof Date))x.d=today}
+  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'){if(!(x.d instanceof Date))x.d=today}
   return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
@@ -165,7 +166,14 @@ function startListeners(){
   sub('orders',query(collection(db,'orders'),where('st','in',['cut','sew','ready'])));
   sub('payments',query(collection(db,'payments'),where('d','>=',since(45))));
   sub('deliveries',query(collection(db,'deliveries'),where('d','>=',since(45))));
-  sub('prod',query(collection(db,'prod'),where('d','>=',since(45))));
+  // a worker (not the factory supervisor) gets only his own work – all of it, so he can look back month by month
+  const worker=ROLE==='tailor'&&USER.job!=='Factory supervisor';
+  if(worker)sub('prod',query(collection(db,'prod'),where('w','==',USER.sid)));
+  else sub('prod',query(collection(db,'prod'),where('d','>=',since(45))));
+  // salary deductions: the owner all, a manager / supervisor his branch, a worker only his own
+  if(ROLE==='owner')sub('ded',collection(db,'ded'));
+  else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
+  else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
