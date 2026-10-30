@@ -37,7 +37,34 @@ function syncSt(o){if(o.st==='done')return;o.st=o.t.sew==='done'?'ready':o.t.cut
 const pending=(o,k)=>o.st!=='done'&&TK[k].avail(o)&&o.t[k]!=='done'&&!(k==='tat'&&!o.tatreez)&&!(k==='hinge'&&!o.hinge);
 const SI=Object.fromEntries(STAGES.map((s,i)=>[s.k,i]));
 const FABRICS=['Toyobo (Japan)','Shakespeare (UK)','Loriana','Korean summer','Daniel Hechter','Egyptian cotton'];
-const MEAS=[['tool','Length'],['katf','Shoulder'],['sadr','Chest'],['wast','Waist'],['hajr','Hip'],['kom','Sleeve length'],['wkom','Sleeve width'],['kabak','Cuff'],['raqba','Neck'],['jaib','Pocket']];
+/* Measurement sheet: the same boxes, tick boxes and drawings as the shop exe's paper (AL THOB · MeasurementLayout = Sheet).
+   Keys are the exe's own (measurements.data), so the sync copies them 1:1. Values are text; a tick / drawing is "1".
+   [key, label, type]  type: '' = box · 'big' = text area · 'tick' = tick box */
+const MSHEET=[
+ {g:'Sleeve & cuff',ar:'الكم والكبك',f:[['p_mid0_0','الكم سادة ١'],['p_mid0_1','الكم سادة ٢'],['p_mid0_2','الكم سادة ٣'],['p_cuff_0','الكبك ١'],['p_cuff_1','الكبك ٢'],['p_cuff_2','الكبك ٣'],['p_mid1','تنزيلة']]},
+ {g:'Row, right to left',ar:'السطر',f:[['p_row0','خانة ١'],['p_row1','خانة ٢'],['p_row2','خانة ٣'],['p_row4','سادة'],['p_row6','كبك'],['p_row8','قلاب'],['p_row10','سادة ٢'],['p_row12','قطن'],['p_row14','سلك و شتوي']]},
+ {g:'Hand & chest',ar:'يد سادة · صدر',f:[['p_chk_hand','يد سادة','tick'],['p_hand','يد سادة'],['p_chk_handcuff','كبك','tick'],['p_hand_cuff','كبك'],['p_wide','خانة ٥ سم'],['p_chk_jabzor','جبزور','tick'],['p_chest1','صدر ١'],['p_chest2','صدر ٢']]},
+ {g:'Drawings',ar:'الرسومات',f:[['p_t_btn','باين','tick'],['p_t_btn_sq','باين · مربع','tick'],['p_t_hidden','مخفي','tick'],['p_t_hidden_sq','مخفي · مربع','tick'],['p_t_zip','سحاب','tick'],['p_t_zip_sq','سحاب · مربع','tick'],['p_t_hzip','مخفي سحاب','tick'],['p_t_hzip_sq','مخفي سحاب · مربع','tick'],
+   ['p_t_col_turn','ياقة قلاب','tick'],['p_t_col_round','ياقة مدور','tick'],['p_t_col_band','ياقة مردعة','tick'],['p_t_cuff_plain','يد سادة','tick'],['p_t_cuff_chamfer','كبك مشطوف','tick'],['p_t_cuff_square','كبك مربع','tick'],['p_t_cuff_round','كبك مدور','tick'],['p_t_cuff_double','كبك دبل','tick'],
+   ['p_t_pk_normal','جيب عادي','tick'],['p_t_pk_round','جيب مدور','tick'],['p_t_pk_square','جيب مربع','tick'],['p_t_jabzor','جبزور','tick'],['p_t_jabzor_sq','جبزور · مربع','tick'],['p_cuff_note','ملاحظة الكبك','big']]},
+ {g:'Bottom of the sheet',ar:'أسفل الورقة',f:[['p_chk_pk_hidden','جيب مخفي','tick'],['p_chk_pk_visible','جيب باين','tick'],['p_right1','4.5×5.25'],['p_right2','تحت'],['p_right3','خلف'],['p_val0','تخاليص'],['p_val1','فتحة'],['p_val2','ورك'],['p_val3','جيب'],
+   ['p_chk_clip','مشبك','tick'],['p_chk_pen','جيب قلم كامل','tick'],['p_pk_a','جيب ٠٫٧٥ سم'],['p_pk_b','جيب ١٫٥ سم'],['p_left0','يسار'],['p_left1','يسار · الصندوق','big']]},
+ {g:'Notes & measurements',ar:'ملاحظات ومقاسات',f:[['p_body','ملاحظات ومقاسات','big']]}];
+const MALL=MSHEET.flatMap(g=>g.f),MEAS=MALL.filter(f=>f[2]!=='tick'),MTICK=MALL.filter(f=>f[2]==='tick');
+const mVal=(m,k)=>{const v=m&&m[k];return v==null?'':String(v)};
+/* filled boxes as label/value tiles, ticked ones as chips */
+function mShow(m){
+  const box=MEAS.filter(([k])=>mVal(m,k)!=='').map(([k,t])=>`<div><span dir="rtl">${esc(t)}</span><b dir="auto" style="font-size:14px;white-space:pre-wrap">${esc(mVal(m,k))}</b></div>`).join('');
+  const tk=MTICK.filter(([k])=>mVal(m,k)==='1').map(([,t])=>`<span class="chip on" style="cursor:default">${esc(t)}</span>`).join('');
+  return (box?`<div class="kv">${box}</div>`:'')+(tk?`<div class="chips" dir="rtl" style="margin-top:8px">${tk}</div>`:'')||'<div class="muted" style="font-size:13px">No measurement yet.</div>'}
+/* the sheet as a form: inputs get id = pre + key */
+function mForm(pre,m){
+  return MSHEET.map(g=>`<div><p class="h4">${g.g} · <span dir="rtl">${g.ar}</span></p><div class="fgrid meas" dir="rtl" style="grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px">${g.f.map(([k,t,ty])=>ty==='tick'
+    ?`<label class="chip mtick ${mVal(m,k)==='1'?'on':''}" style="display:flex;align-items:center;gap:6px;justify-content:center;align-self:end;min-height:38px"><input type="checkbox" id="${pre}${k}" data-k="${k}" ${mVal(m,k)==='1'?'checked':''} style="width:auto;margin:0">${esc(t)}</label>`
+    :`<div class="field"${ty==='big'?' style="grid-column:1/-1"':''}><label for="${pre}${k}">${esc(t)}</label>${ty==='big'?`<textarea id="${pre}${k}" data-k="${k}" rows="3" dir="auto">${esc(mVal(m,k))}</textarea>`:`<input id="${pre}${k}" data-k="${k}" dir="auto" value="${esc(mVal(m,k))}">`}</div>`).join('')}</div></div>`).join('')}
+function mRead(pre){const m={};MALL.forEach(([k,,ty])=>{const e=document.getElementById(pre+k);if(!e)return;if(ty==='tick'){if(e.checked)m[k]='1'}else{const v=e.value.trim();if(v)m[k]=v}});return m}
+function mFill(pre,m){MALL.forEach(([k,,ty])=>{const e=document.getElementById(pre+k);if(!e)return;if(ty==='tick'){e.checked=mVal(m,k)==='1';e.closest('.chip').classList.toggle('on',e.checked)}else e.value=mVal(m,k)})}
+function mTicks(){document.querySelectorAll('.mtick input').forEach(c=>c.onchange=()=>c.closest('.chip').classList.toggle('on',c.checked))}
 const ROLES=['Tailor','Cutter','Hinge','Tatreez','Ironing','Cashier','Branch manager','Factory supervisor'];
 
 /* Design catalogue — mirrors F:\AL THOB\thobe_design folders */
@@ -78,11 +105,11 @@ const tailorsOf=b=>workers.filter(w=>w.role==='Tailor'&&okW(w)&&(!b||w.branch===
 const firstOf=(role,b)=>workers.find(w=>w.role===role&&w.branch===b&&w.status==='active')||workers.find(w=>w.role===role&&w.status==='active');
 
 const NAMES=['Abdullah Al-Shehri','Faisal Al-Otaibi','Sultan Al-Qahtani','Khalid Al-Dosari','Majed Al-Harbi','Turki Al-Mutairi','Naif Al-Ghamdi','Bandar Al-Zahrani','Saud Al-Anazi','Mishal Al-Shammari','Yousef Al-Ahmadi','Hamad Al-Subaie','Rakan Al-Buqami','Omar Al-Juhani','Nasser Al-Yami','Waleed Al-Rashidi','Ibrahim Al-Malki','Ziyad Al-Shamrani','Fahad Al-Sahli','Ahmed Al-Zahrani','Salman Al-Ruwaili','Majid Al-Asmari'];
-const mk=(base)=>({tool:Math.round(base+rnd()*14),katf:Math.round(44+rnd()*8),sadr:Math.round(52+rnd()*10),wast:Math.round(50+rnd()*12),hajr:Math.round(56+rnd()*8),kom:Math.round(58+rnd()*8),wkom:Math.round(18+rnd()*4),kabak:Math.round(24+rnd()*3),raqba:Math.round(38+rnd()*5),jaib:Math.round(14+rnd()*3)});
+const mk=(base)=>({p_mid0_0:'7.75',p_mid0_1:'6.25',p_mid0_2:'5.75',p_cuff_0:'7.5',p_cuff_1:'6.5',p_cuff_2:'6.25',p_mid1:'2.75',p_row0:String(Math.round(base*0.43)),p_row1:String(Math.round(16+rnd()*4)),p_row2:String(Math.round(15+rnd()*4)),p_row4:String(Math.round(21+rnd()*4)),p_chest1:String(Math.round(21+rnd()*4)),p_chest2:'8.5',p_val0:'6',p_val1:'6.75',p_val2:String(Math.round(24+rnd()*3)),p_val3:'7.75',p_t_col_turn:'1',p_t_cuff_chamfer:'1',p_chk_pen:'1'});
 const SONS=['Fahad','Saad','Abdulaziz','Talal','Mohammed'];
-const customers=!DEMO?[]:NAMES.map((n,i)=>{const profiles=[{name:'Self',m:mk(140)}];if(rnd()>.6)profiles.push({name:'Son · '+pick(SONS),m:mk(112)});if(rnd()>.8)profiles.push({name:'Winter thobe',m:{...profiles[0].m,sadr:profiles[0].m.sadr+2,wast:profiles[0].m.wast+2}});
+const customers=!DEMO?[]:NAMES.map((n,i)=>{const profiles=[{name:'Self',m:mk(140)}];if(rnd()>.6)profiles.push({name:'Son · '+pick(SONS),m:mk(112)});if(rnd()>.8)profiles.push({name:'Winter thobe',m:{...profiles[0].m,p_chest1:String(+profiles[0].m.p_chest1+1)}});
   const hist=[{d:addD(today,-Math.floor(30+rnd()*300)),t:'First measurement taken',by:pick(['Abu Ahmed','Javed Akhtar','Arshad Mehmood'])}];
-  if(rnd()>.4)hist.unshift({d:addD(today,-Math.floor(rnd()*28)),t:`Waist ${profiles[0].m.wast-2} → ${profiles[0].m.wast} cm`,by:pick(['Abu Ahmed','Mohammed Iqbal','Sohail Ahmed'])});
+  if(rnd()>.4)hist.unshift({d:addD(today,-Math.floor(rnd()*28)),t:`صدر ١ ${+profiles[0].m.p_chest1-1} → ${profiles[0].m.p_chest1}`,by:pick(['Abu Ahmed','Mohammed Iqbal','Sohail Ahmed'])});
   return{id:i+1,name:n,phone:'05'+String(Math.floor(10000000+rnd()*89999999)),branch:i%5===4?2:i%7===6?3:1,profiles,hist}});
 const orders=[];let rno=1240;
 for(let i=0;i<(DEMO?64:0);i++){
@@ -375,7 +402,7 @@ function openOrder(rno){
     <div><p class="h4">Workshop · ${o.made===o.branch?bname(o.made)+' workshop':bname(o.made)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${TASKS.map(t=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="row" style="padding-block:8px"><div class="grow"><b>${t.t}</b><span>${wid?wk(wid).name:'Not assigned yet'}</span></div>${taskPill(o,t.k)}${canTask()&&pending(o,t.k)?`<button class="btn sm" data-tk="${t.k}">${taskBtn(o,t.k)}</button>`:''}</div>`}).join('')}</div></div>
     <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0"><div class="wav" style="width:36px;height:36px;font-size:14px">${initials(wk(o.tailor).name)}</div><div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
     <div><p class="h4">Style</p><div class="kv">${DESIGN_.map(g=>`<div><span>${g.t}</span><b style="font-family:var(--f-body);font-size:13px">${g.opts.find(x=>x[0]===o.design[g.k])[1]}</b></div>`).join('')}<div><span>Fabric</span><b style="font-family:var(--f-body);font-size:13px">${o.fabric}</b></div></div></div>
-    <div><p class="h4">Measurements · ${prof.name} (cm)</p><div class="kv">${MEAS.map(([k,t])=>`<div><span>${t}</span><b>${prof.m[k]??'—'}</b></div>`).join('')}</div></div>
+    <div><p class="h4">Measurements · ${esc(prof.name)}</p>${mShow(prof.m)}</div>
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
    `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}`);
@@ -401,8 +428,8 @@ function newOrder(){
       <div class="field"><label for="fPhone">Mobile</label><input id="fPhone" class="num" placeholder="05xxxxxxxx"></div>
       <div class="field"><label for="fBranch">Branch</label><select id="fBranch">${SHOPS().map(b=>`<option value="${b.id}" ${b.id===br?'selected':''}>${b.name} · ${b.city}</option>`).join('')}</select></div>
     </div></div></div>
-    <div class="panel"><div class="panel-h"><h2>Measurements</h2><span class="sp"></span><span class="muted" style="font-size:12px">In cm · filled in from the customer's saved profile</span></div>
-     <div class="panel-b"><div class="fgrid meas" style="grid-template-columns:repeat(auto-fill,minmax(104px,1fr))">${MEAS.map(([k,t])=>`<div class="field"><label for="m_${k}">${t}</label><input id="m_${k}" inputmode="decimal"></div>`).join('')}</div></div></div>
+    <div class="panel"><div class="panel-h"><h2>Measurements</h2><span class="sp"></span><span class="muted" style="font-size:12px">The shop's measurement sheet · filled in from the customer's saved profile</span></div>
+     <div class="panel-b" style="display:flex;flex-direction:column;gap:14px">${mForm('m_',{})}</div></div>
     <div class="panel"><div class="panel-h"><h2>Style</h2><span class="sp"></span><span class="muted" style="font-size:12px" id="dsum"></span></div>
      <div class="dtabs" id="dtabs"></div><div class="dopts" id="dopts"></div></div>
     <div class="panel"><div class="panel-h"><h2>Order & payment</h2></div><div class="panel-b"><div class="fgrid">
@@ -440,7 +467,7 @@ function newOrder(){
       ...DESIGN_.map(g=>[g.t,g.opts.find(o=>o[0]===draft.design[g.k])[1]])].map(([a,b])=>`<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join('');
     if(!$('tTot'))return;$('tTot').textContent=sar(tot)+' SAR';$('tPaid').textContent=sar(paid)+' SAR';$('tRem').textContent=sar(Math.max(0,tot-paid))+' SAR';
   };
-  const fillM=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;const p=c?c.profiles[+$('fProf').value]||c.profiles[0]:null;MEAS.forEach(([k])=>$('m_'+k).value=p?p.m[k]:'')};
+  const fillM=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;const p=c?c.profiles[+$('fProf').value]||c.profiles[0]:null;mFill('m_',p?p.m:{})};
   $('fCust').onchange=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;$('fName').value=c?c.name:'';$('fPhone').value=c?c.phone:'';
     $('fProf').innerHTML=(c?c.profiles:[{name:'Self'}]).map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');if(c){$('fBranch').value=c.branch;fillMade();fillTailors()}fillM();slip()};
   $('fProf').onchange=fillM;
@@ -450,13 +477,13 @@ function newOrder(){
   $('saveBtn').onclick=()=>{
     let cid=+$('fCust').value;
     if(!cid){if(!$('fName').value.trim()||!$('fPhone').value.trim()){toast('Enter the customer name and mobile number');$('fName').focus();return}
-      const m={};MEAS.forEach(([k])=>m[k]=+$('m_'+k).value||0);cid=Math.max(DEMO?0:500000,...customers.filter(c=>DEMO||c.id>=500000).map(c=>c.id))+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
+      const m=mRead('m_');cid=Math.max(DEMO?0:500000,...customers.filter(c=>DEMO||c.id>=500000).map(c=>c.id))+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
     const qty=+$('fQty').value||1,price=+$('fPrice').value||0;
     const dep=+$('fPaid').value||0;if(RA().money&&dep)payLog.push({d:today,rno:nextR,branch:+$('fBranch').value,amt:dep,m:'Cash',t:'Deposit'});
     orders.unshift({rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty,price,total:qty*price,paid:RA().money?(+$('fPaid').value||0):0,created:new Date(today),due:new Date($('fDue').value||due0),st:'cut',t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},tatreez:$('fTat').checked,hinge:$('fHinge').checked,tailor:+$('fTailor').value,fabric:$('fFabric').value,design:{...draft.design},profile:+$('fProf').value||0,note:$('fNote').value});
     toast(`${RA().money?`Receipt #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(+$('fMade').value)} cutting`);orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
   };
-  fillMade();fillTailors();drawDesign();slip();
+  fillMade();fillTailors();drawDesign();slip();mTicks();
   if(!RA().money){['fPrice','fPaid'].forEach(id=>$(id).closest('.field').hidden=true);document.querySelector('.slip .tot').innerHTML='<div class="muted" style="font-size:13px">Prices and deposit are added by the cashier.</div>';$('saveBtn').textContent='Save order and send to cashier'}
 }
 
@@ -494,14 +521,13 @@ function measurements(){
     <div class="clist">${list.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini">${initials(x.name)}</div><div class="grow"><b>${x.name}</b><span>${x.phone} · ${pl(x.profiles.length,'profile')}</span></div></button>`).join('')}</div></div>
    <div class="sec">
     <div class="panel">
-     <div class="panel-h" style="flex-wrap:wrap"><div><h2 style="font-size:18px;font-family:var(--f-display);font-weight:600">${c.name}</h2><span class="muted num" style="font-size:12.5px">${c.phone} · ${bname(c.branch)} branch · ${pl(last.length,'order')}</span></div><span class="sp"></span>
+     <div class="panel-h" style="flex-wrap:wrap"><div><h2 style="font-size:18px;font-family:var(--f-display);font-weight:600">${c.name}</h2><span class="muted num" style="font-size:12.5px">${c.phone} · ${bname(c.branch)} branch · ${pl(last.length,'order')}${c.book?` · <span dir="rtl">دفتر ${esc(c.book)}</span>`:''}</span></div><span class="sp"></span>
       <button class="btn sm" id="newOrdBtn">${ico('plus')}New order with these</button></div>
      <div class="panel-b" style="display:flex;flex-direction:column;gap:16px">
       <div class="ptabs">${c.profiles.map((x,i)=>`<button class="chip ${i===selProf?'on':''}" data-p="${i}">${x.name}</button>`).join('')}<button class="chip" id="addProf">+ Add profile</button></div>
-      <div class="mbody">
-       <div>${thobeSVG()}<p class="muted" style="font-size:12px;margin:6px 0 0;text-align:center">Click a field to highlight it on the thobe</p></div>
+      <div class="mbody" style="grid-template-columns:minmax(0,1fr)">
        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-        <div class="mlist">${MEAS.map(([k,t])=>{const n=TH.findIndex(x=>x[0]===k)+1;return `<div class="mrow"><span class="no">${n}</span><label for="mm_${k}">${t}</label><input id="mm_${k}" data-k="${k}" inputmode="decimal" value="${p.m[k]}"><em>cm</em></div>`}).join('')}</div>
+        ${mForm('mm_',p.m)}
         <div class="field"><label for="mNote">Fitting notes</label><textarea id="mNote" rows="2" placeholder="e.g. likes a loose fit at the chest, right shoulder 1 cm lower">${p.note||''}</textarea></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="mSave">Save measurements</button><button class="btn" id="mReset">Undo changes</button></div>
        </div>
@@ -515,11 +541,10 @@ function measurements(){
    </div></div>`);
   document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;selProf=0;measurements()});
   document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{selProf=+b.dataset.p;measurements()});
-  const hot=k=>document.querySelectorAll('svg.thobe [data-k]').forEach(e=>e.classList.toggle('hot',e.dataset.k===k));
-  document.querySelectorAll('.mrow input').forEach(inp=>{inp.onfocus=()=>hot(inp.dataset.k);inp.oninput=()=>inp.classList.toggle('chg',+inp.value!==p.m[inp.dataset.k])});
-  document.querySelectorAll('svg.thobe .bd').forEach(g=>{g.style.cursor='pointer';g.onclick=()=>document.getElementById('mm_'+g.dataset.k).focus()});
+  mTicks();
+  document.querySelectorAll('.meas input:not([type=checkbox]),.meas textarea').forEach(inp=>inp.oninput=()=>{const ch=inp.value.trim()!==mVal(p.m,inp.dataset.k);inp.style.borderColor=ch?'var(--warn)':'';inp.style.background=ch?'var(--warn-bg)':''});
   document.getElementById('mReset').onclick=()=>measurements();
-  document.getElementById('mSave').onclick=()=>{const ch=[];MEAS.forEach(([k,t])=>{const v=+document.getElementById('mm_'+k).value;if(v&&v!==p.m[k]){ch.push(`${t} ${p.m[k]} → ${v} cm`);p.m[k]=v}});p.note=document.getElementById('mNote').value;
+  document.getElementById('mSave').onclick=()=>{const nm=mRead('mm_'),ch=[];MALL.forEach(([k,t,ty])=>{const a=mVal(p.m,k),b=nm[k]||'';if(a!==b)ch.push(ty==='tick'?(b?`✓ ${t}`:`✗ ${t}`):`${t} ${a||'—'} → ${b||'—'}`)});p.m=nm;p.note=document.getElementById('mNote').value;
     if(ch.length)c.hist.unshift({d:today,t:(p.name==='Self'?'':p.name+': ')+ch.join(', '),by:'Admin'});toast(ch.length?`Saved ${pl(ch.length,'change')}`:'No changes to save');measurements()};
   document.getElementById('addProf').onclick=()=>{
     const close=drawer('New measurement profile',`<div class="muted" style="font-size:13px">${c.name}</div>`,
@@ -527,7 +552,7 @@ function measurements(){
       <div class="field"><label for="npCopy">Start from</label><select id="npCopy"><option value="-1">Empty</option>${c.profiles.map((x,i)=>`<option value="${i}">${x.name}</option>`).join('')}</select></div>`,
      `<button class="btn pri" id="npSave">Create profile</button>`);
     document.getElementById('npSave').onclick=()=>{const n=document.getElementById('npName').value.trim();if(!n){toast('Give the profile a name');return}const src=+document.getElementById('npCopy').value;
-      c.profiles.push({name:n,m:src>=0?{...c.profiles[src].m}:Object.fromEntries(MEAS.map(([k])=>[k,'']))});selProf=c.profiles.length-1;close();toast(`Profile "${n}" added`);measurements()};
+      c.profiles.push({name:n,m:src>=0?{...c.profiles[src].m}:{}});selProf=c.profiles.length-1;close();toast(`Profile "${n}" added`);measurements()};
   };
   document.getElementById('newOrdBtn').onclick=()=>{location.hash='new';setTimeout(()=>{const s=document.getElementById('fCust');s.value=c.id;s.onchange();const pp=document.getElementById('fProf');pp.value=selProf;pp.onchange()},30)};
   bindRows();
@@ -653,7 +678,7 @@ function workerForm(w){
       $('wEx').innerHTML=`<b>Example:</b> if he finishes <b class="num">${ex}</b> pcs this month<br><span class="num">${sar(b)} + (${ex} − ${tg}) × ${c} = <b>${sar(b+10*c)} SAR</b></span><br><span class="muted" style="font-size:12px">Below ${tg} pcs he gets the basic salary only.</span>`}};
   ['wPay','wBasic','wTarget','wComm'].forEach(id=>$(id).oninput=sync);$('wPay').onchange=sync;sync();
   $('wSave').onclick=async()=>{const n=$('wName').value.trim();if(!n){toast('Enter the worker\'s name');$('wName').focus();return}
-    const t=w||{id:Math.max(0,...workers.map(x=>x.id))+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
+    const t=w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
     Object.assign(t,{name:n,role:$('wRole').value,branch:+$('wBranch').value,phone:$('wPhone').value.trim(),nat:$('wNat').value.trim(),pay:$('wPay').value,rate:+$('wRate').value||0,basic:+$('wBasic').value||0,target:+$('wTarget').value||0,comm:+$('wComm').value||0,joined:new Date($('wJoin').value||today),iqama:$('wIq').value?new Date($('wIq').value):null});
     if(!w){if(LIVE){const sb=$('wSave');sb.disabled=true;sb.textContent='Creating login…';try{t.login=jobLogin(t.role);await createStaff(t);if(!workers.some(x=>x.id===t.id))workers.push(t)}catch(e){sb.disabled=false;sb.textContent='Add worker';toast('Could not add: '+(e.code||e.message));return}}else workers.push(t)}close();toast(w?'Changes saved':`${n} added to ${bname(t.branch)}`);if((location.hash||'').slice(1)!=='workers')location.hash='workers';else route();if(!w)workerApp(t,true)};
 }
@@ -760,7 +785,7 @@ function till(){
 
 /* ================= Tailor: My work ================= */
 const ME=()=>(LIVE&&workers.find(w=>w.id===USER.sid))||workers.find(w=>w.name===USER.name)||workers.find(w=>w.role==='Tailor'&&w.branch===USER.branch)||workers.find(w=>w.role==='Tailor');
-function mmLine(o,keys){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return keys.map(k=>`<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]??'—'}`).join(' ')}
+function mmLine(o){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return MEAS.filter(([k])=>mVal(p.m,k)!=='').slice(0,4).map(([k,t])=>`<span dir="rtl">${esc(t)}</span> ${esc(mVal(p.m,k))}`).join(' ')||'<span>No measurement yet</span>'}
 function myJobs(w){const k=ROLE2TASK[w.role];if(!k)return[];
   return orders.filter(o=>pending(o,k)&&(k==='sew'?(o.tailor===w.id||(!workers.some(x=>x.id===o.tailor)&&o.made===w.branch)):(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).sort((a,b)=>a.due-b.due)}
 function mywork(){
@@ -776,7 +801,7 @@ function mywork(){
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
     <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${o.note?' · '+esc(o.note):''}</div></div>${taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
-    <div class="jb"><div><p class="h4">Measurements (cm)</p><div class="kv">${MEAS.map(([m,t])=>`<div><span>${t}</span><b>${p.m[m]}</b></div>`).join('')}</div></div>
+    <div class="jb"><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div>
     <div class="jf"><button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button><button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
@@ -1131,7 +1156,8 @@ async function resetPin(w){
 async function nextId(name){
   const {doc,runTransaction}=fb;let v;
   await runTransaction(db,async tx=>{const r=doc(db,'counters',name);const s=await tx.get(r);
-    const base=Math.max(0,...(name==='staff'?workers:name==='customers'?customers:BRANCHES).map(x=>+x.id||0));
+    // people from the shop exe use 100000 + their shop number: the website's own numbers stay below
+    const base=Math.max(0,...(name==='staff'?workers.filter(x=>!x.exeEmp&&x.id<100000):name==='customers'?customers.filter(x=>x.id>=500000):BRANCHES).map(x=>+x.id||0));
     v=Math.max(base,s.exists()?s.data().n:0)+1;tx.set(r,{n:v})});
   return v;
 }

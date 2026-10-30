@@ -37,7 +37,7 @@ R("for(let k=0;k<14;k++){const d=addD(today,-k);if(d.getDay()===5)continue;\n  w
 # ids that must not collide
 R("Math.max(...orders.map(o=>o.rno))+1", "Math.max(1000,...orders.map(o=>o.rno))+1")
 R("cid=customers.length+1;", "cid=Math.max(0,...customers.map(c=>c.id))+1;")
-R("const t=w||{id:workers.length+1,", "const t=w||{id:Math.max(0,...workers.map(x=>x.id))+1,")
+R("const t=w||{id:workers.length+1,", "const t=w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,")
 R("const t=b||{id:Math.max(...BRANCHES.map(x=>x.id))+1};", "const t=b||{id:Math.max(0,...BRANCHES.map(x=>x.id))+1};")
 R("const n={id:notices.length+1,", "const n={id:DEMO?notices.length+1:Math.random().toString(36).slice(2,12),")
 R("notices.find(x=>x.id===+b.dataset.popOk)", "notices.find(x=>String(x.id)===b.dataset.popOk)")
@@ -116,8 +116,6 @@ R("function dashboard(){", "function dashboard(){\n  if(LIVE&&!BRANCHES.length&&
 # numbers for records made on the website never meet the shop exe's own numbers
 R("Math.max(1000,...orders.map(o=>o.rno))+1", "Math.max(DEMO?1000:50000,...orders.filter(o=>DEMO||!o.exe||o.rno>=50000).map(o=>o.rno))+1")
 R("cid=Math.max(0,...customers.map(c=>c.id))+1;", "cid=Math.max(DEMO?0:500000,...customers.filter(c=>DEMO||c.id>=500000).map(c=>c.id))+1;")
-R("<b>${prof.m[k]}</b>", "<b>${prof.m[k]??'—'}</b>")
-R("<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]}", "<span>${MEAS.find(m=>m[0]===k)[1]}</span> ${p.m[k]??'—'}")
 R('<div class="rid" style="font-size:13px">Receipt #${o.rno} · ${bname(o.branch)} branch</div>', '<div class="rid" style="font-size:13px">Receipt #${o.rno}${o.exeNo&&o.exeNo!==o.rno?` · shop no. ${o.exeNo}`:\'\'} · ${bname(o.branch)} branch${o.exe?\' · from shop exe\':\'\'}</div>')
 # people from the shop exe get their login from here
 R('<div class="acts"><button class="btn sm" id="wcp">Copy link</button>', '<div class="acts">${LIVE&&!w.uid?`<button class="btn sm pri" id="wmk">Create his login</button>`:\'\'}<button class="btn sm" id="wcp">Copy link</button>')

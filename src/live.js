@@ -111,7 +111,8 @@ async function resetPin(w){
 async function nextId(name){
   const {doc,runTransaction}=fb;let v;
   await runTransaction(db,async tx=>{const r=doc(db,'counters',name);const s=await tx.get(r);
-    const base=Math.max(0,...(name==='staff'?workers:name==='customers'?customers:BRANCHES).map(x=>+x.id||0));
+    // people from the shop exe use 100000 + their shop number: the website's own numbers stay below
+    const base=Math.max(0,...(name==='staff'?workers.filter(x=>!x.exeEmp&&x.id<100000):name==='customers'?customers.filter(x=>x.id>=500000):BRANCHES).map(x=>+x.id||0));
     v=Math.max(base,s.exists()?s.data().n:0)+1;tx.set(r,{n:v})});
   return v;
 }
