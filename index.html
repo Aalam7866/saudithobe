@@ -456,6 +456,8 @@ svg.thobe .ml.hot{stroke-width:2.6;stroke-dasharray:none}
   @keyframes slide{from{transform:translateX(30px);opacity:.4}}
 }
 .jmore{border-top:1px dashed var(--line);padding:10px 16px}.jmore>summary{list-style:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer}.jmore>summary::-webkit-details-marker{display:none}.jmore>summary::after{content:"▾";font-size:11px}.jmore[open]>summary::after{content:"▴"}.jc .jmore>.jb{border-top:0;padding-inline:0}
+.otbl{max-height:calc(100vh - 210px);overflow:auto;overscroll-behavior:contain}.otbl thead th{position:sticky;top:0;z-index:2;background:var(--ground);box-shadow:0 1px 0 var(--line)}.otbl table{min-width:1500px}.otbl::-webkit-scrollbar{height:12px;width:10px}.otbl::-webkit-scrollbar-thumb{background:#9b9b9b;border-radius:6px}.otbl::-webkit-scrollbar-track{background:var(--ground)}.otbl{scrollbar-width:auto;scrollbar-color:#9b9b9b var(--ground)}.otbl td,.otbl th{white-space:nowrap}
+@media (max-width:860px){.otbl{max-height:calc(100vh - 250px)}}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}</style>
 </head>

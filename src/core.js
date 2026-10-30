@@ -383,19 +383,43 @@ function lineChart(data){
 }
 
 /* ================= Orders ================= */
+/* Orders: the same columns and filters as the AL THOB exe's Orders page (+ tailor, fabric, made at, branch at the end) */
+const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due amount'],['ready','Ready (not delivered)'],['done','Delivered'],['late','Late'],['gift','Free gifts']];
+function oInfo(o){
+  const pcs=+o.qty||0,dq=o.st==='done'?pcs:Math.min(pcs,delLog.filter(d=>d.rno===o.rno).reduce((s,d)=>s+(+d.qty||0),0));
+  const ps=k=>prodLog.filter(p=>p.rno===o.rno&&p.stage===k).reduce((s,p)=>s+(+p.qty||0),0);
+  const cut=Math.min(pcs,Math.max(ps('cut'),o.t.cut==='done'?pcs:0)),sew=Math.min(pcs,Math.max(ps('sew'),o.t.sew==='done'?pcs:0));
+  const hq=+o.hingeQty||(o.hinge?pcs:0),hd=Math.min(hq,Math.max(ps('hinge'),o.t.hinge==='done'?hq:0));
+  const due=Math.round((o.total-o.paid)*100)/100;
+  const status=dq>=pcs&&pcs>0?'Delivered':dq>0?'Partly delivered':o.st==='ready'?'Ready':o.due<today?'Late':sew>=pcs&&pcs>0?'Stitched':sew>0||cut>0||o.t.cut!=='wait'?'In progress':'Pending';
+  return{dq,cut,sew,hq,hd,due,status};
+}
+const OSTAT_C={Delivered:'s-done','Partly delivered':'s-sew',Ready:'s-ready',Late:'s-late',Stitched:'s-ready','In progress':'s-cut',Pending:''};
 function ordersView(){
-  const q=document.getElementById('q').value.trim().toLowerCase();const all=O();
-  const fl=all.filter(o=>(orderFilter==='all'||(orderFilter==='late'?late(o):o.st===orderFilter))&&(!q||String(o.rno).includes(q)||cust(o.cid).name.toLowerCase().includes(q)||cust(o.cid).phone.includes(q)));
-  const chip=(k,t,n)=>`<button class="chip ${orderFilter===k?'on':''}" data-f="${k}">${t}<span class="num">${n}</span></button>`;
-  V(`<div class="chips">${chip('all','All',all.length)}${chip('late','Overdue',all.filter(late).length)}${STAGES.map(s=>chip(s.k,s.t,all.filter(o=>o.st===s.k).length)).join('')}</div>
-  <div class="panel"><div class="tbl-wrap"><table>
-   <thead><tr><th>Receipt</th><th>Customer</th>${curBranch?'':'<th>Branch</th>'}<th>Qty</th><th>Fabric</th><th>Tailor</th><th>Made at</th><th>Pickup</th><th>Total</th><th>Balance</th><th>Status</th></tr></thead>
-   <tbody>${fl.map(o=>{const c=cust(o.cid),rem=o.total-o.paid;return `<tr class="click" data-r="${o.rno}">
-    <td><span class="rid">#${o.rno}</span></td><td class="who"><b>${c.name}</b><span>${c.phone}</span></td>${curBranch?'':`<td>${bTag(o.branch)} ${bname(o.branch)}</td>`}
-    <td class="num">${o.qty}</td><td>${o.fabric}</td><td>${wk(o.tailor).name}</td><td>${isFac(o.made)?bTag(o.made)+' Factory':'Shop'}</td><td class="num">${fmtD(o.due)}</td>
-    <td class="num">${sar(o.total)}</td><td class="num" style="color:${rem?'var(--bad)':'var(--ok)'}">${rem?sar(rem):'Paid'}</td><td>${pill(o)}</td></tr>`}).join('')}</tbody>
-  </table></div>${fl.length?'':'<div class="empty">No orders match this filter.</div>'}</div>`);
-  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{orderFilter=b.dataset.f;ordersView()});
+  const q=document.getElementById('q').value.trim().toLowerCase();const all=O().slice().sort((a,b)=>b.rno-a.rno);const money=RA().money;
+  const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
+  const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='gift'?!!o.gift:true};
+  const hit=o=>{if(!q)return true;const c=cust(o.cid);return String(o.rno)===q||String(o.invoiceNo||'')===q||String(o.cid)===q||String(o.exeNo||'')===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
+  if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
+  const fl=all.filter(o=>pass(o,orderFilter)&&hit(o));
+  const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
+  V(`<div class="rowtools" style="flex-wrap:wrap;gap:10px;align-items:center">
+    <label class="muted" for="oFilt" style="font-size:13px">Show:</label><select id="oFilt" class="btn sm" style="padding:6px 10px">${OFILTERS.map(([k,t])=>`<option value="${k}" ${k===orderFilter?'selected':''}>${t} (${all.filter(o=>pass(o,k)).length})</option>`).join('')}</select>
+    <span class="muted" style="font-size:13px">${pl(fl.length,'order')} · search above: name, mobile, order, invoice or customer no.</span></div>
+  <div class="panel"><div class="tbl-wrap otbl"><table>
+   <thead><tr><th>Order No</th><th>Invoice</th><th>Cust No</th><th>Customer</th><th>Mobile</th><th>Booked</th><th>Delivery</th><th>Pcs</th>${money?'<th>Total</th><th>Paid</th><th>Due</th>':''}<th>Status</th><th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th>Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
+   <tbody>${fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return `<tr class="click" data-r="${o.rno}">
+    <td><span class="rid">#${o.rno}</span>${o.exeNo&&o.exeNo!==o.rno?`<span class="muted num" style="display:block;font-size:11px">shop ${o.exeNo}</span>`:''}</td>
+    <td class="num">${o.gift?'<span class="tag">Gift</span>':o.invoiceNo||'—'}</td><td class="num">${o.cid}</td>
+    <td class="who" style="white-space:nowrap"><b dir="auto">${esc(c.name)}</b></td><td class="num" style="white-space:nowrap">${esc(c.phone)}</td>
+    <td class="num" style="white-space:nowrap">${D(o.created)}</td><td class="num" style="white-space:nowrap">${D(o.due)}</td><td class="num">${o.qty}</td>
+    ${money?`<td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td><td class="num" style="color:${x.due>0.5?'var(--bad)':'var(--ok)'};font-weight:600">${x.due>0.5?sar(x.due):'0'}</td>`:''}
+    <td style="white-space:nowrap"><span class="pill ${OSTAT_C[x.status]||''}">${x.status}</span></td>
+    <td class="num">${x.cut}</td><td class="num">${x.sew}</td><td class="num">${x.hq?`${x.hd} / ${x.hq}`:''}</td><td>${o.st==='ready'||o.st==='done'?'Yes':''}</td><td class="num">${x.dq}</td>
+    ${money?`<td>${esc(o.pm||'')}</td>`:''}<td style="white-space:nowrap">${o.tailor?esc(wk(o.tailor).name):'—'}</td>
+    <td dir="auto" style="white-space:nowrap">${esc(o.fabric||'')}</td><td style="white-space:nowrap">${isFac(o.made)?bTag(o.made)+' Factory':'Shop'}</td><td style="white-space:nowrap">${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody>
+  </table>${fl.length?'':'<div class="empty">No orders match this filter.</div>'}</div></div>`);
+  document.getElementById('oFilt').onchange=e=>{orderFilter=e.target.value;ordersView()};
   bindRows();
 }
 function bindRows(){document.querySelectorAll('[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}
