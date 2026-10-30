@@ -26,13 +26,13 @@ const ico=(k,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const STAGES=[{k:'cut',t:'Cutting',c:'s-cut'},{k:'sew',t:'Tailoring',c:'s-sew'},{k:'ready',t:'Ready for pickup',c:'s-ready'},{k:'done',t:'Delivered',c:'s-done'}];
 /* workshop flow (Settings → Workshop flow, drag to change): the steps in order; "after" = starts when the previous main
    step is finished, "with" = starts as soon as the previous main step starts; "send" = after stitching the tailor sends it
-   (hinge, tatreez, bottom cutting for zip); off = not used (ironing). When every step the order needs is done the tailor
+   (hinge, tatreez, bottom cutting for zip and hinge orders – after the hinge); off = not used (ironing). When every step the order needs is done the tailor
    ticks Ready (FLOW_OPT.tready) – or, with that off, it is ready by itself. */
 const TASK_DEF={cut:{t:'Cutting',role:'Cutter'},sew:{t:'Tailor',role:'Tailor'},hinge:{t:'Hinge',role:'Hinge'},tat:{t:'Tatreez',role:'Tatreez'},btm:{t:'Bottom cutting',role:'Bottom cutting'},iron:{t:'Ironing',role:'Ironing'}};
 const FLOW_DEFAULT=[{k:'cut',m:'after',on:true},{k:'sew',m:'after',on:true},{k:'hinge',m:'send',on:true},{k:'tat',m:'send',on:true},{k:'btm',m:'send',on:true},{k:'iron',m:'after',on:false}];
 const FLOW_OPT={tready:true};
 let FLOW=JSON.parse(JSON.stringify(FLOW_DEFAULT));
-const needs=(o,k)=>k==='hinge'?!!o.hinge:k==='tat'?!!o.tatreez:k==='btm'?(+o.zipQty||0)>0:true;
+const needs=(o,k)=>k==='hinge'?!!o.hinge:k==='tat'?!!o.tatreez:k==='btm'?((+o.zipQty||0)>0||!!o.hinge):true;
 const tv=(o,k)=>(o.t&&o.t[k])||'wait';
 const isSent=(o,k)=>!!(o.sent&&o.sent[k]);
 const TASKS=[],TK={};const ROLE2TASK={Cutter:'cut',Tailor:'sew',Hinge:'hinge',Tatreez:'tat','Bottom cutting':'btm',Ironing:'iron'};
@@ -52,7 +52,11 @@ applyFlow();
 const allStepsDone=o=>TASKS.filter(t=>t.m!=='with'&&needs(o,t.k)).every(t=>tv(o,t.k)==='done')&&TASKS.filter(t=>t.m==='with'&&needs(o,t.k)).every(t=>tv(o,t.k)==='done');
 /* stitched, now with the tailor: send for hinge / tatreez / bottom cutting, then tick Ready */
 const atTailor=o=>o.st!=='done'&&o.st!=='ready'&&tv(o,'sew')==='done'&&!!TK.sew;
-const toSend=o=>TASKS.filter(t=>t.m==='send'&&needs(o,t.k)&&tv(o,t.k)==='wait'&&!isSent(o,t.k));
+/* bottom cutting of a hinge order goes after the hinge is finished (sent by the hinge worker or the tailor) */
+const canSend=(o,k)=>tv(o,'sew')==='done'&&(k!=='btm'||!needs(o,'hinge')||tv(o,'hinge')==='done');
+const toSend=o=>TASKS.filter(t=>t.m==='send'&&needs(o,t.k)&&tv(o,t.k)==='wait'&&!isSent(o,t.k)&&canSend(o,t.k));
+/* the hinge worker: his finished hinge orders that still have to go for bottom cutting */
+const hingeBack=w=>TK.btm&&TK.btm.m==='send'?orders.filter(o=>o.st!=='done'&&o.st!=='ready'&&tv(o,'hinge')==='done'&&o.tw.hinge===w.id&&needs(o,'btm')&&tv(o,'btm')==='wait'&&!isSent(o,'btm')&&canSend(o,'btm')):[];
 function syncSt(o){if(o.st==='done'||o.st==='ready')return;const mains=TASKS.filter(t=>t.m==='after'&&needs(o,t.k));
   // hold = the website's tailor will tick Ready (the shop exe then never marks it ready by itself)
   const tr=FLOW_OPT.tready&&!!TK.sew;o.hold=tr&&tv(o,'sew')==='done';
@@ -211,7 +215,7 @@ function stepTask(o,k,by){const cur=o.t[k];if(cur==='done')return;
   if(tv(o,k)==='wait'){o.t[k]='doing';toast(`#${o.rno}: ${TK[k].t} started`)}
   else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});
     if(k==='sew'){const t=wk(o.tailor);t.mdone=(t.mdone||0)+o.qty}
-    toast(`#${o.rno}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):TK[k].m==='send'?' · back to the tailor':''}`)}
+    toast(`#${o.rno}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):k==='hinge'&&needs(o,'btm')&&TK.btm&&tv(o,'btm')==='wait'&&!isSent(o,'btm')?' · now send it for bottom cutting':TK[k].m==='send'?' · back to the tailor':''}`)}
   const before=o.st;syncSt(o);if(before!=='ready'&&o.st==='ready')notifyReady(o)}
 const taskBtn=(o,k)=>tv(o,k)==='wait'?`Start ${TK[k].t.toLowerCase()}`:`Finish ${TK[k].t.toLowerCase()}`;
 const taskPill=(o,k)=>{const v=tv(o,k);if(!needs(o,k))return '<span class="pill s-done">Not needed</span>';if(v==='done')return '<span class="pill s-ready">Done</span>';if(v==='doing')return '<span class="pill s-cut">In progress</span>';return TK[k].avail(o)?'<span class="pill s-new">Waiting</span>':'<span class="pill s-done">Not yet</span>'};
@@ -1103,10 +1107,10 @@ function till(){
 const ME=()=>(LIVE&&workers.find(w=>w.id===USER.sid))||workers.find(w=>w.name===USER.name)||workers.find(w=>w.role==='Tailor'&&w.branch===USER.branch)||workers.find(w=>w.role==='Tailor');
 function mmLine(o){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return MEAS.filter(([k])=>mVal(p.m,k)!=='').slice(0,4).map(([k,t])=>`<span dir="rtl">${esc(t)}</span> ${esc(mVal(p.m,k))}`).join(' ')||'<span>No measurement yet</span>'}
 function myJobs(w){const k=ROLE2TASK[w.role];if(!k)return[];
-  return orders.filter(o=>(pending(o,k)||(k==='sew'&&atTailor(o)))&&(k==='sew'?(o.tailor===w.id||(!workers.some(x=>x.id===o.tailor)&&o.made===w.branch)):(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).sort((a,b)=>a.due-b.due)}
+  return orders.filter(o=>(pending(o,k)||(k==='sew'&&atTailor(o)))&&(k==='sew'?(o.tailor===w.id||(!workers.some(x=>x.id===o.tailor)&&o.made===w.branch)):(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).concat(k==='hinge'?hingeBack(w):[]).sort((a,b)=>a.due-b.due)}
 /* tailor's card after stitching: send for hinge / tatreez / bottom cutting, see where it is, then Ready */
 function tailorBack(o){const ts=TASKS.filter(t=>t.m==='send'&&needs(o,t.k));
-  const parts=ts.map(t=>{const v=tv(o,t.k);return v==='done'?`<span class="pill s-ready">${t.t} done</span>`:v==='doing'?`<span class="pill s-cut">At ${t.t.toLowerCase()}</span>`:isSent(o,t.k)?`<span class="pill s-wait">Sent for ${t.t.toLowerCase()}</span>`:`<button class="btn pri" data-send="${o.rno}" data-k="${t.k}">Send for ${t.t.toLowerCase()}</button>`});
+  const parts=ts.map(t=>{const v=tv(o,t.k);return v==='done'?`<span class="pill s-ready">${t.t} done</span>`:v==='doing'?`<span class="pill s-cut">At ${t.t.toLowerCase()}</span>`:isSent(o,t.k)?`<span class="pill s-wait">Sent for ${t.t.toLowerCase()}</span>`:canSend(o,t.k)?`<button class="btn pri" data-send="${o.rno}" data-k="${t.k}">Send for ${t.t.toLowerCase()}</button>`:`<span class="pill s-wait">${t.t}: after hinge</span>`});
   const done=allStepsDone(o);
   return parts.join('')+(FLOW_OPT.tready?`<button class="btn ${done?'pri':''}" data-rdy="${o.rno}" ${done?'':'disabled title="Waiting for the other steps"'} style="${done?'background:var(--ok);border-color:var(--ok)':''}">✓ Ready</button>`:'')}
 function mywork(){
@@ -1124,7 +1128,7 @@ function mywork(){
     <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
     <details class="jmore" data-js="${o.rno}"><summary class="btn sm">Measurements & style</summary>${jHas(o.meas)||jHas(p.m)?`<div class="jwrap jro" style="margin-top:10px"></div>${jStylesHtml(jHas(o.meas)?o.meas:p.m)}`:''}<div class="jb"${jHas(o.meas)||jHas(p.m)?' hidden':''}><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
-    <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
+    <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):k==='hinge'&&tv(o,'hinge')==='done'?`<span class="pill s-ready">Hinge done</span><button class="btn pri" data-send="${o.rno}" data-k="btm">Send for bottom cutting</button>`:`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
   document.querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.send);sendTask(o,b.dataset.k);route()});
   document.querySelectorAll('[data-rdy]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.rdy);markReady(o);route()});
@@ -1780,10 +1784,10 @@ const flowText=(fl,tr)=>{const on=fl.filter(f=>f.on);let s='';const sends=[];on.
 function flowEditorHtml(){return `<div class="panel" id="flowPanel"><div class="panel-h"><h2>Workshop flow</h2><span class="sp"></span><span class="muted" style="font-size:12px">Drag the steps to change the order</span></div><div class="panel-b" id="flowBox"></div></div>`}
 function flowEditorMount(){const box=document.getElementById('flowBox');if(!box)return;let ed=JSON.parse(JSON.stringify(FLOW)),tr=FLOW_OPT.tready;const own=isOwner();
   const draw=()=>{ed=flowClean(ed);const ch=JSON.stringify(ed)!==JSON.stringify(FLOW)||tr!==FLOW_OPT.tready;const first=ed.findIndex(x=>x.on);
-    box.innerHTML=`<p class="muted" style="margin:0 0 10px;font-size:13px"><b>After</b> = starts when the step before is finished. <b>Together</b> = can start as soon as the step before has started. <b>Tailor sends</b> = when the tailor has stitched it, he sends it there (only orders that need it: hinge, tatreez, bottom cutting for zip) and it comes back to him. Off = not used.</p>
+    box.innerHTML=`<p class="muted" style="margin:0 0 10px;font-size:13px"><b>After</b> = starts when the step before is finished. <b>Together</b> = can start as soon as the step before has started. <b>Tailor sends</b> = when the tailor has stitched it, he sends it there (only orders that need it: hinge, tatreez, bottom cutting for zip and hinge orders) and it comes back to him. Off = not used.</p>
      <ol class="flow" id="flowList">${ed.map((f,i)=>`<li class="fstep ${f.on?'':'off'}" draggable="${own}" data-fi="${i}">
        <span class="grip" aria-hidden="true">⋮⋮</span><span class="fno num">${f.on?ed.slice(0,i+1).filter(x=>x.on).length:'–'}</span>
-       <div class="grow"><b>${TASK_DEF[f.k].t}</b><span class="muted" style="font-size:12px">Worker job: ${TASK_DEF[f.k].role==='Cutter'?'Cutting':TASK_DEF[f.k].role}${f.k==='btm'?' · zip orders':f.k==='hinge'?' · hinge orders':f.k==='tat'?' · tatreez orders':''}</span></div>
+       <div class="grow"><b>${TASK_DEF[f.k].t}</b><span class="muted" style="font-size:12px">Worker job: ${TASK_DEF[f.k].role==='Cutter'?'Cutting':TASK_DEF[f.k].role}${f.k==='btm'?' · zip and hinge orders (after the hinge)':f.k==='hinge'?' · hinge orders':f.k==='tat'?' · tatreez orders':''}</span></div>
        ${own?`<div class="seg sm">${Object.entries(FMODE).filter(([m])=>m!=='send'||(f.k!=='cut'&&f.k!=='sew')).map(([m,t])=>`<button type="button" class="${f.m===m?'on':''}" data-fm="${i}" data-v="${m}" ${first===i?'disabled':''}>${t}</button>`).join('')}</div>
        <label class="tgl" title="${f.k==='sew'?'Tailoring is always on':'On / off'}"><input type="checkbox" data-fo="${i}" ${f.on?'checked':''} ${f.k==='sew'?'disabled':''}><span></span></label>
        <span class="fmv"><button type="button" class="iconbtn" data-up="${i}" aria-label="Move up" ${i?'':'disabled'}>▲</button><button type="button" class="iconbtn" data-dn="${i}" aria-label="Move down" ${i<ed.length-1?'':'disabled'}>▼</button></span>`
