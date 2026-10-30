@@ -55,7 +55,7 @@ async function doFlush(){
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
-    if(col==='ded')for(const id of [...synced.ded.keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,'ded',id));synced.ded.delete(id)}
+    if(col==='ded'||((col==='payments'||col==='deliveries')&&ROLE==='owner'))for(const id of [...synced[col].keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,col,id));synced[col].delete(id)}
   }
 }
 async function createOrder(o){
@@ -181,6 +181,16 @@ function startListeners(){
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
+}
+
+/* the Payments page asks for older days than the 45 loaded at start */
+let payFrom=null;
+function ensurePayRange(from){
+  if(!db||!fb)return;const f=new Date(from);f.setHours(0,0,0,0);
+  if(payFrom&&f>=payFrom)return;if(!payFrom&&f>=addD(today,-45)){payFrom=addD(today,-45);return}
+  payFrom=f;const {collection,query,where}=fb;
+  sub('payments',query(collection(db,'payments'),where('d','>=',f)));
+  sub('deliveries',query(collection(db,'deliveries'),where('d','>=',f)));
 }
 
 /* ---------- sign in ---------- */

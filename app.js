@@ -749,19 +749,116 @@ function customersView(){
 }
 
 /* ================= Payments ================= */
+/* Payments: the AL THOB exe's Payments page (every payment and delivery, from – to, type, branch, search) and the unpaid receipts */
+let payTab='log',payF={from:null,to:null,type:'all',br:-1,q:''};
+function payRows(){
+  // one row per payment; a delivery on the same order and day joins its payment row, else it is a row of its own
+  const used=new Set(),rows=[];
+  payLog.forEach((p,i)=>{const d=delLog.findIndex((x,k)=>!used.has(k)&&x.rno===p.rno&&+x.d===+p.d);if(d>=0)used.add(d);
+    rows.push({k:'p'+i,d:p.d,rno:p.rno,branch:p.branch,type:p.t==='Deposit'?'Down payment':'Due payment',act:d>=0?'DELIVER':'PAY',amt:+p.amt||0,m:p.pm||p.m||'',ref:p.ref||'',dq:d>=0?(+delLog[d].qty||0):0,receipt:p.receipt||'',src:p,del:d>=0?delLog[d]:null})});
+  delLog.forEach((x,k)=>{if(!used.has(k))rows.push({k:'d'+k,d:x.d,rno:x.rno,branch:x.branch,type:'Due payment',act:'DELIVER',amt:0,m:'',ref:'',dq:+x.qty||0,receipt:'',src:null,del:x})});
+  return rows.sort((a,b)=>b.d-a.d||b.rno-a.rno);
+}
 function payments(){
-  const all=O();const open=all.filter(o=>o.total>o.paid).sort((a,b)=>(b.total-b.paid)-(a.total-a.paid));
-  const coll=all.reduce((s,o)=>s+o.paid,0),due=open.reduce((s,o)=>s+o.total-o.paid,0),readyDue=open.filter(o=>o.st==='ready').reduce((s,o)=>s+o.total-o.paid,0);
-  V(`<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-    <div class="kpi"><span class="l">Collected (last 40 days)</span><span class="v">${sar(coll)}<small>SAR</small></span></div>
-    <div class="kpi"><span class="l">Balance due from customers</span><span class="v" style="color:var(--bad)">${sar(due)}<small>SAR</small></span></div>
-    <div class="kpi"><span class="l">Due on ready orders</span><span class="v">${sar(readyDue)}<small>SAR</small></span><span class="d muted">Collected at pickup</span></div></div>
-  <div class="panel"><div class="panel-h"><h2>Unpaid receipts</h2></div><div class="tbl-wrap"><table>
-   <thead><tr><th>Receipt</th><th>Customer</th>${curBranch?'':'<th>Branch</th>'}<th>Total</th><th>Paid</th><th>Balance</th><th>Paid so far</th><th>Status</th></tr></thead>
-   <tbody>${open.map(o=>{const p=o.paid/o.total;return `<tr class="click" data-r="${o.rno}"><td><span class="rid">#${o.rno}</span></td><td class="who"><b>${cust(o.cid).name}</b><span>${cust(o.cid).phone}</span></td>${curBranch?'':`<td>${bTag(o.branch)}</td>`}
-    <td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td><td class="num" style="color:var(--bad);font-weight:600">${sar(o.total-o.paid)}</td>
-    <td><div class="load" style="width:90px"><i style="width:${p*100}%"></i></div></td><td>${pill(o)}</td></tr>`}).join('')}</tbody></table></div></div>`);
-  bindRows();
+  const money=RA().money;
+  if(!payF.from){payF.from=new Date(today.getFullYear(),today.getMonth(),1);payF.to=new Date(today)}
+  if(payF.br<0)payF.br=curBranch&&!isFac(curBranch)?curBranch:0;
+  if(typeof ensurePayRange==='function')ensurePayRange(payF.from);
+  const tabs=`<div class="seg" role="tablist" style="margin-bottom:2px"><button class="${payTab==='log'?'on':''}" data-pt="log">Payments</button><button class="${payTab==='due'?'on':''}" data-pt="due">Unpaid receipts</button></div>`;
+  if(payTab==='due'){
+    const all=O();const open=all.filter(o=>o.total>o.paid+0.005).sort((a,b)=>(b.total-b.paid)-(a.total-a.paid));
+    const coll=all.reduce((s,o)=>s+o.paid,0),due=open.reduce((s,o)=>s+o.total-o.paid,0),readyDue=open.filter(o=>o.st==='ready').reduce((s,o)=>s+o.total-o.paid,0);
+    V(`${tabs}<div class="okpi"><div><span>Collected</span><b class="num">${sar(coll)}<small>SAR</small></b><em>On the orders shown</em></div><div class="bad"><span>Balance due</span><b class="num">${sar(due)}<small>SAR</small></b><em>${pl(open.length,'order')}</em></div><div class="okc"><span>Due on ready orders</span><b class="num">${sar(readyDue)}<small>SAR</small></b><em>Collected at pickup</em></div></div>
+    <div class="panel opanel"><div class="tbl-wrap otbl"><table class="ot" style="min-width:900px"><thead><tr><th>Order / Invoice</th><th>Customer</th><th>Mobile</th><th class="r">Total</th><th class="r">Paid</th><th class="r">Balance</th><th>Paid so far</th><th>Status</th><th>Branch</th></tr></thead>
+     <tbody>${open.map(o=>{const c=cust(o.cid),p=o.total?o.paid/o.total:0;return `<tr class="click" data-r="${o.rno}"><td><span class="rid">#${o.rno}</span><small class="sub">${o.invoiceNo?'Inv '+o.invoiceNo:'Inv —'}</small></td><td><b dir="auto">${esc(c.name)}</b></td><td class="num">${esc(c.phone)}</td>
+      <td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num tbad">${sar(o.total-o.paid)}</td><td><div class="mbar"><i><b style="width:${p*100}%"></b></i></div></td><td>${pill(o)}</td><td>${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody></table>${open.length?'':'<div class="empty">No unpaid receipts.</div>'}</div></div>`);
+    document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{payTab=b.dataset.pt;payments()});bindRows();return}
+  const d0=new Date(payF.from),d1=new Date(payF.to);d1.setHours(23,59,59);
+  const q=payF.q.trim().toLowerCase();
+  const rows=payRows().filter(r=>{if(r.d<d0||r.d>d1)return false;if(payF.br&&r.branch!==payF.br)return false;
+    if(payF.type==='down'&&r.type!=='Down payment')return false;if(payF.type==='due'&&r.type!=='Due payment')return false;
+    if(!q)return true;const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return String(r.rno)===q||String(r.receipt)===q||(o&&String(o.invoiceNo||'')===q)||(c&&c.name.toLowerCase().includes(q))});
+  const tot=rows.reduce((s,r)=>s+r.amt,0),byM={};rows.forEach(r=>{if(r.amt){const k=webCat(r.m||'Cash');byM[k]=(byM[k]||0)+r.amt}});
+  const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});
+  V(`${tabs}<div class="okpi"><div><span>Payments</span><b class="num">${rows.filter(r=>r.amt).length}</b><em>${D(d0)} – ${D(d1)}</em></div>
+    <div class="okc"><span>Total received</span><b class="num">${sar2(tot)}<small>SAR</small></b><em>${payF.br?bname(payF.br):'All branches'}</em></div>
+    ${['Cash','Card (mada)','Transfer'].map(k=>`<div><span>${k}</span><b class="num">${sar(byM[k]||0)}<small>SAR</small></b><em>${tot?Math.round((byM[k]||0)/tot*100):0}%</em></div>`).join('')}
+    <div><span>Deliveries</span><b class="num">${rows.reduce((s,r)=>s+r.dq,0)}</b><em>pieces handed over</em></div></div>
+  <div class="panel opanel">
+   <div class="otools">${money?`<button class="btn sm pri" id="pRecv">${ico('cash')}Receive payment / Deliver</button>`:''}<button class="btn sm" id="pReprint">Reprint receipt</button>${isOwner()?'<button class="btn sm" id="pDel" style="color:var(--bad)">Delete payment</button>':''}<span class="sp"></span><button class="btn sm" id="pCsv">${ico('orders')}CSV</button><button class="btn sm" id="pPrint">${ico('cal')}Print</button></div>
+   <div class="otools pf">
+    <label>From <input type="date" id="pFrom" value="${dkey2(d0)}"></label><label>To <input type="date" id="pTo" value="${dkey2(payF.to)}"></label>
+    <select id="pType"><option value="all"${payF.type==='all'?' selected':''}>All payments</option><option value="down"${payF.type==='down'?' selected':''}>Down payments (at booking)</option><option value="due"${payF.type==='due'?' selected':''}>Due payments / deliveries</option></select>
+    <select id="pBr"><option value="0">All branches</option>${SHOPS().map(b=>`<option value="${b.id}"${b.id===payF.br?' selected':''}>${esc(b.name)}</option>`).join('')}</select>
+    <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px">
+    <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
+   <div class="tbl-wrap otbl"><table class="ot" style="min-width:1400px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
+    <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
+     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">#${r.rno}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
+     <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
+     <td class="r num" style="font-weight:600">${r.amt?sar2(r.amt):'<span class="muted">0</span>'}</td><td>${esc(r.m)}</td><td class="num">${esc(r.ref)}</td><td class="r num">${r.dq||''}</td>
+     <td class="r num ${o&&o.total-o.paid>0.5?'tbad':'tok'}">${o?(o.total-o.paid>0.5?sar(o.total-o.paid):'—'):''}</td><td>${bTag(r.branch)} ${bname(r.branch)}</td></tr>`}).join('')}</tbody>
+    ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="7">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
+   </table>${rows.length?'':'<div class="empty">No payments in these days.</div>'}</div></div>`);
+  const $=id=>document.getElementById(id);
+  const apply=()=>{payF.from=new Date($('pFrom').value+'T00:00:00');payF.to=new Date($('pTo').value+'T00:00:00');payF.type=$('pType').value;payF.br=+$('pBr').value;payF.q=$('pQ').value;payments()};
+  $('pShow').onclick=apply;['pType','pBr','pFrom','pTo'].forEach(id=>$(id).onchange=apply);$('pQ').onkeydown=e=>{if(e.key==='Enter')apply()};
+  document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{payTab=b.dataset.pt;payments()});
+  document.querySelectorAll('tr[data-pk]').forEach(tr=>{tr.onclick=()=>{payF.sel=tr.dataset.pk;document.querySelectorAll('tr[data-pk]').forEach(x=>x.classList.toggle('sel',x===tr))};tr.ondblclick=()=>{const r=rows.find(x=>x.k===tr.dataset.pk);if(r)openOrder(r.rno)}});
+  const selRow=()=>{const r=rows.find(x=>x.k===payF.sel);if(!r)toast('Click a payment first');return r};
+  if($('pRecv'))$('pRecv').onclick=()=>receivePayment();
+  $('pReprint').onclick=()=>{const r=selRow();if(r)printPayment(r)};
+  if($('pDel'))$('pDel').onclick=()=>{const r=selRow();if(!r)return;const o=orders.find(x=>x.rno===r.rno);
+    if((r.src&&r.src.exe)||(r.del&&r.del.exe)){toast('This payment came from the shop exe – delete it there (Payments → Delete payment)');return}
+    if(!confirm(`Delete this payment of ${sar2(r.amt)} SAR for order ${r.rno}?`))return;
+    if(r.src){payLog.splice(payLog.indexOf(r.src),1);if(o)o.paid=Math.max(0,Math.round((o.paid-r.amt)*100)/100)}
+    if(r.del){delLog.splice(delLog.indexOf(r.del),1);if(o&&o.st==='done')o.st=o.t.sew==='done'?'ready':o.st}
+    payF.sel=null;toast('Payment deleted');payments()};
+  const csvRows=()=>[['Date','Receipt','Order No','Invoice','Customer','Order Total','Type','Action','Amount','Method','Reference','Delivered Qty','Branch'],
+    ...rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return [dkey2(r.d),r.receipt,r.rno,o&&o.invoiceNo||'',c?c.name:'',o?o.total:'',r.type,r.act,r.amt,r.m,r.ref,r.dq,bname(r.branch)]})];
+  $('pCsv').onclick=()=>{const csv='﻿'+csvRows().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`payments_${dkey2(d0)}_${dkey2(payF.to)}.csv`;a.click()};
+  $('pPrint').onclick=()=>{const rs=csvRows(),w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Payments</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Payments · ${payF.br?esc(bname(payF.br)):'All branches'}</h1><p>${D(d0)} – ${D(d1)} · ${pl(rows.length,'row')} · total ${sar2(tot)} SAR</p><table><thead><tr>${rs[0].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);w.document.close();setTimeout(()=>w.print(),300)};
+}
+/* + Receive payment / Deliver: as the exe's payment window – order no., due, amount, method, reference, pieces handed over */
+function receivePayment(rno){
+  const close=drawer('Receive payment / Deliver','<div class="muted" style="font-size:13px">Type the order no. (or the invoice no.)</div>',
+   `<div class="fgrid" style="grid-template-columns:1fr 1fr"><div class="field" style="grid-column:1/-1"><label for="rpO">Order No</label><input id="rpO" class="num" inputmode="numeric" value="${rno||''}"></div>
+     <div id="rpInfo" style="grid-column:1/-1"></div>
+     <div class="field"><label for="rpA">Amount (SAR)</label><input id="rpA" type="number" min="0" class="num"></div>
+     <div class="field"><label for="rpM">Payment method</label><select id="rpM"><option value=""></option>${PMETHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+     <div class="field"><label for="rpR">Reference / SPAN</label><input id="rpR"></div>
+     <div class="field"><label for="rpQ">Deliver pieces now</label><input id="rpQ" type="number" min="0" value="0" class="num"></div></div>`,
+   `<button class="btn pri" id="rpSave">Save</button><button class="btn" id="rpPrint">Save &amp; Print</button>`);
+  const $=id=>document.getElementById(id);let o=null;
+  const find=()=>{const v=$('rpO').value.trim();o=orders.find(x=>String(x.rno)===v)||orders.find(x=>String(x.invoiceNo||'')===v&&v)||null;
+    if(!o){$('rpInfo').innerHTML=v?'<div class="msg" style="border-color:var(--bad)">Order not found.</div>':'';return}
+    const c=cust(o.cid),due=Math.round((o.total-o.paid)*100)/100,x=oInfo(o);
+    $('rpInfo').innerHTML=`<div class="kv"><div><span>Customer</span><b dir="auto" style="font-family:var(--f-body);font-size:13px">${esc(c.name)}</b></div><div><span>Total</span><b>${sar2(o.total)}</b></div><div><span>Paid</span><b>${sar2(o.paid)}</b></div><div><span>Due</span><b style="color:${due>0?'var(--bad)':'var(--ok)'}">${sar2(due)}</b></div><div><span>Pieces</span><b>${o.qty}</b></div><div><span>Delivered</span><b>${x.dq}</b></div></div>`;
+    $('rpA').value=due>0?due:0;$('rpQ').max=o.qty-x.dq};
+  $('rpO').oninput=find;find();setTimeout(()=>$('rpO').focus(),30);
+  const save=print=>{if(!o){toast('Type a valid order no.');return}
+    const a=Math.round((+$('rpA').value||0)*100)/100,q=Math.max(0,+$('rpQ').value||0),due=Math.round((o.total-o.paid)*100)/100,left=o.qty-oInfo(o).dq,m=$('rpM').value;
+    if(a<0||a>due+0.01){toast(`More than the due ${sar2(due)}`);return}
+    if(a>0&&!m){toast('Choose the payment method');return}
+    if(q>left){toast(`Only ${left} piece(s) left to deliver`);return}
+    if(!a&&!q){toast('Enter the amount or the pieces');return}
+    if(q>0&&due-a>0.5&&!confirm(`Customer still owes ${sar2(due-a)} SAR. Deliver anyway?`))return;
+    const p=a>0?{d:new Date(today),rno:o.rno,branch:o.branch,amt:a,m:webCat(m),pm:m,ref:$('rpR').value.trim(),t:'Balance'}:null;
+    if(p){payLog.push(p);o.paid=Math.round((o.paid+a)*100)/100}
+    if(q>0){delLog.push({d:new Date(today),rno:o.rno,branch:o.branch,qty:q,amt:a});if(oInfo(o).dq>=o.qty)o.st='done'}
+    close();toast(`Order #${o.rno}: ${a?sar2(a)+' SAR received':''}${a&&q?' · ':''}${q?q+' pcs delivered':''}`);
+    if(print)printPayment({d:new Date(today),rno:o.rno,amt:a,m,ref:p?p.ref:'',dq:q,type:'Due payment',receipt:''});route()};
+  $('rpSave').onclick=()=>save(false);$('rpPrint').onclick=()=>save(true);
+}
+function printPayment(r){
+  const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null,w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
+  w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>Receipt ${r.rno}</title><style>body{font:13px Arial,sans-serif;margin:12px;max-width:340px}h1{font-size:16px;margin:0}td{padding:3px 2px}td.n{text-align:left;direction:ltr}.b{font-weight:bold;font-size:15px}@page{margin:6mm}</style></head><body>
+   <h1>الثوب السعودي · AL THOB AL SAUDI</h1><div>سند قبض / Payment receipt${r.receipt?' #'+r.receipt:''}</div><hr><table style="width:100%">
+   <tr><td>التاريخ / Date</td><td class="n">${r.d.toLocaleDateString('en-GB')}</td></tr><tr><td>رقم الطلب / Order</td><td class="n b">${r.rno}</td></tr>${o&&o.invoiceNo?`<tr><td>الفاتورة / Invoice</td><td class="n">${o.invoiceNo}</td></tr>`:''}
+   <tr><td>العميل / Customer</td><td class="n">${c?esc(c.name):''}</td></tr><tr><td>المبلغ / Amount</td><td class="n b">${sar2(r.amt)} SAR</td></tr>${r.m?`<tr><td>طريقة الدفع / Method</td><td class="n">${esc(r.m)}${r.ref?' · '+esc(r.ref):''}</td></tr>`:''}
+   ${r.dq?`<tr><td>تسليم / Delivered</td><td class="n">${r.dq} pcs</td></tr>`:''}${o?`<tr><td>الإجمالي / Total</td><td class="n">${sar2(o.total)}</td></tr><tr><td>المتبقي / Balance</td><td class="n b">${sar2(o.total-o.paid)}</td></tr>`:''}</table></body></html>`);
+  w.document.close();setTimeout(()=>w.print(),300);
 }
 
 /* ================= Workers ================= */
@@ -1505,7 +1602,7 @@ async function doFlush(){
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
-    if(col==='ded')for(const id of [...synced.ded.keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,'ded',id));synced.ded.delete(id)}
+    if(col==='ded'||((col==='payments'||col==='deliveries')&&ROLE==='owner'))for(const id of [...synced[col].keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,col,id));synced[col].delete(id)}
   }
 }
 async function createOrder(o){
@@ -1631,6 +1728,16 @@ function startListeners(){
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
+}
+
+/* the Payments page asks for older days than the 45 loaded at start */
+let payFrom=null;
+function ensurePayRange(from){
+  if(!db||!fb)return;const f=new Date(from);f.setHours(0,0,0,0);
+  if(payFrom&&f>=payFrom)return;if(!payFrom&&f>=addD(today,-45)){payFrom=addD(today,-45);return}
+  payFrom=f;const {collection,query,where}=fb;
+  sub('payments',query(collection(db,'payments'),where('d','>=',f)));
+  sub('deliveries',query(collection(db,'deliveries'),where('d','>=',f)));
 }
 
 /* ---------- sign in ---------- */
