@@ -422,12 +422,12 @@ function ordersView(){
      <button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
     </div>
     <div class="tbl-wrap otbl"><table class="ot">
-     <thead><tr>${th('rno','Order No','stk s1')}${th('cust','Customer','stk s2')}${th('inv','Invoice','r')}<th class="r">Cust No</th><th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
+     <thead><tr>${th('rno','Order / Invoice','stk s1')}${th('cust','Customer','stk s2')}<th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
       ${money?th('total','Total','r')+th('paid','Paid','r')+th('bal','Due','r'):''}${th('status','Status')}<th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th class="r">Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
      <tbody>${fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno),lateD=x.dq<o.qty&&o.due<today;return `<tr class="click" data-r="${o.rno}" tabindex="0">
-      <td class="stk s1"><span class="rid">#${o.rno}</span>${o.exeNo&&o.exeNo!==o.rno?`<small class="sub">shop ${o.exeNo}</small>`:''}</td>
+      <td class="stk s1"><span class="rid">#${o.rno}</span><small class="sub">${o.gift?'Free gift':o.invoiceNo?'Inv '+o.invoiceNo:'Inv —'}${o.exeNo&&o.exeNo!==o.rno?' · shop '+o.exeNo:''}</small></td>
       <td class="stk s2"><b dir="auto" class="cn">${esc(c.name)}</b></td>
-      <td class="r num">${o.gift?'<span class="tag">Gift</span>':o.invoiceNo||'<span class="muted">—</span>'}</td><td class="r num muted">${o.cid}</td><td class="num">${esc(c.phone)}</td>
+      <td class="num">${esc(c.phone)}</td>
       <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
       ${money?`<td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num ${x.due>0.5?'tbad':'tok'}">${x.due>0.5?sar(x.due):'—'}</td>`:''}
       <td><span class="pill ${OSTAT_C[x.status]||''}">${x.status}</span></td>
@@ -435,13 +435,13 @@ function ordersView(){
       <td>${o.st==='ready'||o.st==='done'?'<span class="tick">✓</span>':''}</td><td class="r num">${x.dq?x.dq:'<span class="muted">0</span>'}</td>
       ${money?`<td>${o.pm?esc(o.pm):'<span class="muted">—</span>'}</td>`:''}<td>${o.tailor&&wk(o.tailor).id?esc(wk(o.tailor).name):'<span class="muted">—</span>'}</td>
       <td dir="auto" class="fab" title="${esc(o.fabric||'')}">${esc(o.fabric||'')}</td><td>${isFac(o.made)?bTag(o.made)+' Factory':'Shop'}</td><td>${bTag(o.branch)} ${bname(o.branch)}</td></tr>`}).join('')}</tbody>
-     ${fl.length?`<tfoot><tr><td class="stk s1">Total</td><td class="stk s2">${pl(T.n,'order')}</td><td></td><td></td><td></td><td></td><td></td><td class="r num">${T.pcs}</td>${money?`<td class="r num">${sar(T.tot)}</td><td class="r num">${sar(T.paid)}</td><td class="r num tbad">${sar(T.due)}</td>`:''}<td colspan="${money?11:10}"></td></tr></tfoot>`:''}
+     ${fl.length?`<tfoot><tr><td class="stk s1">Total</td><td class="stk s2">${pl(T.n,'order')}</td><td></td><td></td><td></td><td class="r num">${T.pcs}</td>${money?`<td class="r num">${sar(T.tot)}</td><td class="r num">${sar(T.paid)}</td><td class="r num tbad">${sar(T.due)}</td>`:''}<td colspan="${money?11:10}"></td></tr></tfoot>`:''}
     </table>${fl.length?'':`<div class="empty">No orders match${q?` “${esc(q)}”`:''} in <b>${OFILTERS.find(f=>f[0]===orderFilter)[1]}</b>.</div>`}</div></div>`);
   document.querySelectorAll('[data-of]').forEach(b=>b.onclick=()=>{orderFilter=b.dataset.of;ordersView()});
   document.querySelectorAll('th[data-sort]').forEach(h=>h.onclick=()=>{const k=h.dataset.sort;oSort=oSort.k===k?{k,d:-oSort.d}:{k,d:k==='cust'||k==='status'?1:-1};ordersView()});
   document.querySelectorAll('tr[data-r]').forEach(r=>r.onkeydown=e=>{if(e.key==='Enter')openOrder(+r.dataset.r)});
-  const rowsCsv=()=>{const H=['Order No','Invoice','Cust No','Customer','Mobile','Booked','Delivery','Pcs',...(money?['Total','Paid','Due']:[]),'Status','Cut','Stitched','Hinge','Ready','Delivered',...(money?['Method']:[]),'Tailor','Fabric','Made at','Branch'];
-    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [o.rno,o.gift?'Gift':o.invoiceNo||'',o.cid,c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
+  const rowsCsv=()=>{const H=['Order No','Invoice','Customer','Mobile','Booked','Delivery','Pcs',...(money?['Total','Paid','Due']:[]),'Status','Cut','Stitched','Hinge','Ready','Delivered',...(money?['Method']:[]),'Tailor','Fabric','Made at','Branch'];
+    const R=fl.map(o=>{const c=cust(o.cid),x=info.get(o.rno);return [o.rno,o.gift?'Gift':o.invoiceNo||'',c.name,c.phone,dkey2(o.created),dkey2(o.due),o.qty,...(money?[o.total,o.paid,x.due]:[]),x.status,x.cut,x.sew,x.hq?`${x.hd}/${x.hq}`:'',o.st==='ready'||o.st==='done'?'Yes':'',x.dq,...(money?[o.pm||'']:[]),o.tailor?wk(o.tailor).name:'',o.fabric||'',isFac(o.made)?bname(o.made):'Shop',bname(o.branch)]});
     return [H,...R]};
   document.getElementById('oCsv').onclick=()=>{const csv='﻿'+rowsCsv().map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`orders_${dkey2(today)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
@@ -465,12 +465,13 @@ function openOrder(rno){
     <div><p class="h4">Workshop · ${o.made===o.branch?bname(o.made)+' workshop':bname(o.made)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${TASKS.map(t=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="row" style="padding-block:8px"><div class="grow"><b>${t.t}</b><span>${wid?wk(wid).name:'Not assigned yet'}</span></div>${taskPill(o,t.k)}${canTask()&&pending(o,t.k)?`<button class="btn sm" data-tk="${t.k}">${taskBtn(o,t.k)}</button>`:''}</div>`}).join('')}</div></div>
     <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0"><div class="wav" style="width:36px;height:36px;font-size:14px">${initials(wk(o.tailor).name)}</div><div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
     ${orderItems(o)}
-    <div><p class="h4">Style</p><div class="kv">${DESIGN_.map(g=>`<div><span>${g.t}</span><b style="font-family:var(--f-body);font-size:13px">${g.opts.find(x=>x[0]===o.design[g.k])[1]}</b></div>`).join('')}<div><span>Fabric</span><b style="font-family:var(--f-body);font-size:13px">${o.fabric}</b></div></div></div>
-    <div><p class="h4">Measurements · ${esc(prof.name)}</p>${mShow(prof.m)}</div>
+    ${jHas(o.meas)||jHas(prof.m)?`<div><p class="h4">Measurement sheet & style</p>${jStylesHtml(jHas(o.meas)?o.meas:prof.m)}<button class="btn sm" id="jOpen" style="margin-top:8px">📐 Open the measurement sheet</button></div>`:`<div><p class="h4">Style</p><div class="kv">${DESIGN_.map(g=>`<div><span>${g.t}</span><b style="font-family:var(--f-body);font-size:13px">${g.opts.find(x=>x[0]===o.design[g.k])[1]}</b></div>`).join('')}<div><span>Fabric</span><b style="font-family:var(--f-body);font-size:13px">${o.fabric}</b></div></div></div>`}
+    ${MALL.some(([k])=>mVal(prof.m,k)!=='')?`<div><p class="h4">Old shop paper values</p>${mShow(prof.m)}</div>`:''}
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
    `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}`);
   document.querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{stepTask(o,b.dataset.tk);route();openOrder(rno)});
+  const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order #${o.rno} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
   const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>{delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:0});o.st='done';toast(`#${o.rno} handed over`);route();openOrder(rno)};
   const pay=document.getElementById('payBtn');if(pay)pay.onclick=()=>{if(o.st==='ready'){o.st='done';delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:rem})}payLog.push({d:today,rno:o.rno,branch:o.branch,amt:rem,m:'Cash',t:'Balance'});o.paid=o.total;toast(`Payment of ${sar(rem)} SAR recorded`);route();openOrder(rno)};
   const wb=document.getElementById('waBtn');if(wb)wb.onclick=()=>copyEl('wamsg',waText(o));
@@ -479,137 +480,173 @@ function copyEl(id,t){navigator.clipboard.writeText(t).then(()=>toast('Copied'),
 
 /* ================= New order ================= */
 let draft;
+/* New order: the AL THOB exe's order window – customer no. / name / mobile / address, booking + delivery date, order and
+   invoice no., free gift, sample, notes, hinge / zip pcs; the items (shop stock or customer's fabric) and embroidery grids;
+   subtotal, discount, VAT, total, down payment, method, reference, balance; Save & Print · Save only · Measurements… · Cancel */
 function newOrder(){
-  draft={design:Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),tab:'qalab'};
+  draft={design:Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),lines:[],emb:[],meas:{},sel:-1,esel:-1};
   const due0=addD(today,10);const nextR=Math.max(...orders.map(o=>o.rno))+1;
-  const br=curBranch&&!isFac(curBranch)?curBranch:1;
-  V(`<div class="form">
-   <div class="sec">
-    <div class="panel"><div class="panel-h"><h2>Customer</h2></div><div class="panel-b"><div class="fgrid">
-      <div class="field" style="grid-column:span 2"><label for="fCust">Existing customer</label><select id="fCust"><option value="">New customer</option>${customers.map(c=>`<option value="${c.id}">${c.name} · ${c.phone}</option>`).join('')}</select></div>
-      <div class="field"><label for="fProf">Measurement profile</label><select id="fProf"><option value="0">Self</option></select></div>
-      <div class="field"><label for="fName">Name</label><input id="fName" placeholder="Customer name"></div>
-      <div class="field"><label for="fPhone">Mobile</label><input id="fPhone" class="num" placeholder="05xxxxxxxx"></div>
-      <div class="field"><label for="fAddr">Address</label><input id="fAddr" dir="auto"></div>
-      <div class="field"><label for="fBranch">Branch</label><select id="fBranch">${SHOPS().map(b=>`<option value="${b.id}" ${b.id===br?'selected':''}>${b.name} · ${b.city}</option>`).join('')}</select></div>
-    </div></div></div>
-    <div class="panel"><div class="panel-h"><h2>Measurements</h2><span class="sp"></span><span class="muted" style="font-size:12px">The shop's measurement sheet · filled in from the customer's saved profile</span></div>
-     <div class="panel-b" style="display:flex;flex-direction:column;gap:14px">${mForm('m_',{})}</div></div>
-    <div class="panel"><div class="panel-h"><h2>Style</h2><span class="sp"></span><span class="muted" style="font-size:12px" id="dsum"></span></div>
-     <div class="dtabs" id="dtabs"></div><div class="dopts" id="dopts"></div></div>
-    <div class="panel"><div class="panel-h" style="flex-wrap:wrap;gap:8px"><h2>Items</h2><span class="sp"></span><button class="btn sm pri" id="addIn">${ico('plus')}Shop fabric</button><button class="btn sm" id="addOut">${ico('plus')}Customer's fabric</button></div>
-     <div class="tbl-wrap"><table class="lines"><thead><tr><th>Type</th><th>Fabric</th><th style="width:76px">Pcs</th><th class="mny" style="width:96px">Rate</th><th class="mny" style="width:90px">Amount</th><th style="width:40px"></th></tr></thead><tbody id="lnBody"></tbody></table></div>
-     <div class="panel-b muted" style="font-size:12px;padding-top:8px">IN = shop fabric from stock (code, rate) · OUT = customer's own fabric (tailoring only)</div></div>
-    <div class="panel"><div class="panel-h"><h2>Embroidery · <span dir="rtl">التطريز</span></h2><span class="sp"></span><button class="btn sm" id="addEmb">${ico('plus')}Embroidery</button></div>
-     <div class="tbl-wrap"><table class="lines"><thead><tr><th>Design</th><th>On fabric</th><th style="width:76px">Pcs</th><th class="mny" style="width:96px">Rate</th><th class="mny" style="width:90px">Amount</th><th style="width:40px"></th></tr></thead><tbody id="embBody"></tbody></table></div></div>
-    <div class="panel"><div class="panel-h"><h2>Order</h2></div><div class="panel-b"><div class="fgrid">
-      <div class="field"><label for="fMade">Stitch at</label><select id="fMade"></select></div>
-      <div class="field"><label for="fTailor">Tailor</label><select id="fTailor"></select></div>
-      <div class="field"><label for="fDue">Delivery date</label><input id="fDue" type="date" min="${dkey2(today)}" value="${dkey2(due0)}"></div>
-      <div class="field"><label for="fHingeQ">Hinge button pcs</label><input id="fHingeQ" type="number" min="0" value="0" class="num"></div>
-      <div class="field"><label for="fZipQ">Zip pcs</label><input id="fZipQ" type="number" min="0" value="0" class="num"></div>
-      <div class="field" style="grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap"><input type="checkbox" id="fSample" style="width:auto"><label for="fSample" style="color:var(--text);margin-inline-end:18px">Customer left a sample thobe</label><input type="checkbox" id="fGift" style="width:auto"><label for="fGift" style="color:var(--text)">Free gift · هدية (no invoice)</label></div>
-      <div class="field" style="grid-column:1/-1"><label for="fNote">Notes</label><textarea id="fNote" rows="2" placeholder="e.g. sleeve 1 cm longer"></textarea></div>
-    </div></div></div>
-    <div class="panel" id="payPanel"><div class="panel-h"><h2>Payment</h2></div><div class="panel-b"><div class="fgrid">
-      <div class="field"><label for="fDisc">Discount (SAR)</label><input id="fDisc" type="number" min="0" value="0" class="num"></div>
-      <div class="field"><label for="fPaid">Down payment (SAR)</label><input id="fPaid" type="number" min="0" value="0" class="num"></div>
-      <div class="field"><label for="fMethod">Payment method</label><select id="fMethod"><option value="">—</option>${PMETHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>
-      <div class="field"><label for="fRef">Reference / SPAN</label><input id="fRef" placeholder="card slip no."></div>
-    </div></div></div>
-   </div>
-   <aside class="slip"><div class="head"><b>New receipt</b><span class="num">#${nextR}</span></div>
-    <dl id="slipdl"></dl>
-    <div class="tot" id="slipTot"><div><span class="muted">Subtotal</span><span class="num" id="tGross"></span></div><div><span class="muted">Discount</span><span class="num" id="tDisc"></span></div><div><span class="muted">VAT 15% (included)</span><span class="num" id="tVat"></span></div><div><span class="muted">Total</span><span class="num" id="tTot"></span></div><div><span class="muted">Down payment</span><span class="num" id="tPaid"></span></div><div class="big"><span>Balance</span><span class="num" id="tRem"></span></div></div>
-    <div class="act"><button class="btn pri" id="saveBtn">Save order and issue receipt</button><a class="btn" href="#orders">Cancel</a></div>
-   </aside></div>`);
-  const $=id=>document.getElementById(id);
+  const br=curBranch&&!isFac(curBranch)?curBranch:(USER.branch&&!isFac(USER.branch)?USER.branch:(SHOPS()[0]||{id:1}).id);
   const money=RA().money;
-  draft.lines=[];draft.emb=[];
-  const stockOpt=code=>`<option value="">Choose fabric…</option>`+STOCK.map(it=>`<option value="${it.code}" ${it.code===code?'selected':''}>${it.code} · ${esc(it.name)}${it.colour?' · '+esc(it.colour):''} · ${sar(it.rate)} SAR${it.stock!=null?` · stock ${Math.floor(it.stock)}`:''}</option>`).join('');
+  const F=(lab,ctl,span)=>`<label class="ol">${lab}</label><div class="oc"${span?` style="grid-column:span ${span}"`:''}>${ctl}</div>`;
+  V(`<div class="oform">
+   <div class="panel"><div class="ogrid">
+    ${F('Customer No',`<div class="orow"><input id="fCno" class="num" inputmode="numeric" placeholder="(empty = new customer)"><button class="btn sm" id="fFind">Find…</button></div>`)}
+    ${F('Name *','<input id="fName" dir="auto" autocomplete="off">')}
+    ${F('Mobile','<input id="fPhone" class="num" inputmode="tel">')}
+    ${F('Address','<input id="fAddr" dir="auto">')}
+    ${F('Booking date',`<input id="fBook" type="date" value="${dkey2(today)}">`)}
+    ${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">`)}
+    ${F('Order No',`<input id="fOno" class="num" readonly value="(new) ${nextR}">`)}
+    ${F('Invoice No',`<div class="orow"><input id="fInv" class="num" readonly value="(new)"><label class="ock gift"><input type="checkbox" id="fGift"> Free gift / هدية</label></div>`)}
+    ${F('',`<label class="ock"><input type="checkbox" id="fSample"> Customer left a sample thobe</label>`)}
+    ${F('Notes','<input id="fNote" dir="auto">',5)}
+    ${F('Hinge button pcs / عدد Hinge button','<input id="fHingeQ" type="number" min="0" value="0" class="num" style="max-width:110px">')}
+    ${F('Zip pcs / عدد السحاب','<input id="fZipQ" type="number" min="0" value="0" class="num" style="max-width:110px">')}
+    ${F('Branch',`<select id="fBranch">${SHOPS().map(b=>`<option value="${b.id}" ${b.id===br?'selected':''}>${esc(b.name)}</option>`).join('')}</select>`)}
+    ${F('Stitch at','<select id="fMade"></select>')}
+    ${F('Tailor','<select id="fTailor"></select>')}
+   </div></div>
+   <div class="panel"><div class="obar"><b>Items</b><button class="btn sm pri" id="addIn">Add item from stock (F3)</button><button class="btn sm" id="addOut">Add customer-fabric line</button><button class="btn sm" id="rmLine">Remove line</button>
+     <span class="muted">IN = shop fabric (reduces stock) · OUT = customer's own fabric (tailoring only)</span></div>
+    <div class="tbl-wrap"><table class="ogridt"><thead><tr><th style="width:34px">#</th><th style="width:70px">Source</th><th style="width:80px">Code</th><th>Item</th><th style="width:120px">Company</th><th style="width:80px">Qty</th><th class="mny" style="width:100px">Rate</th><th class="mny" style="width:110px">Amount</th></tr></thead><tbody id="lnBody"></tbody></table></div></div>
+   <div class="panel"><div class="obar"><b>Embroidery / التطريز</b><button class="btn sm pri" id="addEmb">Choose embroidery…</button><button class="btn sm" id="rmEmb">Remove embroidery</button>
+     <span class="muted">choose the design → model and price come in; choose the fabric it goes on</span></div>
+    <div class="tbl-wrap"><table class="ogridt"><thead><tr><th style="width:80px">Code</th><th>Model</th><th>Fabric</th><th style="width:80px">Qty</th><th class="mny" style="width:100px">Rate</th><th class="mny" style="width:110px">Amount</th></tr></thead><tbody id="embBody"></tbody></table></div></div>
+   <div class="panel obottom" id="payPanel"><div class="otot">
+     <label>Subtotal</label><input id="tGross" class="num" readonly>
+     <label>Down payment</label><input id="fPaid" class="num" type="number" min="0" value="0">
+     <label>Discount</label><input id="fDisc" class="num" type="number" min="0" value="0">
+     <label>Payment method</label><select id="fMethod"><option value=""></option>${PMETHODS.map(m=>`<option>${m}</option>`).join('')}</select>
+     <label>VAT 15%</label><input id="tVat" class="num" readonly>
+     <label>Reference / SPAN</label><input id="fRef">
+     <label class="big">TOTAL</label><input id="tTot" class="num big" readonly>
+     <label></label><div id="tRem" class="obal"></div>
+   </div></div>
+   <div class="obtns"><button class="btn pri" id="saveP">Save &amp; Print  (Ctrl+S)</button><button class="btn" id="saveO">Save only</button>
+    <button class="btn" id="measB">📐 Measurements…</button><span class="muted" id="measN"></span><span class="sp"></span><a class="btn" href="#orders">Cancel</a></div>
+  </div>`);
+  const $=id=>document.getElementById(id);
+  let cid=0;
   const lineName=(l,i)=>`${i+1}) ${l.src==='OUT'?'قماش العميل: '+l.item:l.item+(l.code?` (${l.code})`:'')}`;
+  const fabNames=()=>{const a=[];draft.lines.forEach(l=>{const n=l.src==='OUT'?'قماش العميل':String(l.code||l.item||'');if(n&&!a.includes(n))a.push(n)});return a};
+  const measInfo=()=>{const n=jCount(draft.meas);$('measN').textContent=n?`${n} values on the sheet`:'no measurement yet';$('measB').classList.toggle('pri',!n)};
+  const inp=(i,f,v,attrs='')=>`<input data-li="${i}" data-f="${f}" value="${esc(v)}" ${attrs}>`;
   const drawLines=()=>{
-    $('lnBody').innerHTML=draft.lines.map((l,i)=>`<tr><td><span class="tag">${l.src}</span></td>
-      <td>${l.src==='IN'?`<select data-li="${i}" data-f="code" style="max-width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--surface)">${stockOpt(l.code)}</select>`:`<input data-li="${i}" data-f="item" dir="auto" value="${esc(l.item)}" style="width:100%;border:1px solid var(--line);border-radius:7px;padding:6px">`}</td>
-      <td><input data-li="${i}" data-f="qty" type="number" min="1" class="num" value="${l.qty}" style="width:64px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
-      <td class="mny"><input data-li="${i}" data-f="rate" type="number" min="0" class="num" value="${l.rate}" style="width:84px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
-      <td class="num mny" id="la${i}">${sar(l.qty*l.rate)}</td><td><button class="btn sm" data-lx="${i}" aria-label="Remove line">${ico('x')}</button></td></tr>`).join('')||'<tr><td colspan="6"><div class="empty" style="padding:14px">Add the fabric: from the shop stock, or the customer\'s own fabric.</div></td></tr>';
-    $('embBody').innerHTML=draft.emb.map((e,i)=>`<tr><td><select data-ei="${i}" data-f="code" style="max-width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--surface)"><option value="">Choose…</option>${EMBL.map(x=>`<option value="${x.code}" ${x.code===e.code?'selected':''}>${x.code} · ${esc(x.model)} · ${sar(x.price)} SAR</option>`).join('')}</select></td>
-      <td><select data-ei="${i}" data-f="fab" style="max-width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;background:var(--surface)"><option value="-1">—</option>${draft.lines.map((l,k)=>`<option value="${k}" ${k===e.fab?'selected':''}>${esc(lineName(l,k))}</option>`).join('')}</select></td>
-      <td><input data-ei="${i}" data-f="qty" type="number" min="1" class="num" value="${e.qty}" style="width:64px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
-      <td class="mny"><input data-ei="${i}" data-f="rate" type="number" min="0" class="num" value="${e.rate}" style="width:84px;border:1px solid var(--line);border-radius:7px;padding:6px"></td>
-      <td class="num mny" id="ea${i}">${sar(e.qty*e.rate)}</td><td><button class="btn sm" data-ex="${i}" aria-label="Remove embroidery">${ico('x')}</button></td></tr>`).join('')||'<tr><td colspan="6"><div class="empty" style="padding:14px">No embroidery.</div></td></tr>';
-    document.querySelectorAll('[data-li]').forEach(el=>{el.oninput=el.onchange=()=>{const l=draft.lines[+el.dataset.li],f=el.dataset.f;
-      if(f==='code'){const it=STOCK.find(x=>x.code===+el.value);l.code=it?it.code:0;l.item=it?it.name:'';if(it)l.rate=it.rate;drawLines();return}
-      l[f]=f==='item'?el.value:Math.max(0,+el.value||0);const a=$('la'+el.dataset.li);if(a)a.textContent=sar(l.qty*l.rate);slip()}});
-    document.querySelectorAll('[data-ei]').forEach(el=>{el.oninput=el.onchange=()=>{const e=draft.emb[+el.dataset.ei],f=el.dataset.f;
-      if(f==='code'){const x=EMBL.find(y=>y.code===+el.value);e.code=x?x.code:0;e.item=x?x.model:'';if(x)e.rate=x.price;drawLines();return}
-      e[f]=Math.max(f==='fab'?-1:0,+el.value||0);const a=$('ea'+el.dataset.ei);if(a)a.textContent=sar(e.qty*e.rate);slip()}});
-    document.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{draft.lines.splice(+b.dataset.lx,1);draft.emb.forEach(e=>{if(e.fab>=draft.lines.length)e.fab=-1});drawLines()});
-    document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{draft.emb.splice(+b.dataset.ex,1);drawLines()});
-    document.querySelectorAll('.lines .mny').forEach(x=>x.hidden=!money);
-    slip();
+    $('lnBody').innerHTML=draft.lines.map((l,i)=>`<tr class="${i===draft.sel?'on':''}" data-row="${i}"><td class="num">${i+1}</td><td><span class="tag">${l.src}</span></td><td class="num">${l.code||''}</td>
+      <td>${l.src==='OUT'?inp(i,'item',l.item,'dir="auto"'):`<span dir="auto">${esc(l.item)}</span>`}</td><td>${esc(l.company||'')}</td>
+      <td>${inp(i,'qty',l.qty,'type="number" min="0" step="any" class="num"')}</td><td class="mny">${inp(i,'rate',l.rate,'type="number" min="0" step="any" class="num"')}</td><td class="num mny" id="la${i}">${sar2(l.qty*l.rate)}</td></tr>`).join('')
+      ||`<tr><td colspan="8"><div class="empty" style="padding:14px">Add the fabric: <b>Add item from stock</b> or <b>Add customer-fabric line</b>.</div></td></tr>`;
+    $('embBody').innerHTML=draft.emb.map((e,i)=>`<tr class="${i===draft.esel?'on':''}" data-erow="${i}"><td class="num">${e.code}</td><td dir="auto">${esc(e.item)}</td>
+      <td><select data-ei="${i}" data-f="fab"><option value="-1">—</option>${draft.lines.map((l,k)=>`<option value="${k}" ${k===e.fab?'selected':''}>${esc(lineName(l,k))}</option>`).join('')}</select></td>
+      <td><input data-ei="${i}" data-f="qty" type="number" min="0" class="num" value="${e.qty}"></td><td class="mny"><input data-ei="${i}" data-f="rate" type="number" min="0" class="num" value="${e.rate}"></td><td class="num mny" id="ea${i}">${sar2(e.qty*e.rate)}</td></tr>`).join('')
+      ||'<tr><td colspan="6"><div class="empty" style="padding:12px">No embroidery.</div></td></tr>';
+    document.querySelectorAll('[data-li]').forEach(el=>el.oninput=()=>{const l=draft.lines[+el.dataset.li];l[el.dataset.f]=el.dataset.f==='item'?el.value:Math.max(0,+el.value||0);const a=$('la'+el.dataset.li);if(a)a.textContent=sar2(l.qty*l.rate);totals()});
+    document.querySelectorAll('[data-ei]').forEach(el=>el.oninput=el.onchange=()=>{const e=draft.emb[+el.dataset.ei];e[el.dataset.f]=el.dataset.f==='fab'?+el.value:Math.max(0,+el.value||0);const a=$('ea'+el.dataset.ei);if(a)a.textContent=sar2(e.qty*e.rate);totals()});
+    document.querySelectorAll('[data-row]').forEach(r=>r.onclick=e=>{if(e.target.closest('input'))return;draft.sel=+r.dataset.row;drawLines()});
+    document.querySelectorAll('[data-erow]').forEach(r=>r.onclick=e=>{if(e.target.closest('input,select'))return;draft.esel=+r.dataset.erow;drawLines()});
+    document.querySelectorAll('.ogridt .mny').forEach(x=>x.hidden=!money);
+    totals();
   };
   const sums=()=>{const pcs=draft.lines.reduce((s,l)=>s+(+l.qty||0),0);const gross=Math.round((draft.lines.reduce((s,l)=>s+l.qty*l.rate,0)+draft.emb.reduce((s,e)=>s+e.qty*e.rate,0))*100)/100;
     const disc=Math.min(gross,Math.max(0,+$('fDisc').value||0)),total=Math.round((gross-disc)*100)/100,paid=money?Math.max(0,+$('fPaid').value||0):0;return{pcs,gross,disc,total,vat:vatOf(total),paid}};
+  const totals=()=>{const m=sums();$('tGross').value=sar2(m.gross);$('tVat').value=sar2(m.vat);$('tTot').value=sar2(m.total);
+    const rem=Math.round((m.total-m.paid)*100)/100;$('tRem').innerHTML=`Balance <b class="num">${sar2(rem)}</b> SAR`;$('tRem').classList.toggle('due',rem>0.005)};
   const fillMade=()=>{const b=+$('fBranch').value;const keep=$('fMade').value;$('fMade').innerHTML=`<option value="${b}">${bname(b)} workshop</option>`+FACS().map(f=>`<option value="${f.id}">${f.name}</option>`).join('');$('fMade').value=keep&&[...$('fMade').options].some(x=>x.value===keep)?keep:String((FACS()[0]||{id:b}).id)};
-  const fillTailors=()=>{$('fTailor').innerHTML=tailorsOf(+$('fMade').value).map(w=>`<option value="${w.id}">${w.name}${w.status==='leave'?' (on leave)':''}</option>`).join('')};
-  const drawDesign=()=>{
-    $('dtabs').innerHTML=DESIGN_.map(g=>`<button class="dtab ${draft.tab===g.k?'on':''}" data-t="${g.k}">${g.t}<small>${g.ar}</small></button>`).join('');
-    const g=DESIGN_.find(x=>x.k===draft.tab);
-    $('dopts').innerHTML=g.opts.map(([k,t])=>`<button class="dopt ${draft.design[g.k]===k?'on':''}" data-o="${k}" aria-pressed="${draft.design[g.k]===k}">${glyph(g.k,k)}<span>${t}</span></button>`).join('');
-    $('dsum').textContent=DESIGN_.map(g=>g.opts.find(o=>o[0]===draft.design[g.k])[1]).join(' · ');
-    document.querySelectorAll('.dtab').forEach(b=>b.onclick=()=>{draft.tab=b.dataset.t;drawDesign()});
-    document.querySelectorAll('.dopt').forEach(b=>b.onclick=()=>{draft.design[draft.tab]=b.dataset.o;drawDesign();slip()});
-  };
-  const slip=()=>{
-    const m=sums();const c=$('fCust').value?cust(+$('fCust').value):null;const t=wk(+$('fTailor').value);
-    $('slipdl').innerHTML=[['Customer',c?c.name:($('fName').value||'—')],['Branch',bname(+$('fBranch').value)],['Stitch at',isFac(+$('fMade').value)?bname(+$('fMade').value):'Shop workshop'],['Pieces',String(m.pcs)],
-      ...draft.lines.map((l,i)=>[l.src==='OUT'?'Customer fabric':'Fabric '+(l.code||''),`${l.qty} × ${l.item||'—'}${money?` · ${sar(l.qty*l.rate)}`:''}`]),
-      ...draft.emb.map(e=>['Embroidery',`${e.qty} × ${e.item||'—'}`]),
-      ['Tailor',t?t.name:'—'],['Delivery',$('fDue').value?fmtD(new Date($('fDue').value)):'—'],
-      ...(+$('fHingeQ').value?[['Hinge button',$('fHingeQ').value+' pcs']]:[]),...(+$('fZipQ').value?[['Zip',$('fZipQ').value+' pcs']]:[]),
-      ...($('fSample').checked?[['Sample','Customer left a sample thobe']]:[]),...($('fGift').checked?[['Free gift','No invoice']]:[]),
-      ...DESIGN_.map(g=>[g.t,g.opts.find(o=>o[0]===draft.design[g.k])[1]])].map(([a,b])=>`<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join('');
-    if(!money)return;
-    $('tGross').textContent=sar(m.gross)+' SAR';$('tDisc').textContent=m.disc?'− '+sar(m.disc)+' SAR':'0';$('tVat').textContent=m.vat.toFixed(2)+' SAR';$('tTot').textContent=sar(m.total)+' SAR';$('tPaid').textContent=sar(m.paid)+' SAR';$('tRem').textContent=sar(Math.max(0,m.total-m.paid))+' SAR';
-  };
-  const fillM=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;const p=c?c.profiles[+$('fProf').value]||c.profiles[0]:null;mFill('m_',p?p.m:{})};
-  $('fCust').onchange=()=>{const c=$('fCust').value?cust(+$('fCust').value):null;$('fName').value=c?c.name:'';$('fPhone').value=c?c.phone:'';$('fAddr').value=c?(c.addr||''):'';
-    $('fProf').innerHTML=(c?c.profiles:[{name:'Self'}]).map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');if(c){$('fBranch').value=c.branch;fillMade();fillTailors()}fillM();slip()};
-  $('fProf').onchange=fillM;
-  $('fBranch').onchange=()=>{fillMade();fillTailors();slip()};
-  $('fMade').onchange=()=>{fillTailors();slip()};
-  ['fTailor','fDue','fName','fDisc','fPaid','fHingeQ','fZipQ','fSample','fGift'].forEach(id=>$(id).oninput=$(id).onchange=slip);
-  $('addIn').onclick=()=>{draft.lines.push({src:'IN',code:0,item:'',qty:1,rate:0});drawLines()};
-  $('addOut').onclick=()=>{draft.lines.push({src:'OUT',code:0,item:OUT_ITEM,qty:1,rate:OUT_RATE});drawLines()};
-  $('addEmb').onclick=()=>{if(!EMBL.length){toast('The embroidery list is empty (add designs in the shop exe: Embroidery)');return}draft.emb.push({code:0,item:'',fab:draft.lines.length?0:-1,qty:1,rate:0});drawLines()};
-  $('saveBtn').onclick=()=>{
-    let cid=+$('fCust').value;
-    if(!cid&&(!$('fName').value.trim()||!$('fPhone').value.trim())){toast('Enter the customer name and mobile number');$('fName').focus();return}
-    const lines=draft.lines.filter(l=>l.qty>0);
-    if(!lines.length){toast('Add at least one item (shop fabric or customer\'s fabric)');return}
-    const bad=lines.findIndex(l=>l.src==='IN'?!l.code:!String(l.item).trim());if(bad>=0){toast(`Line ${draft.lines.indexOf(lines[bad])+1}: ${lines[bad].src==='IN'?'choose the fabric':'write the fabric name'}`);return}
-    const emb=draft.emb.filter(e=>e.qty>0);if(emb.some(e=>!e.code)){toast('Choose the embroidery design or remove the line');return}
+  const fillTailors=()=>{$('fTailor').innerHTML='<option value="0">—</option>'+tailorsOf(+$('fMade').value).map(w=>`<option value="${w.id}">${w.name}${w.status==='leave'?' (on leave)':''}</option>`).join('')};
+  const setCust=c=>{cid=c?c.id:0;$('fCno').value=c?c.id:'';$('fName').value=c?c.name:'';$('fPhone').value=c?c.phone:'';$('fAddr').value=c?(c.addr||''):'';
+    if(c&&SHOPS().some(b=>b.id===c.branch)){$('fBranch').value=c.branch;fillMade();fillTailors()}
+    const last=c&&c.profiles[0]&&jHas(c.profiles[0].m)?c.profiles[0].m:null;if(last&&!jCount(draft.meas))draft.meas=JSON.parse(JSON.stringify(last));measInfo()};
+  $('fCno').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const c=customers.find(x=>String(x.id)===$('fCno').value.trim());if(c)setCust(c);else toast('Customer '+$('fCno').value+' not found')}};
+  $('fCno').onchange=()=>{const v=$('fCno').value.trim();if(!v){cid=0;return}const c=customers.find(x=>String(x.id)===v);if(c)setCust(c)};
+  $('fFind').onclick=()=>pickCustomer(setCust);
+  $('fBranch').onchange=()=>{fillMade();fillTailors()};$('fMade').onchange=fillTailors;
+  ['fDisc','fPaid'].forEach(id=>$(id).oninput=totals);
+  $('fGift').onchange=()=>{$('fInv').value=$('fGift').checked?'(free gift – no invoice)':'(new)'};
+  $('addIn').onclick=()=>pickStock(it=>{draft.lines.push({src:'IN',code:it.code,item:it.name,company:it.company||'',qty:1,rate:it.rate});draft.sel=draft.lines.length-1;drawLines()});
+  $('addOut').onclick=()=>{draft.lines.push({src:'OUT',code:0,item:OUT_ITEM,company:'',qty:1,rate:OUT_RATE});draft.sel=draft.lines.length-1;drawLines()};
+  $('rmLine').onclick=()=>{if(draft.sel<0||!draft.lines[draft.sel]){toast('Click a line first');return}draft.lines.splice(draft.sel,1);draft.emb.forEach(e=>{if(e.fab===draft.sel)e.fab=-1;else if(e.fab>draft.sel)e.fab--});draft.sel=-1;drawLines()};
+  $('addEmb').onclick=()=>{if(!EMBL.length){toast('The embroidery list is empty (shop exe → Embroidery)');return}pickEmb(x=>{draft.emb.push({code:x.code,item:'تطريز: '+x.model,fab:draft.lines.length?0:-1,qty:1,rate:x.price});draft.esel=draft.emb.length-1;drawLines()})};
+  $('rmEmb').onclick=()=>{if(draft.esel<0||!draft.emb[draft.esel]){toast('Click an embroidery line first');return}draft.emb.splice(draft.esel,1);draft.esel=-1;drawLines()};
+  $('measB').onclick=()=>{const c=cid?cust(cid):null;const last=c&&c.profiles[0]&&jHas(c.profiles[0].m)?c.profiles[0].m:null;
+    jSheetWindow(`Measurements · ${$('fName').value||'new customer'}`,draft.meas,{fabrics:fabNames,last,onDone:m=>{draft.meas=m;measInfo()}})};
+  const save=print=>{
+    const name=$('fName').value.trim();if(!name){toast('Customer name is required.');$('fName').focus();return}
+    const bk=$('fBook').value||dkey2(today),dv=$('fDue').value||dkey2(due0);if(dv<bk){toast('Delivery date is before booking date.');return}
+    const lines=draft.lines.filter(l=>+l.qty>0);
+    for(const [i,l] of draft.lines.entries()){if(!String(l.item).trim()){toast(`Line ${i+1}: item name is empty.`);return}if(!(+l.qty>0)){toast(`Line ${i+1}: quantity must be more than 0.`);return}}
+    if(!lines.length){toast('Add at least one item.');return}
+    const emb=draft.emb.filter(e=>+e.qty>0);for(const [k,e] of draft.emb.entries())if(!(+e.qty>0)){toast(`Embroidery line ${k+1}: quantity must be more than 0.`);return}
     const m=sums();const hq=Math.max(0,+$('fHingeQ').value||0),zq=Math.max(0,+$('fZipQ').value||0);
-    if(hq>m.pcs){toast(`Hinge button pcs (${hq}) is more than the order pcs (${m.pcs})`);return}
-    if(zq>m.pcs){toast(`Zip pcs (${zq}) is more than the order pcs (${m.pcs})`);return}
-    if(money&&(+$('fDisc').value||0)>m.gross+0.01){toast('Discount is more than the subtotal');return}
-    if(m.paid>m.total+0.01){toast('Down payment is more than the total');return}
-    const method=$('fMethod').value;if(m.paid>0&&!method){toast('Choose the payment method');$('fMethod').focus();return}
-    if($('fDue').value&&new Date($('fDue').value+'T00:00:00')<today){toast('Delivery date is before today');return}
-    if(!cid){const mm=mRead('m_');cid=customers.length+1;customers.push({id:cid,name:$('fName').value.trim(),phone:$('fPhone').value.trim(),addr:$('fAddr').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m:mm}],hist:[{d:today,t:'First measurement taken',by:'Admin'}]})}
-    else{const c=cust(cid);if($('fAddr').value.trim()&&c.addr!==$('fAddr').value.trim())c.addr=$('fAddr').value.trim()}
+    if(money&&(+$('fDisc').value||0)>m.gross+0.01){toast('Discount is more than the subtotal.');return}
+    if(m.paid>0&&!$('fMethod').value){toast('Choose the payment method.');$('fMethod').focus();return}
+    if(m.paid>m.total+0.01){toast('Down payment is more than the total.');return}
+    if(hq>m.pcs){toast(`Hinge button pcs (${hq}) is more than the order pcs (${m.pcs}).`);return}
+    if(zq>m.pcs){toast(`Zip pcs (${zq}) is more than the order pcs (${m.pcs}).`);return}
+    const meas=JSON.parse(JSON.stringify(draft.meas||{}));
+    if(!cid){cid=customers.length+1;customers.push({id:cid,name,phone:$('fPhone').value.trim(),addr:$('fAddr').value.trim(),branch:+$('fBranch').value,profiles:[{name:'Self',m:meas}],hist:[{d:today,t:'First measurement taken',by:USER.name||'Admin'}]})}
+    else{const c=cust(cid);c.name=name;if($('fPhone').value.trim())c.phone=$('fPhone').value.trim();if($('fAddr').value.trim())c.addr=$('fAddr').value.trim();
+      if(jCount(meas)){const p0=c.profiles[0]||(c.profiles[0]={name:'Self',m:{}});const old=Object.fromEntries(Object.entries(p0.m||{}).filter(([k])=>!k.startsWith('q_')));
+        if(JSON.stringify(Object.fromEntries(Object.entries(p0.m||{}).filter(([k])=>k.startsWith('q_'))))!==JSON.stringify(meas)){p0.m={...old,...meas};c.hist.unshift({d:today,t:`Measurement for order #${nextR}`,by:USER.name||'Admin'})}}}
+    const method=$('fMethod').value;
     if(m.paid>0)payLog.push({d:today,rno:nextR,branch:+$('fBranch').value,amt:m.paid,m:webCat(method),pm:method,ref:$('fRef').value.trim(),t:'Deposit'});
-    orders.unshift({rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty:m.pcs,price:m.pcs?Math.round(m.total/m.pcs*100)/100:0,total:m.total,paid:m.paid,created:new Date(today),due:new Date(($('fDue').value||dkey2(due0))+'T00:00:00'),st:'cut',
-      t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},tatreez:emb.length>0,hinge:hq>0,hingeQty:hq,zipQty:zq,sample:$('fSample').checked,gift:$('fGift').checked,
+    const o={rno:nextR,cid,branch:+$('fBranch').value,made:+$('fMade').value,qty:m.pcs,price:m.pcs?Math.round(m.total/m.pcs*100)/100:0,total:m.total,paid:m.paid,
+      created:new Date(bk+'T00:00:00'),due:new Date(dv+'T00:00:00'),st:'cut',t:{cut:'wait',sew:'wait',hinge:'wait',tat:'wait',iron:'wait'},tw:{},
+      tatreez:emb.length>0,hinge:hq>0,hingeQty:hq,zipQty:zq,sample:$('fSample').checked,gift:$('fGift').checked,
       lines:lines.map(l=>({src:l.src,code:l.code||0,item:String(l.item).trim(),qty:+l.qty,rate:+l.rate})),emb:emb.map(e=>({code:e.code,item:e.item,fab:e.fab,qty:+e.qty,rate:+e.rate})),
-      gross:m.gross,disc:m.disc,vat:m.vat,pm:method,ref:$('fRef').value.trim(),
-      tailor:+$('fTailor').value,fabric:lines.map(l=>l.src==='OUT'?'Customer fabric: '+l.item:l.item).join(' + '),design:{...draft.design},profile:+$('fProf').value||0,note:$('fNote').value});
-    toast(`${money?`Receipt #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(+$('fMade').value)} cutting`);orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
+      gross:m.gross,disc:m.disc,vat:m.vat,pm:method,ref:$('fRef').value.trim(),meas,
+      tailor:+$('fTailor').value||0,fabric:lines.map(l=>l.src==='OUT'?'قماش العميل: '+l.item:l.item).join(' + '),design:{...draft.design},profile:0,note:$('fNote').value.trim()};
+    orders.unshift(o);
+    toast(`${money?`Order #${nextR} saved`:`Order #${nextR} sent to the cashier`} · now in ${bname(o.made)} cutting`);
+    if(print)printOrder(o);
+    orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
   };
-  fillMade();fillTailors();drawDesign();drawLines();mTicks();
-  if(!money){$('payPanel').hidden=true;$('slipTot').innerHTML='<div class="muted" style="font-size:13px">Prices and payment are added by the cashier.</div>';$('saveBtn').textContent='Save order and send to cashier'}
+  $('saveP').onclick=()=>save(true);$('saveO').onclick=()=>save(false);
+  document.onkeydown=e=>{if((location.hash||'')!=='#new'){document.onkeydown=null;return}
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save(true)}else if(e.key==='F3'){e.preventDefault();$('addIn').click()}};
+  fillMade();fillTailors();drawLines();measInfo();
+  if(!money){$('payPanel').hidden=true;$('saveP').textContent='Save & Print';$('saveO').textContent='Save and send to cashier'}
+  setTimeout(()=>$('fCno').focus(),30);
+}
+const sar2=n=>(Math.round((+n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+/* Find… : customers by no. / name / mobile */
+function pickCustomer(done){
+  const close=drawer('Find customer','<div class="muted" style="font-size:13px">Customer no., name or mobile</div>',
+    `<input id="pcQ" placeholder="Search…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px"><div class="rows" id="pcL" style="margin-top:8px;border:1px solid var(--line);border-radius:8px"></div>`,'');
+  const draw=()=>{const q=document.getElementById('pcQ').value.trim().toLowerCase();
+    const l=customers.filter(c=>!q||String(c.id)===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)).slice(0,80);
+    document.getElementById('pcL').innerHTML=l.map(c=>`<div class="row" data-pc="${c.id}" style="cursor:pointer"><span class="rid">${c.id}</span><div class="grow"><b dir="auto">${esc(c.name)}</b><span>${esc(c.phone)}${c.book?' · '+esc(c.book):''}</span></div></div>`).join('')||'<div class="empty">No customer found.</div>';
+    document.querySelectorAll('[data-pc]').forEach(r=>r.onclick=()=>{close();done(cust(+r.dataset.pc))})};
+  document.getElementById('pcQ').oninput=draw;draw();setTimeout(()=>document.getElementById('pcQ').focus(),30);
+}
+/* Add item from stock: code / name / company / colour / rate / in stock */
+function pickStock(done){
+  const close=drawer('Add item from stock','<div class="muted" style="font-size:13px">The shop\'s fabric stock (from the AL THOB exe)</div>',
+    `<input id="psQ" placeholder="Code or name…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px"><div class="tbl-wrap" style="margin-top:8px;border:1px solid var(--line);border-radius:8px"><table><thead><tr><th>Code</th><th>Item</th><th>Company</th><th>Rate</th><th>Stock</th></tr></thead><tbody id="psL"></tbody></table></div>`,'');
+  const draw=()=>{const q=document.getElementById('psQ').value.trim().toLowerCase();
+    const l=STOCK.filter(it=>!q||String(it.code).startsWith(q)||String(it.name).toLowerCase().includes(q)||String(it.company||'').toLowerCase().includes(q));
+    document.getElementById('psL').innerHTML=l.map(it=>`<tr class="click" data-ps="${it.code}"><td class="num"><b>${it.code}</b></td><td dir="auto">${esc(it.name)}${it.colour?` <span class="muted">${esc(it.colour)}</span>`:''}</td><td>${esc(it.company||'')}</td><td class="num">${sar(it.rate)}</td><td class="num" style="color:${it.stock>0?'inherit':'var(--bad)'}">${it.stock!=null?Math.floor(it.stock):''}</td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">No fabric found.</div></td></tr>';
+    document.querySelectorAll('[data-ps]').forEach(r=>r.onclick=()=>{const it=STOCK.find(x=>String(x.code)===r.dataset.ps);close();if(it.stock!=null&&it.stock<=0)toast(`Fabric ${it.code} is out of stock`);done(it)})};
+  document.getElementById('psQ').oninput=draw;draw();setTimeout(()=>document.getElementById('psQ').focus(),30);
+}
+function pickEmb(done){
+  const close=drawer('Choose embroidery','<div class="muted" style="font-size:13px">Embroidery designs (from the AL THOB exe)</div>',
+    `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${EMBL.map(x=>`<div class="row" data-pe="${x.code}" style="cursor:pointer"><span class="rid">${x.code}</span><div class="grow"><b dir="auto">${esc(x.model)}</b></div><span class="num">${sar(x.price)} SAR</span></div>`).join('')}</div>`,'');
+  document.querySelectorAll('[data-pe]').forEach(r=>r.onclick=()=>{close();done(EMBL.find(x=>String(x.code)===r.dataset.pe))});
+}
+/* Save & Print: the order slip (A5 / receipt) */
+function printOrder(o){
+  const c=cust(o.cid),w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
+  const L=o.lines||[],E=o.emb||[];
+  w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>Order ${o.rno}</title><style>body{font:13px Arial,sans-serif;margin:14px;max-width:560px}h1{font-size:18px;margin:0}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border-bottom:1px solid #ccc;padding:4px;text-align:right}td.n{text-align:left;direction:ltr}.t td{border:0;padding:2px 4px}.b{font-weight:bold;font-size:15px}@page{margin:8mm}</style></head><body>
+   <h1>الثوب السعودي · AL THOB AL SAUDI</h1><div>${esc(bname(o.branch))} · ${o.created.toLocaleDateString('en-GB')}</div><hr>
+   <table class="t"><tr><td>رقم الطلب / Order</td><td class="n b">${o.rno}</td></tr><tr><td>العميل / Customer</td><td class="n">${esc(c.name)} (${c.id})</td></tr><tr><td>الجوال / Mobile</td><td class="n">${esc(c.phone)}</td></tr>
+   <tr><td>التسليم / Delivery</td><td class="n b">${o.due.toLocaleDateString('en-GB')}</td></tr>${o.hingeQty?`<tr><td>Hinge</td><td class="n">${o.hingeQty}</td></tr>`:''}${o.zipQty?`<tr><td>سحاب / Zip</td><td class="n">${o.zipQty}</td></tr>`:''}${o.sample?'<tr><td colspan="2">عينة: العميل ترك ثوب عينة</td></tr>':''}${o.gift?'<tr><td colspan="2"><b>هدية – Free gift</b></td></tr>':''}</table>
+   <table><thead><tr><th>الصنف / Item</th><th>العدد</th><th>السعر</th><th>المبلغ</th></tr></thead><tbody>${[...L,...E].map(l=>`<tr><td>${esc(l.item)}${l.code?' ('+l.code+')':''}</td><td class="n">${l.qty}</td><td class="n">${sar2(l.rate)}</td><td class="n">${sar2(l.qty*l.rate)}</td></tr>`).join('')}</tbody></table>
+   <table class="t"><tr><td>المجموع / Subtotal</td><td class="n">${sar2(o.gross)}</td></tr><tr><td>الخصم / Discount</td><td class="n">${sar2(o.disc)}</td></tr><tr><td>ضريبة 15% / VAT</td><td class="n">${sar2(o.vat)}</td></tr>
+   <tr class="b"><td>الإجمالي / TOTAL</td><td class="n">${sar2(o.total)}</td></tr><tr><td>المدفوع / Paid${o.pm?' ('+esc(o.pm)+')':''}</td><td class="n">${sar2(o.paid)}</td></tr><tr class="b"><td>المتبقي / Balance</td><td class="n">${sar2(o.total-o.paid)}</td></tr></table>
+   ${o.note?`<div>ملاحظات: ${esc(o.note)}</div>`:''}</body></html>`);
+  w.document.close();setTimeout(()=>w.print(),300);
 }
 
 /* the order's items as the shop exe keeps them: fabric lines (IN = shop stock / OUT = customer's fabric), embroidery, totals */
@@ -646,64 +683,65 @@ function thobeSVG(){
    ${TH.map(([k,p,x,y],i)=>`<g class="bd" data-k="${k}"><circle cx="${x}" cy="${y}" r="9"/><text x="${x}" y="${y+3.6}" text-anchor="middle">${i+1}</text></g>`).join('')}
   </svg>`;
 }
+/* Measurements: the JAMEEL measurement sheet (as the exe), one per customer – his newest measurement */
+let jsCur=null;
 function measurements(){
   const q=document.getElementById('q').value.trim().toLowerCase();
-  const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||c.phone.includes(q)));
-  if(!list.find(c=>c.id===selCust)){selCust=list[0]?list[0].id:0;selProf=0}
-  const c=cust(selCust);
-  if(!c){V(`${demoNote}<div class="panel"><div class="empty">No customers in this branch yet.</div></div>`);return}
-  const p=c.profiles[selProf]||c.profiles[0];
-  const last=orders.filter(o=>o.cid===c.id);
+  const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)||String(c.id)===q));
+  if(!list.find(c=>c.id===selCust)){selCust=list[0]?list[0].id:0}
+  const c=customers.find(x=>x.id===selCust);
+  if(!c){V(`${demoNote}<div class="panel"><div class="empty">No customers${q?' match “'+esc(q)+'”':' in this branch yet'}.</div></div>`);return}
+  const p=c.profiles[0]||(c.profiles[0]={name:'Self',m:{}});p.m=p.m||{};
+  const work=Object.fromEntries(Object.entries(p.m).filter(([k])=>k.startsWith('q_')));
+  const oldPaper=MALL.some(([k])=>mVal(p.m,k)!=='');
+  const last=orders.filter(o=>o.cid===c.id).sort((a,b)=>b.rno-a.rno);
+  const show=list.slice(0,300);
   V(`<div class="mlay">
    <div class="panel"><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
-    <div class="clist">${list.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini">${initials(x.name)}</div><div class="grow"><b>${x.name}</b><span>${x.phone} · ${pl(x.profiles.length,'profile')}</span></div></button>`).join('')}</div></div>
+    <div class="clist">${show.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini num" style="font-size:11px">${x.id}</div><div class="grow"><b dir="auto">${esc(x.name)}</b><span>${esc(x.phone)}${jHas((x.profiles[0]||{}).m)?' · 📐':''}</span></div></button>`).join('')}${list.length>show.length?`<div class="muted" style="padding:10px;font-size:12px">Search to find the other ${list.length-show.length}…</div>`:''}</div></div>
    <div class="sec">
     <div class="panel">
-     <div class="panel-h" style="flex-wrap:wrap"><div><h2 style="font-size:18px;font-family:var(--f-display);font-weight:600">${c.name}</h2><span class="muted num" style="font-size:12.5px">${c.phone} · ${bname(c.branch)} branch · ${pl(last.length,'order')}${c.book?` · <span dir="rtl">دفتر ${esc(c.book)}</span>`:''}</span></div><span class="sp"></span>
-      <button class="btn sm" id="newOrdBtn">${ico('plus')}New order with these</button></div>
-     <div class="panel-b" style="display:flex;flex-direction:column;gap:16px">
-      <div class="ptabs">${c.profiles.map((x,i)=>`<button class="chip ${i===selProf?'on':''}" data-p="${i}">${x.name}</button>`).join('')}<button class="chip" id="addProf">+ Add profile</button></div>
-      <div class="mbody" style="grid-template-columns:minmax(0,1fr)">
-       <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-        ${mForm('mm_',p.m)}
-        <div class="field"><label for="mNote">Fitting notes</label><textarea id="mNote" rows="2" placeholder="e.g. likes a loose fit at the chest, right shoulder 1 cm lower">${p.note||''}</textarea></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="mSave">Save measurements</button><button class="btn" id="mReset">Undo changes</button></div>
-       </div>
-      </div>
-     </div>
+     <div class="panel-h" style="flex-wrap:wrap;gap:8px"><div><h2 style="font-size:18px;font-family:var(--f-display);font-weight:600" dir="auto">${esc(c.name)}</h2><span class="muted num" style="font-size:12.5px">No. ${c.id} · ${esc(c.phone)} · ${bname(c.branch)} · ${pl(last.length,'order')}${c.book?` · <span dir="rtl">دفتر ${esc(c.book)}</span>`:''}</span></div><span class="sp"></span>
+      <span class="muted" id="msN" style="font-size:12.5px"></span>
+      <button class="btn sm" id="msZo" aria-label="Smaller">－</button><button class="btn sm" id="msZi" aria-label="Bigger">＋</button><button class="btn sm" id="msFull">Full screen</button>
+      <button class="btn sm" id="mReset">Undo changes</button><button class="btn sm pri" id="mSave">Save measurements</button>
+      ${can('new')?`<button class="btn sm" id="newOrdBtn">${ico('plus')}New order</button>`:''}</div>
+     <div class="jwrap" id="msHost"></div>
     </div>
+    ${oldPaper?`<details class="panel" style="padding:0"><summary class="panel-h" style="cursor:pointer"><h2>Old shop paper values</h2><span class="sp"></span><span class="muted" style="font-size:12px">from the earlier AL THOB sheet</span></summary><div class="panel-b">${mShow(p.m)}</div></details>`:''}
     <div class="grid2">
-     <div class="panel"><div class="panel-h"><h2>Measurement history</h2></div><div class="panel-b"><div class="hist">${c.hist.map(h=>`<div><time>${fmtD(h.d)}</time><span style="flex:1">${esc(h.t)}</span><span class="muted">${esc(h.by)}</span></div>`).join('')}</div></div></div>
-     <div class="panel"><div class="panel-h"><h2>Recent orders</h2></div><div class="rows">${last.slice(0,4).map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${pl(o.qty,'thobe')} · ${o.fabric}</b><span>${fmtD(o.created)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No orders yet.</div>'}</div></div>
+     <div class="panel"><div class="panel-h"><h2>Measurement history</h2></div><div class="panel-b"><div class="hist">${(c.hist||[]).map(h=>`<div><time>${fmtD(h.d)}</time><span style="flex:1">${esc(h.t)}</span><span class="muted">${esc(h.by||'')}</span></div>`).join('')||'<span class="muted">—</span>'}</div></div></div>
+     <div class="panel"><div class="panel-h"><h2>Recent orders</h2></div><div class="rows">${last.slice(0,5).map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">#${o.rno}</span><div class="grow"><b>${pl(o.qty,'thobe')} · <span dir="auto">${esc(o.fabric||'')}</span></b><span>${fmtD(o.created)}</span></div>${pill(o)}</div>`).join('')||'<div class="empty">No orders yet.</div>'}</div></div>
     </div>
    </div></div>`);
-  document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;selProf=0;measurements()});
-  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{selProf=+b.dataset.p;measurements()});
-  mTicks();
-  document.querySelectorAll('.meas input:not([type=checkbox]),.meas textarea').forEach(inp=>inp.oninput=()=>{const ch=inp.value.trim()!==mVal(p.m,inp.dataset.k);inp.style.borderColor=ch?'var(--warn)':'';inp.style.background=ch?'var(--warn-bg)':''});
+  const fabs=()=>{const a=[];last.slice(0,3).forEach(o=>(o.lines||[]).forEach(l=>{const n=l.src==='OUT'?'قماش العميل':String(l.code||l.item);if(!a.includes(n))a.push(n)}));return a};
+  const msN=()=>{document.getElementById('msN').textContent=jCount(work)+' values'};
+  jsCur=jSheet(document.getElementById('msHost'),work,{fabrics:fabs,onChange:msN});msN();
+  document.getElementById('msZo').onclick=()=>jsCur.zoom(.8);document.getElementById('msZi').onclick=()=>jsCur.zoom(1.25);
+  document.getElementById('msFull').onclick=()=>jSheetWindow(`Measurements · ${c.name}`,work,{fabrics:fabs,onDone:m=>{jsCur.load(m)}});
+  document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;measurements()});
   document.getElementById('mReset').onclick=()=>measurements();
-  document.getElementById('mSave').onclick=()=>{const nm=mRead('mm_'),ch=[];MALL.forEach(([k,t,ty])=>{const a=mVal(p.m,k),b=nm[k]||'';if(a!==b)ch.push(ty==='tick'?(b?`✓ ${t}`:`✗ ${t}`):`${t} ${a||'—'} → ${b||'—'}`)});p.m=nm;p.note=document.getElementById('mNote').value;
-    if(ch.length)c.hist.unshift({d:today,t:(p.name==='Self'?'':p.name+': ')+ch.join(', '),by:'Admin'});toast(ch.length?`Saved ${pl(ch.length,'change')}`:'No changes to save');measurements()};
-  document.getElementById('addProf').onclick=()=>{
-    const close=drawer('New measurement profile',`<div class="muted" style="font-size:13px">${c.name}</div>`,
-     `<div class="field"><label for="npName">Profile name</label><input id="npName" placeholder="e.g. Son · Fahad, Winter thobe"></div>
-      <div class="field"><label for="npCopy">Start from</label><select id="npCopy"><option value="-1">Empty</option>${c.profiles.map((x,i)=>`<option value="${i}">${x.name}</option>`).join('')}</select></div>`,
-     `<button class="btn pri" id="npSave">Create profile</button>`);
-    document.getElementById('npSave').onclick=()=>{const n=document.getElementById('npName').value.trim();if(!n){toast('Give the profile a name');return}const src=+document.getElementById('npCopy').value;
-      c.profiles.push({name:n,m:src>=0?{...c.profiles[src].m}:{}});selProf=c.profiles.length-1;close();toast(`Profile "${n}" added`);measurements()};
-  };
-  document.getElementById('newOrdBtn').onclick=()=>{location.hash='new';setTimeout(()=>{const s=document.getElementById('fCust');s.value=c.id;s.onchange();const pp=document.getElementById('fProf');pp.value=selProf;pp.onchange()},30)};
+  document.getElementById('mSave').onclick=()=>{
+    const before=Object.fromEntries(Object.entries(p.m).filter(([k])=>k.startsWith('q_')));
+    const keys=new Set([...Object.keys(before),...Object.keys(work)]);let n=0;keys.forEach(k=>{if((before[k]||'')!==(work[k]||''))n++});
+    if(!n){toast('No changes to save');return}
+    const keep=Object.fromEntries(Object.entries(p.m).filter(([k])=>!k.startsWith('q_')));
+    p.m={...keep,...JSON.parse(JSON.stringify(work))};
+    (c.hist=c.hist||[]).unshift({d:today,t:`Measurement sheet: ${pl(n,'change')} (${jCount(work)} values)`,by:USER.name||'Admin'});
+    toast(`Saved · ${pl(n,'change')}`);measurements()};
+  const nb=document.getElementById('newOrdBtn');if(nb)nb.onclick=()=>{location.hash='new';setTimeout(()=>{const x=document.getElementById('fCno');if(x){x.value=c.id;x.onchange()}},40)};
+  addEventListener('resize',function rs(){if(!document.getElementById('msHost')){removeEventListener('resize',rs);return}jsCur.fit()});
   bindRows();
 }
 
 /* ================= Customers ================= */
 function customersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();
-  const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||c.phone.includes(q))).map(c=>{const os=orders.filter(o=>o.cid===c.id);return{c,n:os.length,spent:os.reduce((s,o)=>s+o.paid,0),due:os.reduce((s,o)=>s+o.total-o.paid,0),last:os[0]}}).sort((a,b)=>b.spent-a.spent);
+  const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)||String(c.id)===q)).map(c=>{const os=orders.filter(o=>o.cid===c.id);return{c,n:os.length,spent:os.reduce((s,o)=>s+o.paid,0),due:os.reduce((s,o)=>s+o.total-o.paid,0),last:os[0]}}).sort((a,b)=>b.spent-a.spent);
   V(`<div class="panel"><div class="panel-h"><h2>${pl(list.length,'customer')}</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sorted by total spent · tap a row for measurements</span></div><div class="tbl-wrap"><table>
-   <thead><tr><th>Customer</th><th>Home branch</th><th>Orders</th>${RA().money?'<th>Total paid</th><th>Balance</th>':''}<th>Profiles</th><th>Last order</th></tr></thead>
-   <tbody>${list.map(x=>`<tr class="click" data-c="${x.c.id}"><td class="who"><b>${x.c.name}</b><span>${x.c.phone}</span></td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td><td class="num">${x.n}</td>${RA().money?`<td class="num">${sar(x.spent)}</td>
-    <td class="num" style="color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.c.profiles.map(p=>p.name).join(', ')}</td><td>${x.last?`<span class="rid">#${x.last.rno}</span> ${pill(x.last)}`:'—'}</td></tr>`).join('')}</tbody></table></div></div>`);
+   <thead><tr><th class="r">Cust No</th><th>Customer</th><th>Mobile</th><th>Book</th><th class="r">Orders</th>${RA().money?'<th class="r">Total paid</th><th class="r">Balance</th>':''}<th>Last order</th><th>Home branch</th></tr></thead>
+   <tbody>${list.map(x=>`<tr class="click" data-c="${x.c.id}"><td class="num r" style="text-align:right">${x.c.id}</td><td><b dir="auto">${esc(x.c.name)}</b></td><td class="num">${esc(x.c.phone)}</td><td dir="auto" class="muted">${esc(x.c.book||'')}</td><td class="num" style="text-align:right">${x.n}</td>${RA().money?`<td class="num" style="text-align:right">${sar(x.spent)}</td>
+    <td class="num" style="text-align:right;color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.last?`<span class="rid">#${x.last.rno}</span> ${pill(x.last)}`:'—'}</td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td></tr>`).join('')}</tbody></table></div></div>`);
   document.querySelectorAll('tr[data-c]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.c;selProf=0;location.hash='measurements'});
 }
 
@@ -942,10 +980,13 @@ function mywork(){
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
     <div class="jh"><span class="rid" style="font-size:17px">#${o.rno}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${BRANCHES.find(b=>b.id===o.branch).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${o.note?' · '+esc(o.note):''}</div></div>${taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
-    <details class="jmore"><summary class="btn sm">Measurements & style</summary><div class="jb"><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
+    <details class="jmore" data-js="${o.rno}"><summary class="btn sm">Measurements & style</summary>${jHas(o.meas)||jHas(p.m)?`<div class="jwrap jro" style="margin-top:10px"></div>${jStylesHtml(jHas(o.meas)?o.meas:p.m)}`:''}<div class="jb"${jHas(o.meas)||jHas(p.m)?' hidden':''}><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
     <div class="jf"><button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button><button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
+  // the order's JAMEEL sheet (read only), drawn when the card's button is opened
+  document.querySelectorAll('details[data-js]').forEach(d=>d.addEventListener('toggle',()=>{if(!d.open)return;const h=d.querySelector('.jro');if(!h||h.dataset.done)return;h.dataset.done=1;
+    const o=orders.find(x=>x.rno===+d.dataset.js);const p0=cust(o.cid).profiles[0]||{m:{}};jSheet(h,JSON.parse(JSON.stringify(jHas(o.meas)?o.meas:p0.m)),{ro:true})}));
   bindRows();
 }
 
