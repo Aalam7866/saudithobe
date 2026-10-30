@@ -249,11 +249,11 @@ function wwMount(w){const sec=document.getElementById('wwSec');if(!sec)return;co
 /* Branches & factories: every workshop worker's work for a period */
 let bwBranch=0;
 function bwMount(){const box=document.getElementById('bwPanel');if(!box)return;const P=perGet('bw');
-  const draw=()=>{const B=bwBranch;const ks=TASKS.map(t=>t.k);
+  const lock=RA().lock;const draw=()=>{const B=lock?curBranch:(bwBranch||curBranch);const ks=TASKS.map(t=>t.k);
     const ent=prodLog.filter(p=>inPer(p.d,P));
     const people=workers.filter(w=>(!B||w.branch===B)&&(WORKSHOP_ROLES.includes(w.role)||ent.some(p=>p.w===w.id)));
     const rows=people.map(w=>{const e=ent.filter(p=>p.w===w.id);return{w,q:Object.fromEntries(ks.map(k=>[k,sumBy(e.filter(p=>p.stage===k),p=>p.qty)])),t:sumBy(e,p=>p.qty),n:new Set(e.filter(p=>p.rno).map(p=>p.rno)).size,d:new Set(e.map(p=>dkey2(p.d))).size}}).sort((a,b)=>b.t-a.t||a.w.name.localeCompare(b.w.name));
-    box.innerHTML=`<div class="panel-h" style="flex-wrap:wrap"><h2>Workers' work</h2><span class="sp"></span><select id="bwB" class="btn sm" style="padding:6px 10px" aria-label="Branch"><option value="0">All branches & factories</option>${BRANCHES.map(b=>`<option value="${b.id}" ${B===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select><button class="btn sm" id="bwCsv">Export CSV</button></div>
+    box.innerHTML=`<div class="panel-h" style="flex-wrap:wrap"><h2>Workers' work</h2><span class="sp"></span><select id="bwB" class="btn sm" style="padding:6px 10px" aria-label="Branch" ${lock?'hidden':''}><option value="0">All branches & factories</option>${BRANCHES.map(b=>`<option value="${b.id}" ${B===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select><button class="btn sm" id="bwCsv">Export CSV</button></div>
      <div class="panel-b" style="padding:12px 16px 0">${perBar('bwPer',P)}<div class="muted" style="font-size:12.5px;margin:8px 0">${perLabel(P)} · tap a worker to see his work day by day</div></div>
      ${xTable([{t:'Worker',f:x=>`<b>${esc(x.w.name)}</b>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',r:1,f:x=>x.n||''},{t:'Days',r:1,f:x=>x.d||''},{t:'Avg / day',r:1,f:x=>x.d?Math.round(x.t/x.d*10)/10:''}],
       rows,{attr:x=>`data-bw="${x.w.id}"`,h:'520px',empty:'No workshop workers.',foot:['Total','','',...ks.map(k=>sumBy(rows,x=>x.q[k])),sumBy(rows,x=>x.t),'','','']})}`;

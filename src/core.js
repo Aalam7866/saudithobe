@@ -269,8 +269,8 @@ const ACCESS={
    pages:['dashboard','daily','orders','new','measurements','customers','payments','workers','branches','reports','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
    can:['Every branch and factory','Daily report: sales, payments, tailoring','Add branches, factories and workers','Only owner can block, deactivate or delete workers']},
  manager:{no:2,label:'Branch manager',name:'Faisal Al-Harthi',icon:'branch',branch:1,lock:true,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','workers','reports','board'],tabs:['dashboard','daily','orders','new','workers'],
-   can:['Only his own branch','His branch daily report','Orders, customers and payments','His branch workers and attendance','Branch reports']},
+   pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers','reports','board'],tabs:['dashboard','daily','orders','new','workers'],
+   can:['Only his own branch','Shop dashboard and daily report (exe style) + tailoring report','Orders, customers, payments and cashier desk','His branch workers: attendance and work by date / month','Branch reports']},
  measure:{no:3,label:'Measurement',name:'Yasir Mahmood',icon:'tape',branch:1,lock:true,home:'measurements',money:false,pay:false,stage:false,
    pages:['measurements','customers','new'],tabs:['measurements','new','customers'],
    can:['Take and update measurements','Profiles: self, son, winter thobe','Choose collar, cuff, pocket style','Start the order, no prices or cash']},
@@ -926,10 +926,12 @@ function workersView(){
     ${targetBar(w,s)}
     <div class="att" title="Attendance, last 14 days">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div>
     <div class="wfoot"><span>${payLabel(w)}</span>${iqPill(w)}</div>
-   </button>`}).join('')||'<div class="empty">No workers match.</div>'}</div>`);
+   </button>`}).join('')||'<div class="empty">No workers match.</div>'}</div>
+  <div class="panel" id="bwPanel"></div>`);
   document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{workerRole=b.dataset.role;workersView()});
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>openWorker(+b.dataset.w));
   const aw=document.getElementById('addW');if(aw)aw.onclick=()=>workerForm();
+  bwMount();
 }
 function openWorker(id){
   const w=wk(id),s=wStats(w),os=orders.filter(o=>o.tailor===w.id&&o.st!=='done');
