@@ -849,7 +849,7 @@ function payments(){
     <label>From <input type="date" id="pFrom" value="${dkey2(d0)}"></label><label>To <input type="date" id="pTo" value="${dkey2(payF.to)}"></label>
     <select id="pType"><option value="all"${payF.type==='all'?' selected':''}>All payments</option><option value="down"${payF.type==='down'?' selected':''}>Down payments (at booking)</option><option value="due"${payF.type==='due'?' selected':''}>Due payments / deliveries</option></select>
     <select id="pBr"><option value="0">All branches</option>${SHOPS().map(b=>`<option value="${b.id}"${b.id===payF.br?' selected':''}>${esc(b.name)}</option>`).join('')}</select>
-    <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px">
+    <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px"><label class="search pgo" title="Order no. – Enter to open"><span class="muted" style="font-size:11px;font-weight:700">#</span><input id="pgO" placeholder="Order no." autocomplete="off"></label>
     <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
    <div class="tbl-wrap otbl"><table class="ot" style="min-width:1520px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th class="r">Down payment</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
     <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
@@ -860,6 +860,7 @@ function payments(){
     ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="8">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
    </table>${rows.length?'':'<div class="empty">No payments in these days.</div>'}</div></div>`);
   const $=id=>document.getElementById(id);
+  bindOrdBox();
   const apply=()=>{payF.from=new Date($('pFrom').value+'T00:00:00');payF.to=new Date($('pTo').value+'T00:00:00');payF.type=$('pType').value;payF.br=+$('pBr').value;payF.q=$('pQ').value;payments()};
   $('pShow').onclick=apply;['pType','pBr','pFrom','pTo'].forEach(id=>$(id).onchange=apply);$('pQ').onkeydown=e=>{if(e.key==='Enter')apply()};
   document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{payTab=b.dataset.pt;payments()});
@@ -1771,9 +1772,25 @@ function openCustomer(cid){
 }
 
 /* ---------- a search box inside the page (same as the one at the top) ---------- */
-const pgSearch=ph=>`<label class="search pgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pgQ" placeholder="${esc(ph)}" value="${esc(document.getElementById('q').value)}" autocomplete="off" type="search"></label>`;
-function bindPgSearch(){const i=document.getElementById('pgQ');if(!i)return;
+const pgSearch=ph=>`<label class="search pgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pgQ" placeholder="${esc(ph)}" value="${esc(document.getElementById('q').value)}" autocomplete="off" type="search"></label><label class="search pgo" title="Order no. – Enter to open"><span class="muted" style="font-size:11px;font-weight:700">#</span><input id="pgO" placeholder="Order no." autocomplete="off" inputmode="search"></label>`;
+function bindPgSearch(){bindOrdBox();const i=document.getElementById('pgQ');if(!i)return;
   i.oninput=()=>{const q=document.getElementById('q');q.value=i.value;q.dispatchEvent(new Event('input'));const n=document.getElementById('pgQ');if(n&&n!==i){n.focus();n.setSelectionRange(n.value.length,n.value.length)}}}
+
+/* the small "Order no." box: Enter opens that order (on the Measurements page: its customer and its sheet) */
+function findOrderNo(v){v=String(v||'').trim().replace(/^#/,'');if(!v)return null;const l=v.toLowerCase();
+  return orders.find(o=>String(o.rno)===v)||orders.find(o=>(o.bno||'').toLowerCase()===l)||orders.find(o=>String(o.bseq||'')===v)||orders.find(o=>String(o.exeNo||'')===v)||orders.find(o=>(o.binv||'').toLowerCase()===l||String(o.invoiceNo||'')===v)||null}
+function bindOrdBox(){const b=document.getElementById('pgO');if(!b)return;
+  b.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const v=b.value.trim().replace(/^#/,'');
+    // the same number in more branches (OLY-50003, MLZ-50003): choose
+    const many=/^\d+$/.test(v)?orders.filter(o=>String(o.bseq||'')===v||String(o.rno)===v||String(o.exeNo||'')===v):[];
+    if(many.length>1){const close=drawer(`Order ${esc(v)}`,'<div class="muted" style="font-size:13px">This number is in more than one branch – choose</div>',
+      `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${many.map(o=>`<div class="row" data-pick="${o.rno}" style="cursor:pointer"><span class="rid">${esc(ono(o))}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name)}</b><span>${esc(bname(o.branch))} · ${fmtD(o.created)} · ${pl(o.qty,'thobe')}</span></div>${pill(o)}</div>`).join('')}</div>`,'');
+      document.querySelectorAll('[data-pick]').forEach(r=>r.onclick=()=>{close();go(orders.find(x=>x.rno===+r.dataset.pick))});b.value='';return}
+    const o=findOrderNo(v);if(!o){toast(`Order ${b.value} not found`);b.select();return}
+    go(o);b.value=''};
+  const go=o=>{const h=(location.hash||'').slice(1);
+    if(h==='measurements'){selCust=o.cid;mOrdSel=o.rno;measurements();const s=document.querySelector('.mlay .sec');if(s&&innerWidth<1000)s.scrollIntoView({behavior:'smooth'})}
+    else openOrder(o.rno)}}
 
 /* ================= AL THOB exe-style pages: shop dashboard, daily report (exe + tailoring), worker work by period,
    workshop flow editor. Loaded after core.js, before live.js. ================= */
@@ -2275,6 +2292,7 @@ const TR_SRC={
  'Pay type':L3('نوع الراتب','वेतन का प्रकार'),'This month':L3('هذا الشهر','इस महीने'),'Joined':L3('تاريخ الانضمام','जुड़ने की तारीख'),'Nationality':L3('الجنسية','राष्ट्रीयता'),'Iqama expiry':L3('انتهاء الإقامة','इक़ामा ख़त्म'),
  'Mark on leave':L3('إجازة','छुट्टी पर'),'Deactivate':L3('إيقاف','बंद करें'),'Block':L3('حظر','ब्लॉक'),'App link':L3('رابط التطبيق','ऐप लिंक'),'Sign in':L3('دخول','लॉगिन'),'Enter':L3('دخول','अंदर जाएँ'),
  'Measurements':L3('المقاسات','नाप'),'Due reminder':L3('تذكير بالمبلغ','बाकी की याद'),'Payments & deliveries':L3('المدفوعات والتسليم','भुगतान और डिलीवरी'),
+ 'Order no.':L3('رقم الطلب','ऑर्डर नं.'),
  'Pay / Deliver':L3('دفع / تسليم','भुगतान / डिलीवरी'),'Receive payment / Deliver':L3('استلام دفعة / تسليم','भुगतान लें / डिलीवरी'),'Down payment ':L3('العربون','एडवांस'),
  'Ready · not taken':L3('جاهز · لم يُستلم','तैयार · नहीं ले गया'),'In the workshop':L3('في الورشة','वर्कशॉप में'),
  'Workers\' work':L3('عمل العمال','कारीगरों का काम'),'Attendance · last 14 days':L3('الحضور · آخر ١٤ يوم','हाज़िरी · पिछले 14 दिन'),'Language':L3('اللغة','भाषा'),

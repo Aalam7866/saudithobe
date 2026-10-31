@@ -846,7 +846,7 @@ function payments(){
     <label>From <input type="date" id="pFrom" value="${dkey2(d0)}"></label><label>To <input type="date" id="pTo" value="${dkey2(payF.to)}"></label>
     <select id="pType"><option value="all"${payF.type==='all'?' selected':''}>All payments</option><option value="down"${payF.type==='down'?' selected':''}>Down payments (at booking)</option><option value="due"${payF.type==='due'?' selected':''}>Due payments / deliveries</option></select>
     <select id="pBr"><option value="0">All branches</option>${SHOPS().map(b=>`<option value="${b.id}"${b.id===payF.br?' selected':''}>${esc(b.name)}</option>`).join('')}</select>
-    <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px">
+    <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px"><label class="search pgo" title="Order no. – Enter to open"><span class="muted" style="font-size:11px;font-weight:700">#</span><input id="pgO" placeholder="Order no." autocomplete="off"></label>
     <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
    <div class="tbl-wrap otbl"><table class="ot" style="min-width:1520px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th class="r">Down payment</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
     <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
@@ -857,6 +857,7 @@ function payments(){
     ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="8">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
    </table>${rows.length?'':'<div class="empty">No payments in these days.</div>'}</div></div>`);
   const $=id=>document.getElementById(id);
+  bindOrdBox();
   const apply=()=>{payF.from=new Date($('pFrom').value+'T00:00:00');payF.to=new Date($('pTo').value+'T00:00:00');payF.type=$('pType').value;payF.br=+$('pBr').value;payF.q=$('pQ').value;payments()};
   $('pShow').onclick=apply;['pType','pBr','pFrom','pTo'].forEach(id=>$(id).onchange=apply);$('pQ').onkeydown=e=>{if(e.key==='Enter')apply()};
   document.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{payTab=b.dataset.pt;payments()});

@@ -238,6 +238,22 @@ function openCustomer(cid){
 }
 
 /* ---------- a search box inside the page (same as the one at the top) ---------- */
-const pgSearch=ph=>`<label class="search pgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pgQ" placeholder="${esc(ph)}" value="${esc(document.getElementById('q').value)}" autocomplete="off" type="search"></label>`;
-function bindPgSearch(){const i=document.getElementById('pgQ');if(!i)return;
+const pgSearch=ph=>`<label class="search pgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pgQ" placeholder="${esc(ph)}" value="${esc(document.getElementById('q').value)}" autocomplete="off" type="search"></label><label class="search pgo" title="Order no. – Enter to open"><span class="muted" style="font-size:11px;font-weight:700">#</span><input id="pgO" placeholder="Order no." autocomplete="off" inputmode="search"></label>`;
+function bindPgSearch(){bindOrdBox();const i=document.getElementById('pgQ');if(!i)return;
   i.oninput=()=>{const q=document.getElementById('q');q.value=i.value;q.dispatchEvent(new Event('input'));const n=document.getElementById('pgQ');if(n&&n!==i){n.focus();n.setSelectionRange(n.value.length,n.value.length)}}}
+
+/* the small "Order no." box: Enter opens that order (on the Measurements page: its customer and its sheet) */
+function findOrderNo(v){v=String(v||'').trim().replace(/^#/,'');if(!v)return null;const l=v.toLowerCase();
+  return orders.find(o=>String(o.rno)===v)||orders.find(o=>(o.bno||'').toLowerCase()===l)||orders.find(o=>String(o.bseq||'')===v)||orders.find(o=>String(o.exeNo||'')===v)||orders.find(o=>(o.binv||'').toLowerCase()===l||String(o.invoiceNo||'')===v)||null}
+function bindOrdBox(){const b=document.getElementById('pgO');if(!b)return;
+  b.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const v=b.value.trim().replace(/^#/,'');
+    // the same number in more branches (OLY-50003, MLZ-50003): choose
+    const many=/^\d+$/.test(v)?orders.filter(o=>String(o.bseq||'')===v||String(o.rno)===v||String(o.exeNo||'')===v):[];
+    if(many.length>1){const close=drawer(`Order ${esc(v)}`,'<div class="muted" style="font-size:13px">This number is in more than one branch – choose</div>',
+      `<div class="rows" style="border:1px solid var(--line);border-radius:8px">${many.map(o=>`<div class="row" data-pick="${o.rno}" style="cursor:pointer"><span class="rid">${esc(ono(o))}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name)}</b><span>${esc(bname(o.branch))} · ${fmtD(o.created)} · ${pl(o.qty,'thobe')}</span></div>${pill(o)}</div>`).join('')}</div>`,'');
+      document.querySelectorAll('[data-pick]').forEach(r=>r.onclick=()=>{close();go(orders.find(x=>x.rno===+r.dataset.pick))});b.value='';return}
+    const o=findOrderNo(v);if(!o){toast(`Order ${b.value} not found`);b.select();return}
+    go(o);b.value=''};
+  const go=o=>{const h=(location.hash||'').slice(1);
+    if(h==='measurements'){selCust=o.cid;mOrdSel=o.rno;measurements();const s=document.querySelector('.mlay .sec');if(s&&innerWidth<1000)s.scrollIntoView({behavior:'smooth'})}
+    else openOrder(o.rno)}}
