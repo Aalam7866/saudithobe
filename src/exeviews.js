@@ -145,7 +145,7 @@ function shopDash(){
     else if(dashTab==='stock'){const r=STOCK.filter(s=>(+s.stock||0)<10).sort((a,b)=>(+a.stock||0)-(+b.stock||0));h=xTable([{t:'Code',f:s=>`<span class="num">${esc(s.code)}</span>`},{t:'Fabric',f:s=>`<b>${esc(s.name)}</b>`},{t:'Company',f:s=>esc(s.company||'')},{t:'Colour',f:s=>esc(s.colour||'')},{t:'In stock',r:1,f:s=>`<b class="${(+s.stock||0)<=0?'tbad':''}">${+s.stock||0}</b>`}],r,{h:'460px',empty:'Nothing low.'})}
     el.innerHTML=h;
     el.querySelectorAll('[data-lr]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.lr));
-    el.querySelectorAll('[data-dc]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.dc;location.hash='customers'});
+    el.querySelectorAll('[data-dc]').forEach(r=>r.onclick=()=>openCustomer(+r.dataset.dc));
     el.querySelectorAll('[data-pd2]').forEach(r=>r.onclick=()=>{const k=r.dataset.pd2;const os=open.filter(o=>o.st!=='ready'&&(k==='late'?o.due<today:dkey2(o.due)===k));orderListDrawer(k==='late'?'Late, not ready':'Due '+fmtL(pDate(k)),os,money)})};
   document.querySelectorAll('[data-dt]').forEach(b=>b.onclick=()=>{dashTab=b.dataset.dt;document.querySelectorAll('[data-dt]').forEach(x=>x.classList.toggle('on',x===b));body()});
   body();

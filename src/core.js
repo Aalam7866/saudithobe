@@ -791,11 +791,11 @@ function measurements(){
 function customersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();
   const list=customers.filter(c=>(!curBranch||c.branch===curBranch)&&(!q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)||String(c.id)===q)).map(c=>{const os=orders.filter(o=>o.cid===c.id);return{c,n:os.length,spent:os.reduce((s,o)=>s+o.paid,0),due:os.reduce((s,o)=>s+o.total-o.paid,0),last:os[0]}}).sort((a,b)=>b.spent-a.spent);
-  V(`<div class="panel"><div class="panel-h"><h2>${pl(list.length,'customer')}</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sorted by total spent · tap a row for measurements</span></div><div class="tbl-wrap"><table>
+  V(`<div class="panel"><div class="panel-h"><h2>${pl(list.length,'customer')}</h2><span class="sp"></span><span class="muted" style="font-size:12px">Sorted by total spent · tap a customer to see everything</span></div><div class="tbl-wrap"><table>
    <thead><tr><th class="r">Cust No</th><th>Customer</th><th>Mobile</th><th>Book</th><th class="r">Orders</th>${RA().money?'<th class="r">Total paid</th><th class="r">Balance</th>':''}<th>Last order</th><th>Home branch</th></tr></thead>
    <tbody>${list.map(x=>`<tr class="click" data-c="${x.c.id}"><td class="num r" style="text-align:right">${x.c.id}</td><td><b dir="auto">${esc(x.c.name)}</b></td><td class="num">${esc(x.c.phone)}</td><td dir="auto" class="muted">${esc(x.c.book||'')}</td><td class="num" style="text-align:right">${x.n}</td>${RA().money?`<td class="num" style="text-align:right">${sar(x.spent)}</td>
     <td class="num" style="text-align:right;color:${x.due?'var(--bad)':'var(--muted)'}">${x.due?sar(x.due):'—'}</td>`:''}<td>${x.last?`<span class="rid">${ono(x.last)}</span> ${pill(x.last)}`:'—'}</td><td>${bTag(x.c.branch)} ${bname(x.c.branch)}</td></tr>`).join('')}</tbody></table></div></div>`);
-  document.querySelectorAll('tr[data-c]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.c;selProf=0;location.hash='measurements'});
+  document.querySelectorAll('tr[data-c]').forEach(r=>r.onclick=()=>openCustomer(+r.dataset.c));
 }
 
 /* ================= Payments ================= */
@@ -1459,7 +1459,7 @@ function reports(){
   </div>
   <div class="panel"><div class="panel-h"><h2>Top 10 customers</h2><span class="sp"></span><span class="muted" style="font-size:12px">${perLabel(P)}</span></div>${xTable([{t:'#',r:1,f:x=>tops.indexOf(x)+1},{t:'Customer',f:x=>`<b>${esc(x.c.name)}</b>`},{t:'Mobile',f:x=>`<span class="num">${esc(x.c.phone||'')}</span>`},{t:'Orders',r:1,f:x=>x.n},{t:'Pcs',r:1,f:x=>x.q},...(money?[{t:'Total',r:1,f:x=>`<b>${sar(x.t)}</b>`}]:[])],tops,{attr:x=>`data-tc="${x.c.id}"`})}</div>`);
   perBind('repPer',P,reports);
-  document.querySelectorAll('[data-tc]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.tc;location.hash='customers'});
+  document.querySelectorAll('[data-tc]').forEach(r=>r.onclick=()=>openCustomer(+r.dataset.tc));
   const head=['Branch','Orders','Pcs',...(money?['Sales','Collected','Due']:[])],rowsP=brRows.map(x=>[x.b.name,x.n,x.q,...(money?[sar2(x.s),sar2(x.c),sar2(x.d)]:[])]);
   document.getElementById('repCsv').onclick=()=>csvOut(`report_${dkey2(P.from)}_${dkey2(P.to)}`,[head,...rowsP,[],['Worker','Pieces'],...Object.values(byW).map(x=>[x.k,x.v]),[],['Method','Amount'],...(money?Object.entries(byM).map(([k,v])=>[k,sar2(v)]):[])]);
   document.getElementById('repPrint').onclick=()=>printRep('Business report',`${B?bname(B):'All branches & factories'} · ${perLabel(P)}`,

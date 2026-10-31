@@ -133,7 +133,7 @@ live = (SRC / 'live.js').read_text()
 js = (SRC / 'jspec.js').read_text() + '\n' + (SRC / 'jsheet.js').read_text()
 START = 'if(DEMO){route();showLogin()}else liveBoot();'
 assert s.count(START) == 1
-s = s.replace(START, (SRC / 'docs.js').read_text() + '\n' + (SRC / 'exeviews.js').read_text() + '\n' + (SRC / 'biz.js').read_text() + '\n' + START)
+s = s.replace(START, (SRC / 'docs.js').read_text() + '\n' + (SRC / 'exeviews.js').read_text() + '\n' + (SRC / 'biz.js').read_text() + '\n' + (SRC / 'i18n.js').read_text() + '\n' + START)
 app = s + '\n' + js + '\n' + live + "\nasync function loadFirebase(){\n  if(window.__FB_MOCK)return window.__FB_MOCK;\n  const V='10.14.1',B=`https://www.gstatic.com/firebasejs/${V}/`;\n  const [a,au,fs]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);\n  return {...a,...au,...fs};\n}\n"
 (ROOT / 'app.js').write_text(app)
 

@@ -210,3 +210,25 @@ function payHist(o){
      ${e.amt?`<b class="num" style="color:${e.amt<0?'var(--bad)':'var(--ok)'}">${e.amt<0?'−':''}${sar2(Math.abs(e.amt))}</b>`:''}</div>`).join('')}
     ${gap>0.5?`<div class="row" style="padding-block:9px"><span class="num muted" style="width:18px">·</span><div class="grow"><b style="font-weight:500">Earlier payment</b><span>not in the payment list (older than the loaded days, or from the shop's old records)</span></div><b class="num" style="color:var(--ok)">${sar2(gap)}</b></div>`:''}
     ${!ev.length&&gap<=0.5?'<div class="empty" style="padding:14px">No payments or deliveries yet.</div>':''}</div></div>`}
+
+/* ---------- one customer in a drawer (same page): his orders, money, payments, measurement and a reminder ---------- */
+function openCustomer(cid){
+  const c=customers.find(x=>x.id===cid);if(!c){toast('Customer not found');return}
+  const money=RA().money,os=orders.filter(o=>o.cid===cid).sort((a,b)=>b.created-a.created);
+  const tot=sumBy(os,o=>o.total),paid=sumBy(os,o=>o.paid),due=Math.round((tot-paid)*100)/100,pcs=sumBy(os,o=>o.qty);
+  const pays=payLog.filter(p=>os.some(o=>o.rno===p.rno)).sort((a,b)=>b.d-a.d);
+  const taken=os.filter(o=>{const x=oInfo(o);return x.dq>0&&x.due>0.5});
+  const close=drawer(esc(c.name),`<div class="muted num" style="font-size:13px">Customer ${c.id} · ${esc(c.phone||'')} · ${esc(bname(c.branch))}</div>`,
+   `${taken.length?`<div class="msg" style="border-color:var(--bad);background:var(--bad-bg);color:var(--bad);font-weight:600">⚠ Took thobes but still owes money on ${pl(taken.length,'order')}: ${taken.map(o=>esc(ono(o))).join(', ')}</div>`:''}
+    <div class="kv"><div><span>Orders</span><b>${os.length}</b></div><div><span>Thobes</span><b>${pcs}</b></div><div><span>Last order</span><b style="font-size:13px">${os[0]?fmtD(os[0].created):'—'}</b></div>
+     ${money?`<div><span>Total</span><b>${sar(tot)}</b></div><div><span>Paid</span><b style="color:var(--ok)">${sar(paid)}</b></div><div><span>Due</span><b style="color:${due>0.5?'var(--bad)':'var(--ok)'}">${sar(due)}</b></div>`:''}</div>
+    <div><p class="h4">Orders</p>${xTable([{t:'Order',f:o=>`<b class="num">${esc(ono(o))}</b>`},{t:'Booked',f:o=>fmtD(o.created)},{t:'Pcs',r:1,f:o=>o.qty},...(money?[{t:'Total',r:1,f:o=>sar2(o.total)},{t:'Due',r:1,f:o=>o.total-o.paid>0.5?`<b class="tbad">${sar2(o.total-o.paid)}</b>`:'—'}]:[]),{t:'Status',f:o=>{const x=oInfo(o);return `<span class="pill ${WHERE_C(x.where)}">${esc(x.where)}</span>`}}],os,{attr:o=>`data-co="${o.rno}"`,empty:'No orders yet.'})}</div>
+    ${money?`<div><p class="h4">Payments <span class="muted" style="font-weight:500">· ${pl(pays.length,'payment')}</span></p>${xTable([{t:'Date',f:p=>dmy(p.d)},{t:'Order',f:p=>`<span class="num">${esc(onoR(p.rno))}</span>`},{t:'Type',f:p=>p.amt<0?'Refund':p.t==='Deposit'?'Down payment':'Payment'},{t:'Method',f:p=>esc(pmName(p))},{t:'Amount',r:1,f:p=>`<b>${sar2(p.amt)}</b>`}],pays,{empty:'No payments in the loaded days.'})}</div>`:''}
+    ${jHas((c.profiles[0]||{}).m)?`<div><p class="h4">Measurement</p>${jStylesHtml(c.profiles[0].m)}</div>`:''}`,
+   `${can('measurements')?`<button class="btn" id="cuM">📐 Measurements</button>`:''}${can('new')?`<button class="btn" id="cuN">${ico('plus')}New order</button>`:''}${money&&due>0.5&&c.phone?`<button class="btn pri" id="cuW">${ico('wa')}Due reminder</button>`:''}`);
+  document.querySelectorAll('[data-co]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.co));
+  const $=x=>document.getElementById(x);
+  if($('cuM'))$('cuM').onclick=()=>{close();selCust=cid;selProf=0;location.hash='measurements'};
+  if($('cuN'))$('cuN').onclick=()=>{close();location.hash='new';setTimeout(()=>{const x=document.getElementById('fCno');if(x){x.value=c.id;x.onchange&&x.onchange()}},60)};
+  if($('cuW'))$('cuW').onclick=()=>{const o=os.find(x=>x.total-x.paid>0.5);const msg=waFill('WA_Due',{name:c.name,order:os.filter(x=>x.total-x.paid>0.5).map(x=>ono(x).replace(/^#/,'')).join(', '),amount:sar2(due)});waOpen(o,'DUE',msg);toast('WhatsApp opened · kept in the Message tracker')};
+}

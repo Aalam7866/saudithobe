@@ -621,6 +621,13 @@ svg.thobe .ml.hot{stroke-width:2.6;stroke-dasharray:none}
 .okpi.c6{grid-template-columns:repeat(6,minmax(0,1fr))}.okpi.c4{grid-template-columns:repeat(4,minmax(0,1fr))}.okpi.c6+.okpi.c4{margin-top:-10px}
 @media (max-width:1100px){.okpi.c6{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:860px){.okpi.c6,.okpi.c4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.langsel{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:9px;height:38px;padding:0 8px;font:inherit;font-size:13px;cursor:pointer}
+#langFloat{position:fixed;top:12px;inset-inline-end:12px;z-index:200;display:none}body:has(.login) #langFloat{display:block}
+/* Arabic: right to left */
+[dir=rtl] .ot .s1{left:auto;right:0}[dir=rtl] .ot .s2{left:auto;right:110px;box-shadow:inset 1px 0 0 var(--line)}
+[dir=rtl] .num,[dir=rtl] input[type=date],[dir=rtl] .rid{direction:ltr;unicode-bidi:isolate}
+[dir=rtl] .drawer{right:auto;left:0}[dir=rtl] .nav a.on{box-shadow:inset -3px 0 0 var(--brass)}
+@media (max-width:860px){[dir=rtl] .ot .s2{right:96px}}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}</style>
 </head>
