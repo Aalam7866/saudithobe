@@ -81,7 +81,7 @@ R('<span class="muted" style="font-size:12px">Only for ${esc(w.name)}</span>', '
 R("""    <div><p class="h4">Attendance · last 14 days""", """    ${(isOwner()||managesW(w))&&okW(w)?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">Today</b>${w.att[13]==='a'?'<span class="pill s-late">Absent</span>':'<span class="pill s-ready">Present</span>'}<button class="btn sm" id="attW">${w.att[13]==='a'?'Mark present':'Mark absent'}</button></div>`:''}
     <div><p class="h4">Attendance · last 14 days""")
 R("  if($('editW'))$('editW').onclick=()=>workerForm(w);", "  if($('editW'))$('editW').onclick=()=>workerForm(w);\n  if($('attW'))$('attW').onclick=async()=>{const v=w.att[13]==='a'?'p':'a';if(LIVE){await setAtt(w,v)}w.att[13]=v;toast(`${w.name}: ${v==='a'?'absent':'present'} today`);route();openWorker(id)};")
-R("const canEditW=w=>", "const managesW=w=>ROLE==='manager'&&w.branch===USER.branch||isFactoryLogin()&&w.branch===USER.branch;\nconst canEditW=w=>")
+R("const canEditW=w=>", "const managesW=w=>ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac()))||isFactoryLogin()&&w.branch===USER.branch;\nconst canEditW=w=>")
 
 # branch links in live: each person's own link
 R("function branchLinks(b,fresh){", """function branchLinks(b,fresh){

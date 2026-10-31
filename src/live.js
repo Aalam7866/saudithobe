@@ -52,6 +52,7 @@ async function doFlush(){
         else{upd[k]=cur[k]===undefined?fb.deleteField():cur[k];n++}}
       if(n){if(STAMP.has(col))upd.upd=new Date();writing++;try{await updateDoc(doc(db,col,id),upd)}finally{writing--}
         if(col==='staff'&&('status' in upd)&&x.uid)await updateDoc(doc(db,'uids',x.uid),{active:okW(x)});
+        if(col==='staff'&&('fac' in upd)&&x.uid&&ROLE==='owner')await updateDoc(doc(db,'uids',x.uid),{fac:+x.fac||0});
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
@@ -101,7 +102,7 @@ async function createStaff(w){
   Object.assign(w,{uid,gen,login,pinSet:false,status:w.status||'active'});
   const b=writeBatch(db);
   b.set(doc(db,'staff',String(w.id)),{...plain('staff',w),upd:new Date()},{merge:true});
-  b.set(doc(db,'uids',uid),{sid:w.id,role:login,branch:w.branch,job:w.role,active:true});
+  b.set(doc(db,'uids',uid),{sid:w.id,role:login,branch:w.branch,job:w.role,active:true,fac:+w.fac||0});
   b.set(doc(db,'pub',String(w.id)),{name:w.name,gen,job:w.role,branch:bname(w.branch)});
   b.set(doc(db,'keys',String(w.id)),{k:key,branch:w.branch});
   await b.commit();synced.staff.set(String(w.id),snap('staff',w));KEYS[w.id]=key;
@@ -116,7 +117,7 @@ async function resetPin(w){
   const b=writeBatch(db),old=w.uid;w.uid=cred.user.uid;w.gen=gen;w.pinSet=false;
   b.update(doc(db,'staff',String(w.id)),{uid:w.uid,gen,pinSet:false,upd:new Date()});
   if(old)b.delete(doc(db,'uids',old));
-  b.set(doc(db,'uids',w.uid),{sid:w.id,role:w.login||jobLogin(w.role),branch:w.branch,job:w.role,active:okW(w)});
+  b.set(doc(db,'uids',w.uid),{sid:w.id,role:w.login||jobLogin(w.role),branch:w.branch,job:w.role,active:okW(w),fac:+w.fac||0});
   b.set(doc(db,'pub',String(w.id)),{name:w.name,gen,job:w.role,branch:bname(w.branch)});
   b.set(doc(db,'keys',String(w.id)),{k:key,branch:w.branch});
   await b.commit();synced.staff.set(String(w.id),snap('staff',w));KEYS[w.id]=key;
@@ -189,7 +190,7 @@ function startListeners(){
   // salary deductions: the owner all, a manager / supervisor his branch, a worker only his own
   if(ROLE==='owner')sub('ded',collection(db,'ded'));
   else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
-  else if(ROLE==='manager'||isFactoryLogin())sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));
+  else if(ROLE==='manager'||isFactoryLogin()){sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));if(USER.fac)sub('ded',query(collection(db,'ded'),where('branch','==',USER.fac)))}
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
   // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices
@@ -241,7 +242,7 @@ async function liveBoot(){
       const m=s.data();
       if(m.active===false){await fb.signOut(auth);showSignIn(pub,'This login is blocked by the owner.');return}
       if(U&&String(m.sid)!==String(U)&&m.role!=='owner'){await fb.signOut(auth);showSignIn(pub);return}
-      ROLE=m.role;USER={role:m.role,name:m.role==='owner'?(m.name||'Owner'):(pub?pub.name:'Staff'),branch:m.branch||0,sid:m.sid,job:m.job,uid:user.uid};
+      ROLE=m.role;USER={role:m.role,name:m.role==='owner'?(m.name||'Owner'):(pub?pub.name:'Staff'),branch:m.branch||0,sid:m.sid,job:m.job,uid:user.uid,fac:+m.fac||0};
       if(m.role!=='owner'){const st=await getDoc(doc(db,'staff',String(m.sid)));if(st.exists())USER.name=st.data().name}
     }catch(e){console.error(e);showSignIn(pub,errMsg(e));return}
     const L=document.getElementById('login');if(L)L.remove();

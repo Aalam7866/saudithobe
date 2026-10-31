@@ -144,6 +144,10 @@ const okW=w=>w.status!=='inactive'&&w.status!=='blocked';
 /* a worker can have more than one job (w.roles: the extra jobs, e.g. a tailor who also does hinge) */
 const wRoles=w=>[...new Set([w.role,...((w&&w.roles)||[])].filter(Boolean))];
 const hasRole=(w,r)=>!!w&&wRoles(w).includes(r);
+/* worker photo (or his initials) */
+const wAv=(w,px)=>w&&w.photo?`<div class="wav ph" style="${px?`width:${px}px;height:${px}px;`:''}background-image:url('${w.photo}')" role="img" aria-label="${esc(w.name)}"></div>`:`<div class="wav" style="${px?`width:${px}px;height:${px}px;font-size:${Math.round(px*.38)}px`:''}">${initials((w&&w.name)||'?')}</div>`;
+/* a branch manager can also supervise a factory (w.fac) */
+const myFac=()=>+(USER.fac||((workers.find(x=>x.id===USER.sid)||workers.find(x=>x.name===USER.name))||{}).fac||0);
 const roleText=w=>wRoles(w).map(r=>r==='Cutter'?'Cutting':r).join(' + ');
 const tailorsOf=b=>workers.filter(w=>hasRole(w,'Tailor')&&okW(w)&&(!b||w.branch===b));
 const firstOf=(role,b)=>workers.find(w=>w.role===role&&w.branch===b&&w.status==='active')||workers.find(w=>hasRole(w,role)&&w.branch===b&&w.status==='active')||workers.find(w=>w.role===role&&w.status==='active');
@@ -297,9 +301,9 @@ let ROLE='owner',USER=USERS[0];const RA=()=>({...ACCESS[ROLE],name:USER.name,bra
 const can=h=>RA().pages.includes(h);
 const isOwner=()=>ROLE==='owner';
 const isFactoryLogin=()=>ROLE==='tailor'&&isFac(USER.branch);
-const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?['Cashier']:[];
-const canDed=w=>isOwner()||(ROLE==='manager'&&w.branch===USER.branch)||(isFactoryLogin()&&w.branch===USER.branch);
-const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&w.role==='Cashier');
+const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?(myFac()&&curBranch===myFac()?WORKSHOP_ROLES:['Cashier']):[];
+const canDed=w=>isOwner()||(ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac())))||(isFactoryLogin()&&w.branch===USER.branch);
+const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&w.role==='Cashier')||(ROLE==='manager'&&myFac()&&w.branch===myFac()&&WORKSHOP_ROLES.includes(w.role));
 const wStatusPill=w=>({leave:'<span class="pill s-cut">On leave</span>',inactive:'<span class="pill s-done">Inactive</span>',blocked:'<span class="pill s-late">Blocked</span>'}[w.status]||'');
 /* ready popups for owner and the branch manager */
 const myNotices=()=>ROLE==='owner'?notices:ROLE==='manager'?notices.filter(n=>n.branch===USER.branch):[];
@@ -357,7 +361,8 @@ function drawNav(cur){
   const b=BRANCHES.find(x=>x.id===curBranch);
   document.getElementById('bsw').innerHTML=`Viewing<b>${b?`${b.name} · ${b.city}`:`${SHOPS().length} shops · ${FACS().length} factory`}</b>`;
   const sel=document.getElementById('branchSel');
-  sel.innerHTML=`<option value="0">All branches & factories</option><optgroup label="Shops">`+SHOPS().map(b=>`<option value="${b.id}">${b.name} · ${b.city}</option>`).join('')+`</optgroup><optgroup label="Factories">`+FACS().map(b=>`<option value="${b.id}">${b.name}</option>`).join('')+`</optgroup>`;sel.value=String(curBranch);
+  if(RA().lock&&ROLE==='manager'&&myFac()){const two=[RA().branch,myFac()].map(id=>BRANCHES.find(b=>b.id===id)).filter(Boolean);sel.disabled=false;sel.innerHTML=two.map(b=>`<option value="${b.id}" ${b.id===curBranch?'selected':''}>${esc(b.name)}${b.type==='factory'?' (factory)':''}</option>`).join('');sel.closest('.bsel').title='Your branch and your factory'}
+  else sel.innerHTML=`<option value="0">All branches & factories</option><optgroup label="Shops">`+SHOPS().map(b=>`<option value="${b.id}">${b.name} · ${b.city}</option>`).join('')+`</optgroup><optgroup label="Factories">`+FACS().map(b=>`<option value="${b.id}">${b.name}</option>`).join('')+`</optgroup>`;sel.value=String(curBranch);
 }
 
 let orderFilter='all',selCust=1,selProf=0,workerRole='all';
@@ -524,7 +529,7 @@ function openOrder(rno){
      ${RA().money?`<div><span>Total</span><b>${sar(o.total)}</b></div><div><span>Paid</span><b style="color:var(--ok)">${sar(o.paid)}</b></div><div><span>Balance</span><b style="color:${rem?'var(--bad)':'var(--ok)'}">${sar(rem)}</b></div>`:''}</div>
     ${RA().money?payHist(o):''}
     <div><p class="h4">Workshop · ${o.made===o.branch?bname(o.made)+' workshop':bname(o.made)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${TASKS.map(t=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="row" style="padding-block:8px"><div class="grow"><b>${t.t}</b><span>${wid?wk(wid).name:'Not assigned yet'}</span></div>${taskPill(o,t.k)}${canTask()&&pending(o,t.k)?`<button class="btn sm" data-tk="${t.k}">${taskBtn(o,t.k)}</button>`:''}</div>`}).join('')}</div></div>
-    <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0"><div class="wav" style="width:36px;height:36px;font-size:14px">${initials(wk(o.tailor).name)}</div><div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
+    <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0">${wAv(wk(o.tailor),36)}<div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
     ${orderItems(o)}
     ${jHas(o.meas)||jHas(prof.m)?`<div><p class="h4">Measurement sheet & style</p>${jStylesHtml(jHas(o.meas)?o.meas:prof.m)}<button class="btn sm" id="jOpen" style="margin-top:8px">📐 Open the measurement sheet</button></div>`:`<div><p class="h4">Style</p><div class="kv">${DESIGN_.map(g=>`<div><span>${g.t}</span><b style="font-family:var(--f-body);font-size:13px">${g.opts.find(x=>x[0]===o.design[g.k])[1]}</b></div>`).join('')}<div><span>Fabric</span><b style="font-family:var(--f-body);font-size:13px">${o.fabric}</b></div></div></div>`}
     ${MALL.some(([k])=>mVal(prof.m,k)!=='')?`<div><p class="h4">Old shop paper values</p>${mShow(prof.m)}</div>`:''}
@@ -957,7 +962,7 @@ function workersView(){
   <div class="rowtools"><div class="chips">${chip('all','All',all.length)}${ROLES.filter(r=>WORKSHOP_ROLES.includes(r)||all.some(w=>hasRole(w,r))).map(r=>chip(r,r==='Cutter'?'Cutting':r,all.filter(w=>hasRole(w,r)).length)).join('')}${chip('off','Inactive & blocked',all.filter(w=>!okW(w)).length)}</div><span class="sp"></span>${addRoles().length?`<button class="btn pri" id="addW">${ico('plus')}Add ${isFactoryLogin()?'workshop worker':'worker'}</button>`:''}</div>
   ${!isOwner()?`<div class="muted" style="font-size:12.5px">${isFactoryLogin()?'You can add tailors, cutters, hinge, tatreez and ironing workers to this factory. Only the owner can block, deactivate or delete a worker.':'Only the owner or the factory can add workshop workers. Only the owner can block, deactivate or delete.'}</div>`:''}
   <div class="wgrid">${list.map(w=>{const s=wStats(w);return `<button class="wcard" data-w="${w.id}">
-    <div class="wtop"><div class="wav">${initials(w.name)}</div><div class="grow"><b>${w.name}</b><span>${esc(roleText(w))} · ${bname(w.branch)}</span></div>${wStatusPill(w)}</div>
+    <div class="wtop">${wAv(w)}<div class="grow"><b>${esc(w.name)}</b><span class="wrole">${esc(roleText(w))}</span><span>${bname(w.branch)}${w.fac?' · supervises '+esc(bname(w.fac)):''}</span></div>${wStatusPill(w)}</div>
     <div class="wstats"><div><span>In hand</span><b>${ROLE2TASK[w.role]?s.act:'—'}</b></div><div><span>Done (month)</span><b>${w.role==='Tailor'?s.doneQ:'—'}</b></div><div><span>${w.pay==='salary'?'Salary':'Pay so far'}</span><b>${sar(s.earn)}</b></div></div>
     ${targetBar(w,s)}
     <div class="att" title="Attendance, last 14 days">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div>
@@ -971,7 +976,7 @@ function workersView(){
 }
 function openWorker(id){
   const w=wk(id),s=wStats(w),os=orders.filter(o=>o.tailor===w.id&&o.st!=='done');
-  const close=drawer(w.name,`<div class="muted" style="font-size:13px">${esc(roleText(w))} · ${bname(w.branch)}</div>`,
+  const close=drawer(esc(w.name),`<div class="wdh">${wAv(w,64)}<div><div class="wrole" style="font-size:15px">${esc(roleText(w))}</div><div class="muted" style="font-size:13px">${bname(w.branch)}${w.fac?' · supervises '+esc(bname(w.fac)):''}</div></div></div>`,
    `<div style="display:flex;gap:8px;flex-wrap:wrap">${wStatusPill(w)||'<span class="pill s-ready">Active</span>'}${iqPill(w)}</div>
     <div class="kv"><div><span>Mobile</span><b style="font-size:13px">${w.phone}</b></div><div><span>Nationality</span><b style="font-family:var(--f-body);font-size:13px">${w.nat}</b></div><div><span>Joined</span><b style="font-size:13px">${fmtY(w.joined)}</b></div>
      <div><span>Pay type</span><b style="font-family:var(--f-body);font-size:13px">${w.pay==='piece'?'Per thobe':w.pay==='target'?'Basic + target':'Monthly salary'}</b></div><div><span>This month</span><b>${sar(s.earn)}</b></div><div><span>Iqama expiry</span><b style="font-size:13px">${w.iqama?fmtY(w.iqama):'—'}</b></div></div>
@@ -1009,9 +1014,11 @@ function workerForm(w){
   const e=w||{name:'',role:addRoles()[0]||'Tailor',branch:isOwner()?(curBranch||1):USER.branch,phone:'',nat:'India',pay:'target',rate:25,basic:1500,target:60,comm:15,iqama:addD(today,365),joined:today};
   const close=drawer(w?'Edit worker':'Add worker',`<div class="muted" style="font-size:13px">${w?w.role+' · '+bname(w.branch):'New staff member'}</div>`,
    `<div class="fgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+     <div class="field" style="grid-column:1/-1;display:flex;flex-direction:row;gap:14px;align-items:center"><div id="wPhV">${wAv(e,72)}</div><div style="display:flex;flex-direction:column;gap:6px"><label class="btn sm" style="cursor:pointer">📷 ${e.photo?'Change photo':'Add photo'}<input type="file" id="wPh" accept="image/*" capture="user" hidden></label>${e.photo?'<button type="button" class="btn sm" id="wPhX">Remove photo</button>':''}</div></div>
      <div class="field" style="grid-column:1/-1"><label for="wName">Full name</label><input id="wName" value="${esc(e.name)}" placeholder="e.g. Imran Ali"></div>
      <div class="field"><label for="wRole">Role</label><select id="wRole">${[...new Set([...(w?[w.role]:[]),...addRoles()])].map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select></div>
      <div class="field" style="grid-column:1/-1"><label>Also works as <span class="muted" style="font-weight:500">(tick more jobs if he does more than one)</span></label><div class="chips" id="wMore">${WORKSHOP_ROLES.concat(['Cashier']).map(r=>`<label class="chip ${(e.roles||[]).includes(r)?'on':''}" data-mr="${r}"><input type="checkbox" value="${r}" ${(e.roles||[]).includes(r)?'checked':''} style="display:none">${r==='Cutter'?'Cutting':r}</label>`).join('')}</div></div>
+     ${isOwner()&&FACS().length?`<div class="field" style="grid-column:1/-1" id="wFacF"><label for="wFac">Also supervises a tailoring factory <span class="muted" style="font-weight:500">(for a branch manager who also runs the factory)</span></label><select id="wFac"><option value="0">— No —</option>${FACS().map(f=>`<option value="${f.id}" ${+e.fac===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>`:''}
      <div class="field"><label for="wBranch">Branch</label><select id="wBranch">${(isOwner()?BRANCHES:BRANCHES.filter(b=>b.id===USER.branch)).map(b=>`<option value="${b.id}" ${b.id===e.branch?'selected':''}>${b.name}</option>`).join('')}</select></div>
      <div class="field"><label for="wPhone">Mobile</label><input id="wPhone" class="num" value="${esc(e.phone)}" placeholder="05xxxxxxxx"></div>
      <div class="field"><label for="wNat">Nationality</label><input id="wNat" value="${esc(e.nat)}"></div>
@@ -1030,12 +1037,17 @@ function workerForm(w){
     $('wRateL').textContent=p==='piece'?'Rate per thobe (SAR)':'Monthly salary (SAR)';
     if(t){const b=+$('wBasic').value||0,tg=+$('wTarget').value||0,c=+$('wComm').value||0,ex=tg+10;
       $('wEx').innerHTML=`<b>Example:</b> if he finishes <b class="num">${ex}</b> pcs this month<br><span class="num">${sar(b)} + (${ex} − ${tg}) × ${c} = <b>${sar(b+10*c)} SAR</b></span><br><span class="muted" style="font-size:12px">Below ${tg} pcs he gets the basic salary only.</span>`}};
+  let photo=e.photo||'';
+  $('wPh').onchange=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=240,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
+      const m=Math.min(im.width,im.height);g.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,s,s);photo=cv.toDataURL('image/jpeg',.82);$('wPhV').innerHTML=wAv({name:$('wName').value,photo},72)};im.src=r.result};r.readAsDataURL(f)};
+  if($('wPhX'))$('wPhX').onclick=()=>{photo='';$('wPhV').innerHTML=wAv({name:$('wName').value},72);$('wPhX').remove()};
   const moreSync=()=>{const main=$('wRole').value;document.querySelectorAll('#wMore [data-mr]').forEach(l=>{const i=l.querySelector('input');l.hidden=l.dataset.mr===main;if(l.hidden)i.checked=false;l.classList.toggle('on',i.checked)})};
   document.querySelectorAll('#wMore input').forEach(i=>i.onchange=moreSync);$('wRole').addEventListener('change',moreSync);moreSync();
   ['wPay','wBasic','wTarget','wComm'].forEach(id=>$(id).oninput=sync);$('wPay').onchange=sync;sync();
   $('wSave').onclick=()=>{const n=$('wName').value.trim();if(!n){toast('Enter the worker\'s name');$('wName').focus();return}
     const t=w||{id:workers.length+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
     t.roles=[...document.querySelectorAll('#wMore input:checked')].map(i=>i.value).filter(r=>r!==$('wRole').value);
+    t.photo=photo;if($('wFac'))t.fac=+$('wFac').value||0;
     Object.assign(t,{name:n,role:$('wRole').value,branch:+$('wBranch').value,phone:$('wPhone').value.trim(),nat:$('wNat').value.trim(),pay:$('wPay').value,rate:+$('wRate').value||0,basic:+$('wBasic').value||0,target:+$('wTarget').value||0,comm:+$('wComm').value||0,joined:new Date($('wJoin').value||today),iqama:$('wIq').value?new Date($('wIq').value):null});
     if(!w)workers.push(t);close();toast(w?'Changes saved':`${n} added to ${bname(t.branch)}`);if((location.hash||'').slice(1)!=='workers')location.hash='workers';else route();if(!w)workerApp(t,true)};
 }

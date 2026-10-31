@@ -15,14 +15,16 @@ service cloud.firestore {
     function isRole(rs) { return active() && role() in rs; }
     function isSupervisor() { return active() && role() == 'tailor' && me().job == 'Factory supervisor'; }
     // who may manage people of branch b: the owner, that branch's manager, that factory's supervisor
-    function managesBranch(b) { return isOwner() || ((role() == 'manager' || isSupervisor()) && br() == b); }
+    function managesBranch(b) { return isOwner() || ((role() == 'manager' || isSupervisor()) && br() == b) || (role() == 'manager' && me().get('fac', -1) == b); }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function workshopJob(j) { return j in ['Tailor', 'Cutter', 'Hinge', 'Tatreez', 'Bottom cutting', 'Ironing']; }
     // what a non-owner may create: factory supervisor → workshop workers; branch manager → cashier / measurement
     function mayCreatePerson(d) {
       return isOwner()
         || (isSupervisor() && d.branch == br() && workshopJob(d.job) && d.role == 'tailor')
-        || (active() && role() == 'manager' && d.branch == br() && d.job in ['Cashier', 'Measurement'] && d.role in ['cashier', 'measure']);
+        || (active() && role() == 'manager' && d.branch == br() && d.job in ['Cashier', 'Measurement'] && d.role in ['cashier', 'measure'])
+        // a branch manager who also supervises a factory: workshop workers of that factory
+        || (active() && role() == 'manager' && me().get('fac', -1) == d.branch && workshopJob(d.job) && d.role == 'tailor');
     }
 
     // ---------------- first-time setup: the very first account becomes the owner, once
