@@ -528,12 +528,13 @@ function openOrder(rno){
     ${MALL.some(([k])=>mVal(prof.m,k)!=='')?`<div><p class="h4">Old shop paper values</p>${mShow(prof.m)}</div>`:''}
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
-   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}${RA().money&&(!o.gift||outFab(o).length)?`<button class="btn" id="prtBtn">🖨 Invoice</button>`:''}`);
+   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico("cash")}Payment / Delivery · ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}${RA().money&&(!o.gift||outFab(o).length)?`<button class="btn" id="prtBtn">🖨 Invoice</button>`:''}`);
   const prt=document.getElementById('prtBtn');if(prt)prt.onclick=()=>printOrder(o);
   document.querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{stepTask(o,b.dataset.tk);route();openOrder(rno)});
   const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order ${ono(o)} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
-  const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>{delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:0});o.st='done';toast(`${ono(o)} handed over`);route();openOrder(rno)};
-  const pay=document.getElementById('payBtn');if(pay)pay.onclick=()=>{if(o.st==='ready'){o.st='done';delLog.push({d:today,rno:o.rno,branch:o.branch,qty:o.qty,amt:rem})}payLog.push({d:today,rno:o.rno,branch:o.branch,amt:rem,m:'Cash',t:'Balance'});o.paid=o.total;toast(`Payment of ${sar(rem)} SAR recorded`);route();openOrder(rno)};
+  // hand over / record: the same Payment / Delivery window as the cashier desk (amount, method, reference, pieces)
+  const hb=document.getElementById('handBtn');if(hb)hb.onclick=()=>receivePayment(o.rno,true);
+  const pay=document.getElementById('payBtn');if(pay)pay.onclick=()=>receivePayment(o.rno,o.st==='ready');
   const wb=document.getElementById('waBtn');if(wb)wb.onclick=()=>copyEl('wamsg',waText(o));
 }
 function copyEl(id,t){navigator.clipboard.writeText(t).then(()=>toast('Copied'),()=>{const r=document.createRange();r.selectNodeContents(document.getElementById(id));getSelection().removeAllRanges();getSelection().addRange(r);toast('Text selected, copy it now')})}
@@ -879,7 +880,7 @@ function payments(){
 /* + Receive payment / Deliver: as the exe's payment window – order no., due, amount, method, reference, pieces handed over */
 function receivePayment(rno,deliverAll){
   const close=drawer('Receive payment / Deliver','<div class="muted" style="font-size:13px">Type the order no. (or the invoice no.)</div>',
-   `<div class="fgrid" style="grid-template-columns:1fr 1fr"><div class="field" style="grid-column:1/-1"><label for="rpO">Order No</label><input id="rpO" class="num" inputmode="numeric" value="${rno||''}"></div>
+   `<div class="fgrid" style="grid-template-columns:1fr 1fr"><div class="field" style="grid-column:1/-1"><label for="rpO">Order No</label><input id="rpO" class="num" value="${rno?esc(onoR(rno).replace(/^#/,'')):''}"></div>
      <div id="rpInfo" style="grid-column:1/-1"></div>
      <div class="field"><label for="rpA">Amount (SAR)</label><input id="rpA" type="number" min="0" class="num"></div>
      <div class="field"><label for="rpM">Payment method</label><select id="rpM"><option value=""></option>${PMETHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>
@@ -887,7 +888,7 @@ function receivePayment(rno,deliverAll){
      <div class="field"><label for="rpQ">Deliver pieces now</label><input id="rpQ" type="number" min="0" value="0" class="num"></div></div>`,
    `<button class="btn pri" id="rpSave">Save</button><button class="btn" id="rpPrint">Save &amp; Print</button>`);
   const $=id=>document.getElementById(id);let o=null;
-  const find=()=>{const v=$('rpO').value.trim();o=orders.find(x=>String(x.rno)===v)||orders.find(x=>String(x.invoiceNo||'')===v&&v)||null;
+  const find=()=>{const v=$('rpO').value.trim();o=orders.find(x=>String(x.rno)===v)||(v&&orders.find(x=>ordMatch(x,v)))||null;
     if(!o){$('rpInfo').innerHTML=v?'<div class="msg" style="border-color:var(--bad)">Order not found.</div>':'';return}
     const c=cust(o.cid),due=Math.round((o.total-o.paid)*100)/100,x=oInfo(o);
     $('rpInfo').innerHTML=`<div class="kv"><div><span>Customer</span><b dir="auto" style="font-family:var(--f-body);font-size:13px">${esc(c.name)}</b></div><div><span>Total</span><b>${sar2(o.total)}</b></div><div><span>Paid</span><b>${sar2(o.paid)}</b></div><div><span>Due</span><b style="color:${due>0?'var(--bad)':'var(--ok)'}">${sar2(due)}</b></div><div><span>Pieces</span><b>${o.qty}</b></div><div><span>Delivered</span><b>${x.dq}</b></div></div>`;
