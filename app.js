@@ -885,6 +885,7 @@ function receivePayment(rno,deliverAll){
   const close=drawer('Receive payment / Deliver','<div class="muted" style="font-size:13px">Type the order no. (or the invoice no.)</div>',
    `<div class="fgrid" style="grid-template-columns:1fr 1fr"><div class="field" style="grid-column:1/-1"><label for="rpO">Order No</label><input id="rpO" class="num" value="${rno?esc(onoR(rno).replace(/^#/,'')):''}"></div>
      <div id="rpInfo" style="grid-column:1/-1"></div>
+     <div class="field" style="grid-column:1/-1"><label>Action</label><div class="seg" id="rpAct"><button type="button" data-ra="PAY">PAY only</button><button type="button" data-ra="DELIVER">PAY + DELIVER</button><button type="button" data-ra="DONLY">DELIVER only</button></div><span class="muted" style="font-size:11.5px;margin-top:4px" id="rpActH"></span></div>
      <div class="field"><label for="rpA">Amount (SAR)</label><input id="rpA" type="number" min="0" class="num"></div>
      <div class="field"><label for="rpM">Payment method</label><select id="rpM"><option value=""></option>${PMETHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>
      <div class="field"><label for="rpR">Reference / SPAN</label><input id="rpR"></div>
@@ -895,7 +896,14 @@ function receivePayment(rno,deliverAll){
     if(!o){$('rpInfo').innerHTML=v?'<div class="msg" style="border-color:var(--bad)">Order not found.</div>':'';return}
     const c=cust(o.cid),due=Math.round((o.total-o.paid)*100)/100,x=oInfo(o);
     $('rpInfo').innerHTML=`<div class="kv"><div><span>Customer</span><b dir="auto" style="font-family:var(--f-body);font-size:13px">${esc(c.name)}</b></div><div><span>Total</span><b>${sar2(o.total)}</b></div><div><span>Paid</span><b>${sar2(o.paid)}</b></div><div><span>Due</span><b style="color:${due>0?'var(--bad)':'var(--ok)'}">${sar2(due)}</b></div><div><span>Pieces</span><b>${o.qty}</b></div><div><span>Delivered</span><b>${x.dq}</b></div></div>`;
-    $('rpA').value=due>0?due:0;$('rpQ').max=o.qty-x.dq;if(deliverAll)$('rpQ').value=Math.max(0,o.qty-x.dq)};
+    $('rpA').value=due>0?due:0;$('rpQ').max=o.qty-x.dq;setAct(deliverAll&&o.qty-x.dq>0?'DELIVER':'PAY')};
+  // PAY = money only (no thobes go), DELIVER = money + thobes, DELIVER only = thobes, no money
+  let act='PAY';const setAct=a=>{act=a;document.querySelectorAll('#rpAct [data-ra]').forEach(b=>b.classList.toggle('on',b.dataset.ra===a));$('rpActH').textContent=a==='PAY'?'Money only – the thobes stay in the shop':a==='DELIVER'?'Money and the thobes go with the customer':'Thobes go, no money taken now';
+    if(!o)return;const left=Math.max(0,o.qty-oInfo(o).dq),due=Math.round((o.total-o.paid)*100)/100;
+    if(a==='PAY'){$('rpQ').value=0;$('rpQ').disabled=true;$('rpA').disabled=false;if(!(+$('rpA').value))$('rpA').value=due>0?due:0}
+    else if(a==='DELIVER'){$('rpQ').disabled=false;$('rpQ').value=left;$('rpA').disabled=false;if(!(+$('rpA').value))$('rpA').value=due>0?due:0}
+    else{$('rpQ').disabled=false;$('rpQ').value=left;$('rpA').value=0;$('rpA').disabled=true}};
+  document.querySelectorAll('#rpAct [data-ra]').forEach(b=>b.onclick=()=>setAct(b.dataset.ra));
   $('rpO').oninput=find;find();setTimeout(()=>$('rpO').focus(),30);
   const save=print=>{if(!o){toast('Type a valid order no.');return}
     const a=Math.round((+$('rpA').value||0)*100)/100,q=Math.max(0,+$('rpQ').value||0),due=Math.round((o.total-o.paid)*100)/100,left=o.qty-oInfo(o).dq,m=$('rpM').value;
