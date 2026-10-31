@@ -807,9 +807,9 @@ let payTab='log',payF={from:null,to:null,type:'all',br:-1,q:''};
 function payRows(){
   // one row per payment; a delivery on the same order and day joins its payment row, else it is a row of its own
   const used=new Set(),rows=[];
-  payLog.forEach((p,i)=>{const d=delLog.findIndex((x,k)=>!used.has(k)&&x.rno===p.rno&&+x.d===+p.d);if(d>=0)used.add(d);
+  payLog.forEach((p,i)=>{const d=p.t==='Deposit'?-1:delLog.findIndex((x,k)=>!used.has(k)&&x.rno===p.rno&&sameDay(x.d,new Date(new Date(p.d).setHours(0,0,0,0))));if(d>=0)used.add(d);
     rows.push({k:'p'+i,d:p.d,rno:p.rno,branch:p.branch,type:p.t==='Deposit'?'Down payment':'Due payment',act:d>=0?'DELIVER':'PAY',amt:+p.amt||0,m:p.pm||p.m||'',ref:p.ref||'',dq:d>=0?(+delLog[d].qty||0):0,receipt:p.receipt||'',src:p,del:d>=0?delLog[d]:null})});
-  delLog.forEach((x,k)=>{if(!used.has(k))rows.push({k:'d'+k,d:x.d,rno:x.rno,branch:x.branch,type:'Due payment',act:'DELIVER',amt:0,m:'',ref:'',dq:+x.qty||0,receipt:'',src:null,del:x})});
+  delLog.forEach((x,k)=>{if(!used.has(k))rows.push({k:'d'+k,d:x.d,rno:x.rno,branch:x.branch,type:'Delivery',act:'DELIVER',amt:0,m:'',ref:'',dq:+x.qty||0,receipt:'',src:null,del:x})});
   return rows.sort((a,b)=>b.d-a.d||b.rno-a.rno);
 }
 function payments(){
@@ -829,7 +829,7 @@ function payments(){
   const d0=new Date(payF.from),d1=new Date(payF.to);d1.setHours(23,59,59);
   const q=payF.q.trim().toLowerCase();
   const rows=payRows().filter(r=>{if(r.d<d0||r.d>d1)return false;if(payF.br&&r.branch!==payF.br)return false;
-    if(payF.type==='down'&&r.type!=='Down payment')return false;if(payF.type==='due'&&r.type!=='Due payment')return false;
+    if(payF.type==='down'&&r.type!=='Down payment')return false;if(payF.type==='due'&&r.type==='Down payment')return false;
     if(!q)return true;const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return String(r.rno)===q||String(r.receipt)===q||(o&&ordMatch(o,q))||(c&&c.name.toLowerCase().includes(q))});
   const tot=rows.reduce((s,r)=>s+r.amt,0),byM={};rows.forEach(r=>{if(r.amt){const k=webCat(r.m||'Cash');byM[k]=(byM[k]||0)+r.amt}});
   const D=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});
@@ -837,6 +837,9 @@ function payments(){
     <div class="okc"><span>Total received</span><b class="num">${sar2(tot)}<small>SAR</small></b><em>${payF.br?bname(payF.br):'All branches'}</em></div>
     ${['Cash','Card (mada)','Transfer'].map(k=>`<div><span>${k}</span><b class="num">${sar(byM[k]||0)}<small>SAR</small></b><em>${tot?Math.round((byM[k]||0)/tot*100):0}%</em></div>`).join('')}
     <div><span>Deliveries</span><b class="num">${rows.reduce((s,r)=>s+r.dq,0)}</b><em>pieces handed over</em></div></div>
+  <div class="okpi c4" style="margin-top:-10px"><div class="okc"><span>Down payments</span><b class="num">${sar2(rows.filter(r=>r.type==='Down payment').reduce((s,r)=>s+r.amt,0))}<small>SAR</small></b><em>${pl(rows.filter(r=>r.type==='Down payment'&&r.amt).length,'order')} at booking</em></div>
+   <div class="okc"><span>Due payments</span><b class="num">${sar2(rows.filter(r=>r.type==='Due payment').reduce((s,r)=>s+r.amt,0))}<small>SAR</small></b><em>${pl(rows.filter(r=>r.type==='Due payment'&&r.amt).length,'payment')} later / at pickup</em></div>
+   <div><span>Delivered with payment</span><b class="num">${rows.filter(r=>r.act==='DELIVER'&&r.amt).reduce((s,r)=>s+r.dq,0)}</b><em>pieces</em></div><div><span>Delivered, nothing paid</span><b class="num">${rows.filter(r=>r.act==='DELIVER'&&!r.amt).reduce((s,r)=>s+r.dq,0)}</b><em>pieces (already paid before, or due)</em></div></div>
   <div class="panel opanel">
    <div class="otools">${money?`<button class="btn sm pri" id="pRecv">${ico('cash')}Receive payment / Deliver</button>`:''}<button class="btn sm" id="pReprint">Reprint receipt</button>${isOwner()?'<button class="btn sm" id="pDel" style="color:var(--bad)">Delete payment</button>':''}<span class="sp"></span><button class="btn sm" id="pCsv">${ico('orders')}CSV</button><button class="btn sm" id="pPrint">${ico('cal')}Print</button></div>
    <div class="otools pf">
