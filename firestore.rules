@@ -136,6 +136,16 @@ service cloud.firestore {
       allow read: if active();
       allow write: if isOwner();
     }
+    // purchases from the shop exe (Stock & Purchases), and WhatsApp messages sent (website + exe) for the message tracker
+    match /purch/{id} {
+      allow read: if isRole(['owner', 'manager']);
+      allow write: if isOwner();
+    }
+    match /walog/{id} {
+      allow read: if isRole(['owner', 'manager', 'cashier']);
+      allow create: if isRole(['owner', 'manager', 'cashier']);
+      allow update, delete: if isOwner();
+    }
     // salary deductions: owner / that branch's manager / factory supervisor add them; a worker reads only his own
     match /ded/{id} {
       allow read: if isOwner() || (active() && managesBranch(resource.data.branch)) || (active() && resource.data.sid == me().sid);

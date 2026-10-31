@@ -133,7 +133,7 @@ live = (SRC / 'live.js').read_text()
 js = (SRC / 'jspec.js').read_text() + '\n' + (SRC / 'jsheet.js').read_text()
 START = 'if(DEMO){route();showLogin()}else liveBoot();'
 assert s.count(START) == 1
-s = s.replace(START, (SRC / 'docs.js').read_text() + '\n' + (SRC / 'exeviews.js').read_text() + '\n' + START)
+s = s.replace(START, (SRC / 'docs.js').read_text() + '\n' + (SRC / 'exeviews.js').read_text() + '\n' + (SRC / 'biz.js').read_text() + '\n' + START)
 app = s + '\n' + js + '\n' + live + "\nasync function loadFirebase(){\n  if(window.__FB_MOCK)return window.__FB_MOCK;\n  const V='10.14.1',B=`https://www.gstatic.com/firebasejs/${V}/`;\n  const [a,au,fs]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);\n  return {...a,...au,...fs};\n}\n"
 (ROOT / 'app.js').write_text(app)
 
@@ -155,7 +155,7 @@ html = f'''<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Saudi Thobe</title>
 <meta name="theme-color" content="#16213a">
-<link rel="icon" href="/img/icon-192.png">
+<link rel="icon" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 {pre}{headpart}

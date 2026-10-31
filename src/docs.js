@@ -56,6 +56,7 @@ function invData(o){
     downAmt:down.reduce((s,p)=>s+p.amt,0),downDate:down[0]?down[0].d:o.created,laterAmt:later.reduce((s,p)=>s+p.amt,0),laterDate:later.length?later[later.length-1].d:null,
     methods:Object.entries(byM).map(([k,v])=>`${+v.toFixed(2)} ${k}`).join(' + '),branch:BRANCHES.find(b=>b.id===o.branch)||{}}}
 const dmy=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+const logoSrc=()=>SHOP.logo||(location.origin+'/img/logo-print.jpg');
 const shopAddr=b=>[b.address,b.city].filter(Boolean).join(', ')||SHOP.Address;
 function printWin(title,css,body,pageCss){const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return null}
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -90,7 +91,7 @@ function printInvoiceA4(o){
    .sg{flex:1;display:flex;justify-content:flex-end;gap:60px;margin-top:10px}.sg div{width:185px;border-top:1px solid #888;text-align:center;color:#888;font-size:10px;padding-top:2px}
    .foot{text-align:center;font-size:12px;margin-top:8px}`;
   const body=`<div class="pg">
-   <div class="hd"><div class="lg">${SHOP.logo?`<img src="${SHOP.logo}" alt="">`:''}</div><div class="tx"><div class="en">${esc(SHOP.CompanyEn)}</div><div class="ar">${esc(SHOP.CompanyAr)}   ${esc(SHOP.Tagline)}</div>
+   <div class="hd"><div class="lg"><img src="${logoSrc()}" alt=""></div><div class="tx"><div class="en">${esc(SHOP.CompanyEn)}</div><div class="ar">${esc(SHOP.CompanyAr)}   ${esc(SHOP.Tagline)}</div>
     <div><b>VAT Reg. No. / الرقم الضريبي: ${esc(SHOP.VatNo)}</b></div><div>CR No. / السجل التجاري: ${esc(SHOP.CrNo)}</div><div>${esc(b.name?`${b.name} – ${shopAddr(b)}`:SHOP.Address)}</div><div>${esc(b.phone||SHOP.Phone)}${SHOP.Email?'   |   '+esc(SHOP.Email):''}</div></div></div>
    <div class="bar">TAX INVOICE   /   فاتورة ضريبية</div>
    <div class="two"><div><h3>BILL TO  /  بيانات العميل</h3><table>${LR('Customer Name / اسم العميل',c.name)}${LR('Customer No / رقم العميل',c.id,'b')}${LR('Mobile / الجوال',c.phone)}${LR('Delivery Date / تاريخ التسليم',dmy(o.due))}${LR('Address / العنوان',c.addr||'')}${LR('Customer VAT No / الرقم الضريبي',c.vat||'')}</table></div>
@@ -115,16 +116,15 @@ function printInvoiceA4(o){
 }
 
 /* ---------- 80 mm receipt: the exe's Docs.Invoice (simplified tax invoice) ---------- */
-function printReceipt(o){
-  if(o.gift){toast('A free gift has no invoice');return}
+const RC_CSS=`.rc{width:72mm;margin:0 auto;font-size:11.5px;padding:2mm 0}.ce{text-align:center}.ce img{max-width:150px;max-height:110px}.t1{font-size:15px;font-weight:700}.t2{font-size:14px;font-weight:700}.sm{font-size:10.5px}
+   .rule{border-top:1px dashed #000;margin:4px 0}.dbl{border-top:3px double #000;margin:4px 0}.rw{display:flex;justify-content:space-between;gap:6px;padding:1px 0}.rw span{flex:0 0 47%}.rw b{text-align:right;font-weight:400}.rw.bd b,.rw.bd span{font-weight:700}.rw.big b,.rw.big span{font-size:14px}
+   .ln{font-size:11px;margin-top:2px}.qr{text-align:center;margin:6px 0}.qr img{width:150px;height:150px}.bc{width:100%;margin:4px 0}`+`.pb{page-break-before:always;break-before:page}.tag{border:2px dashed #000;padding:6px;margin-top:8px;text-align:center}.tag .big{font-size:22px;font-weight:700}.tag .mid{font-size:15px;font-weight:700}`;
+function rcBody(o){
   const d=invData(o),c=cust(o.cid),b=d.branch,M=sar2;
   const qr=SHOP.VatNo?qrDataUrl(zatcaTlv(SHOP.CompanyAr||SHOP.CompanyEn,SHOP.VatNo,o.created,d.total,d.vat),200):'';
   const R=(l,v,cls='')=>v===''||v==null?'':`<div class="rw ${cls}"><span>${l}</span><b>${esc(v)}</b></div>`;
-  const css=`.rc{width:72mm;margin:0 auto;font-size:11.5px;padding:2mm 0}.ce{text-align:center}.ce img{max-width:150px;max-height:110px}.t1{font-size:15px;font-weight:700}.t2{font-size:14px;font-weight:700}.sm{font-size:10.5px}
-   .rule{border-top:1px dashed #000;margin:4px 0}.dbl{border-top:3px double #000;margin:4px 0}.rw{display:flex;justify-content:space-between;gap:6px;padding:1px 0}.rw span{flex:0 0 47%}.rw b{text-align:right;font-weight:400}.rw.bd b,.rw.bd span{font-weight:700}.rw.big b,.rw.big span{font-size:14px}
-   .ln{font-size:11px;margin-top:2px}.qr{text-align:center;margin:6px 0}.qr img{width:150px;height:150px}.bc{width:100%;margin:4px 0}`;
   const body=`<div class="rc">
-   <div class="ce">${SHOP.logo?`<img src="${SHOP.logo}" alt="">`:''}<div class="t1" dir="rtl">${esc(SHOP.CompanyAr)}</div><div class="t2">${esc(SHOP.CompanyEn)}</div><div class="sm">${esc(SHOP.Tagline)}</div>
+   <div class="ce"><img src="${logoSrc()}" alt=""><div class="t1" dir="rtl">${esc(SHOP.CompanyAr)}</div><div class="t2">${esc(SHOP.CompanyEn)}</div><div class="sm">${esc(SHOP.Tagline)}</div>
     <div class="sm">VAT No / الرقم الضريبي: ${esc(SHOP.VatNo)}</div>${SHOP.CrNo?`<div class="sm">CR No / السجل التجاري: ${esc(SHOP.CrNo)}</div>`:''}<div class="sm">${esc(b.name?`${b.name} – ${shopAddr(b)}`:SHOP.Address)}</div><div class="sm">${esc(b.phone||SHOP.Phone)}</div></div>
    <div class="rule"></div><div class="ce"><b>SIMPLIFIED TAX INVOICE</b><br><b>فاتورة ضريبية مبسطة</b></div><div class="rule"></div>
    ${R('Invoice No / رقم الفاتورة',oinv(o)||'(pending)','bd')}<div class="rw bd big"><span>Order No / رقم الطلب</span><b>${esc(ono(o).replace(/^#/,''))}</b></div>
@@ -138,14 +138,33 @@ function printReceipt(o){
    <div class="rule"></div>${barcodeHtml(ono(o).replace(/^#/,''),52)}
    ${qr?`<div class="qr"><img src="${qr}" alt=""></div>`:''}${SHOP.qr?`<div class="qr"><img src="${SHOP.qr}" alt="" style="width:110px;height:110px"></div>`:''}
    <div class="ce" style="font-weight:700;margin-top:4px">شكراً لزيارتكم  -  Thank you</div></div>`;
-  printWin(`Invoice ${oinv(o)||ono(o)}`,css,body,'size:80mm auto;margin:3mm');
-}
+  return body}
+
+
+/* customer's own fabric (قماش العميل): the customer copy, then the tag pinned on the fabric for the tailoring factory (exe: Docs.FabricReceipt) */
+const outFab=o=>(o.lines||[]).filter(l=>l.src==='OUT');
+function fabBody(o){
+  const c=cust(o.cid),L=outFab(o),qty=+L.reduce((s,l)=>s+(+l.qty||0),0).toFixed(2),b=BRANCHES.find(x=>x.id===o.branch)||{},no=ono(o).replace(/^#/,'');
+  const R=(l,v,cls='')=>v===''||v==null?'':`<div class="rw ${cls}"><span>${l}</span><b>${esc(v)}</b></div>`;
+  return `<div class="rc"><div class="ce"><img src="${logoSrc()}" alt=""><div class="t1" dir="rtl">${esc(SHOP.CompanyAr)}</div><div class="t2">${esc(SHOP.CompanyEn)}</div><div class="sm">${esc(b.name?`${b.name} – ${shopAddr(b)}`:SHOP.Address)}</div><div class="sm">${esc(b.phone||SHOP.Phone)}</div></div>
+   <div class="rule"></div><div class="ce"><b>CUSTOMER FABRIC RECEIPT</b><br><b>إيصال استلام قماش العميل</b></div><div class="rule"></div>
+   <div class="rw bd big"><span>Order No / رقم الطلب</span><b>${esc(no)}</b></div>${R('Customer / العميل',c.name,'bd')}${R('Mobile / الجوال',c.phone)}${R('Received / تاريخ الاستلام',dmy(o.created))}
+   <div class="rule"></div>${L.map(l=>R('  '+esc(l.item),+l.qty)).join('')}<div class="dbl"></div>
+   <div class="rw bd big"><span>Fabric qty / عدد القماش</span><b>${qty}</b></div><div class="rw bd big"><span>Delivery / موعد التسليم</span><b>${dmy(o.due)}</b></div><div class="dbl"></div>
+   <div class="ce" style="font-weight:700">يرجى إحضار هذا الإيصال عند الاستلام</div><div class="ce sm">Please bring this receipt at delivery</div>
+   <div class="tag"><div class="mid">قماش العميل / CUSTOMER FABRIC</div><div class="big">${esc(no)}</div><div class="mid" dir="auto">${esc(c.name)}</div><div class="mid">العدد / Qty: ${qty}</div>
+    <div class="mid">التسليم / Delivery: ${dmy(o.due)}</div><div class="sm" style="margin-top:3px">${esc(bname(o.branch))} → <b>${esc(bname(o.made))}</b>${o.tailor?' · '+esc(wk(o.tailor).name):''}</div>${barcodeHtml(no,46)}</div></div>`}
+function printReceipt(o,fab){
+  const parts=[];if(!o.gift)parts.push(rcBody(o));if(fab&&outFab(o).length)parts.push(fabBody(o));
+  if(!parts.length){toast('A free gift has no invoice');return}
+  printWin(`Invoice ${oinv(o)||ono(o)}`,RC_CSS,parts.map((p,i)=>i?`<div class="pb">${p}</div>`:p).join(''),'size:80mm auto;margin:3mm')}
+function printFabric(o){if(!outFab(o).length){toast('No customer fabric in this order');return}printWin(`Fabric ${ono(o)}`,RC_CSS,fabBody(o),'size:80mm auto;margin:3mm')}
 /* which one: receipt or A4 */
 function printOrder(o){
   const close=drawer(`Print ${ono(o)}`,`<div class="muted" style="font-size:13px">${esc(cust(o.cid).name)} · invoice ${esc(oinv(o)||(o.gift?'free gift':'pending'))}</div>`,
-   `<div style="display:grid;gap:10px"><button class="btn pri" id="prR" style="justify-content:center;padding:14px">🧾 Receipt (80 mm)</button><button class="btn" id="prA" style="justify-content:center;padding:14px">📄 A4 tax invoice</button>
+   `<div style="display:grid;gap:10px"><button class="btn pri" id="prR" style="justify-content:center;padding:14px">🧾 Receipt (80 mm)</button><button class="btn" id="prA" style="justify-content:center;padding:14px">📄 A4 tax invoice</button>${outFab(o).length?'<button class="btn" id="prF" style="justify-content:center;padding:14px">🧵 Customer fabric receipt + tag</button>':''}
     <div style="text-align:center;margin-top:8px">${barcodeHtml(ono(o).replace(/^#/,''),50,'260px')}</div></div>`,'');
-  document.getElementById('prR').onclick=()=>{close();printReceipt(o)};document.getElementById('prA').onclick=()=>{close();printInvoiceA4(o)};
+  document.getElementById('prR').onclick=()=>{close();printReceipt(o)};document.getElementById('prA').onclick=()=>{close();printInvoiceA4(o)};const pf=document.getElementById('prF');if(pf)pf.onclick=()=>{close();printFabric(o)};
 }
 
 /* ---------- measurement sheet header (order no. + barcode) and its print ---------- */

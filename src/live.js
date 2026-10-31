@@ -6,7 +6,7 @@
    make to them is written back by flush() (field-level diff, so two people editing the
    same order at once do not overwrite each other).
    ===================================================================================== */
-const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,items:STOCK,emb:EMBL};
+const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,items:STOCK,emb:EMBL,purch:PURCH,walog:WALOG};
 const KEY={items:x=>String(x.code),emb:x=>String(x.code),branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
 const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded']);
@@ -34,7 +34,7 @@ async function doFlush(){
   if(!db||!USER||!USER.uid)return;
   const {doc,setDoc,updateDoc,deleteDoc,runTransaction}=fb;
   for(const col of Object.keys(COL)){
-    if(col==='items'||col==='emb')continue;          // the shop exe's lists: never written from here
+    if(col==='items'||col==='emb'||col==='purch')continue;          // the shop exe's lists: never written from here
     const arr=COL[col],seen=new Set();
     for(const x of arr){
       const id=idOf(col,x);seen.add(id);
@@ -139,7 +139,7 @@ function normalize(col,x){
     if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
   if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
   if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
-  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'){if(!(x.d instanceof Date))x.d=today}
+  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'||col==='purch'||col==='walog'){if(!(x.d instanceof Date))x.d=today}
   return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
@@ -173,6 +173,7 @@ function startListeners(){
   // the shop's fabric stock and embroidery list (sent by the AL THOB exe; read-only here)
   sub('items',collection(db,'items'));
   sub('emb',collection(db,'emb'));
+  if(ROLE==='owner'||ROLE==='manager'){sub('purch',collection(db,'purch'));sub('walog',query(collection(db,'walog'),where('d','>=',since(120))))}
   sub('orders',query(collection(db,'orders'),where('created','>=',since(150))));
   sub('orders',query(collection(db,'orders'),where('st','in',['cut','sew','ready'])));
   sub('payments',query(collection(db,'payments'),where('d','>=',since(45))));
@@ -213,7 +214,7 @@ const U=params.get('u'),K=params.get('k');
 function loginShell(inner){
   let L=document.getElementById('login');if(!L){L=document.createElement('div');L.className='login';L.id='login';document.body.appendChild(L)}
   L.innerHTML=`<div class="login-in" style="max-width:460px">
-   <div class="login-top"><div class="mark">ST</div><div><h1 style="font-size:26px">Saudi Thobe</h1><p class="lead">saudithobe.men</p></div></div>
+   <div class="login-top"><img src="/img/logo.png" alt="" class="llogo"><div><h1 style="font-size:26px">Al Thob Al Saudi</h1><p class="lead">saudithobe.men</p></div></div>
    <div class="panel"><div class="panel-b" style="display:flex;flex-direction:column;gap:14px">${inner}</div></div></div>`;
   return L;
 }

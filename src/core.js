@@ -1,7 +1,7 @@
 <script>
 (function(){
 /* ================= Icons ================= */
-const I={
+const I={box:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',msg:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8 10h8M8 14h5"/>',
  dash:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
  orders:'<path d="M9 4h6l1 2h3v15H5V6h3z"/><path d="M9 11h6M9 15h4"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
@@ -258,6 +258,9 @@ const ROUTES=[
  {h:'branches',t:'Branches & factories',s:'Branches',i:'branch'},
  {h:'daily',t:'Daily report',s:'Daily',i:'cal'},
  {h:'reports',t:'Reports',i:'chart'},
+ {h:'stock',t:'Purchases & stock',s:'Stock',i:'box'},
+ {h:'whatsapp',t:'WhatsApp',s:'WhatsApp',i:'wa'},
+ {h:'messages',t:'Message tracker',s:'Messages',i:'msg'},
  {h:'settings',t:'Settings',i:'cog'},
  {h:'till',t:'Cashier desk',s:'Desk',i:'till',g:'Cashier'},
  {h:'mywork',t:'My work',s:'My work',i:'needle',g:'Workshop'},
@@ -266,10 +269,10 @@ const ROUTES=[
 /* ================= Logins (5 roles) ================= */
 const ACCESS={
  owner:{no:1,label:'Owner · Admin',name:'Owner',icon:'crown',branch:0,lock:false,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','workers','branches','reports','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
+   pages:['dashboard','daily','orders','new','measurements','customers','payments','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
    can:['Every branch and factory','Daily report: sales, payments, tailoring','Add branches, factories and workers','Only owner can block, deactivate or delete workers']},
  manager:{no:2,label:'Branch manager',name:'Faisal Al-Harthi',icon:'branch',branch:1,lock:true,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers','reports','board'],tabs:['dashboard','daily','orders','new','workers'],
+   pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers','reports','stock','whatsapp','messages','board'],tabs:['dashboard','daily','orders','new','workers'],
    can:['Only his own branch','Shop dashboard and daily report (exe style) + tailoring report','Orders, customers, payments and cashier desk','His branch workers: attendance and work by date / month','Branch reports']},
  measure:{no:3,label:'Measurement',name:'Yasir Mahmood',icon:'tape',branch:1,lock:true,home:'measurements',money:false,pay:false,stage:false,
    pages:['measurements','customers','new'],tabs:['measurements','new','customers'],
@@ -314,7 +317,7 @@ function bellList(){const list=myNotices().slice().reverse();
 function showLogin(){
   const L=document.createElement('div');L.className='login';L.id='login';
   L.innerHTML=`<div class="login-in">
-   <div class="login-top"><div class="mark">ST</div><div><h1>Saudi Thobe · Sign in</h1><p class="lead">Each person gets their own login and sees only what their job needs. Demo: pick a role to see its screens.</p></div></div>
+   <div class="login-top"><img src="/img/logo.png" alt="" class="llogo"><div><h1>Al Thob Al Saudi · Sign in</h1><p class="lead">Each person gets their own login and sees only what their job needs. Demo: pick a role to see its screens.</p></div></div>
    <div class="roles">${Object.entries(ACCESS).map(([k,a])=>{const us=USERS.map((u,i)=>({u,i})).filter(x=>x.u.role===k);return `<div class="rcard" data-role="${k}">
      <div class="rh"><span class="no">LOGIN ${a.no}</span>${ico(a.icon,1.7)}<b>${a.label}</b></div>
      <div class="rb">${us.length>1?`<div class="field"><label for="u_${k}">Who · branch</label><select id="u_${k}">${us.map(x=>`<option value="${x.i}">${bname(x.u.branch)}: ${x.u.name}</option>`).join('')}</select></div>`:`<div class="who2"><span class="avatar" style="width:24px;height:24px;font-size:11px">${us[0].u.name[0]}</span>${us[0].u.name} · All branches</div>`}
@@ -360,7 +363,7 @@ function route(){
   drawNav(r.h);document.getElementById('title').textContent=r.t;
   const b=BRANCHES.find(x=>x.id===curBranch);
   document.getElementById('subtitle').textContent=(b?`${b.name}${b.type==='factory'?'':' branch'} · `:'All branches · ')+today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,workers:workersView,branches,reports,settings,till,mywork,mypay,board})[r.h]();
+  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
   if(ROLE!=='owner'){const a=RA();document.getElementById('view').insertAdjacentHTML('afterbegin',`<div class="rolebar">${ico(a.icon)}<span>Signed in as <b>${a.name}</b> · ${a.label}${a.branch?' · '+bname(a.branch):''}. ${a.lock?'Locked to this '+(isFac(a.branch)?'factory':'branch')+'.':''} ${a.money?'':'Prices and cash are hidden for this login.'}</span></div>`);document.querySelectorAll('.rolebar svg').forEach(x=>{x.style.width='18px';x.style.color='var(--brass)'})}
   window.scrollTo(0,0);
 }
@@ -520,7 +523,7 @@ function openOrder(rno){
     ${MALL.some(([k])=>mVal(prof.m,k)!=='')?`<div><p class="h4">Old shop paper values</p>${mShow(prof.m)}</div>`:''}
     ${o.note?`<div><p class="h4">Note</p><div class="msg" style="border-color:var(--brass)">${esc(o.note)}</div></div>`:''}
     ${RA().money?`<div><p class="h4">WhatsApp message</p><div class="msg" id="wamsg">${esc(waText(o))}</div></div>`:''}`,
-   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}${RA().money&&!o.gift?`<button class="btn" id="prtBtn">🖨 Invoice</button>`:''}`);
+   `${o.st==='ready'&&RA().pay&&!rem?`<button class="btn pri" id="handBtn">Hand over to customer</button>`:''}${rem&&RA().pay?`<button class="btn" id="payBtn">${ico('cash')}Record ${sar(rem)} SAR</button>`:''}${RA().money?`<button class="btn" id="waBtn">${ico('wa')}Copy message</button>`:''}${RA().money&&(!o.gift||outFab(o).length)?`<button class="btn" id="prtBtn">🖨 Invoice</button>`:''}`);
   const prt=document.getElementById('prtBtn');if(prt)prt.onclick=()=>printOrder(o);
   document.querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{stepTask(o,b.dataset.tk);route();openOrder(rno)});
   const jo=document.getElementById('jOpen');if(jo)jo.onclick=()=>jSheetWindow(`Order ${ono(o)} · ${c.name}`,jHas(o.meas)?o.meas:prof.m,{ro:true});
@@ -652,7 +655,8 @@ function newOrder(){
     Object.assign(o,branchNos(o.branch,o.gift));
     orders.unshift(o);
     toast(`${money?`Order ${ono(o)} saved`:`Order ${ono(o)} sent to the cashier`} · now in ${bname(o.made)} cutting`);
-    if(print)printReceipt(o);
+    // customer's own fabric: its receipt + the tag for the factory prints by itself (with the invoice on Save & Print)
+    if(print)printReceipt(o,true);else if(outFab(o).length)printFabric(o);
     orderFilter='all';if(can('orders')){location.hash='orders';setTimeout(()=>openOrder(nextR),50)}else{location.hash=RA().home}
   };
   $('saveP').onclick=()=>save(true);$('saveO').onclick=()=>save(false);

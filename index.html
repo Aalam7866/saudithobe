@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Saudi Thobe</title>
 <meta name="theme-color" content="#16213a">
-<link rel="icon" href="/img/icon-192.png">
+<link rel="icon" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 
@@ -614,6 +614,10 @@ svg.thobe .ml.hot{stroke-width:2.6;stroke-dasharray:none}
 .jhi{display:flex;flex-wrap:wrap;gap:6px 18px;flex:1;min-width:0}.jhi div{display:flex;flex-direction:column}.jhi span{font-size:10.5px;color:var(--muted);font-weight:600}.jhi b{font-size:14px}
 .mordsel{display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}.mordsel select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface);color:var(--text);max-width:100%}
 @media (max-width:700px){.jhb .bc{width:200px}}
+.brandlg{flex-direction:column;align-items:center;text-align:center;gap:6px;padding:16px 16px 14px}.brandlg .blogo{width:150px;height:auto;display:block;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.brandlg b{font-family:var(--f-body);font-size:12.5px;letter-spacing:.18em;color:#d6b25e}.brandlg small{text-align:center}
+.mlogo{height:36px;width:auto;display:block;background:#16213a;border-radius:8px;padding:3px 6px}
+.llogo{width:120px;height:auto;flex:none;background:#16213a;border-radius:14px;padding:8px 10px}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}</style>
 </head>
@@ -621,9 +625,9 @@ svg.thobe .ml.hot{stroke-width:2.6;stroke-dasharray:none}
 <div class="app" id="app">
   <aside class="side">
     <div class="sadu"></div>
-    <div class="brand">
-      <div class="mark">ST</div>
-      <div><b>Saudi Thobe</b><small>saudithobe.men</small></div>
+    <div class="brand brandlg">
+      <img src="/img/logo.png" alt="الثوب السعودي · Al Thob Al Saudi" class="blogo">
+      <div><b>AL THOB AL SAUDI</b><small>saudithobe.men</small></div>
     </div>
     <div class="bsw" id="bsw"></div>
     <nav class="nav" id="nav"></nav>
@@ -632,7 +636,7 @@ svg.thobe .ml.hot{stroke-width:2.6;stroke-dasharray:none}
 
   <main class="main">
     <header class="top">
-      <div class="mbrand"><div class="mark">ST</div></div>
+      <div class="mbrand"><img src="/img/logo.png" alt="Al Thob Al Saudi" class="mlogo"></div>
       <div><h1 id="title">Dashboard</h1><div class="sub" id="subtitle"></div></div>
       <div class="sp"></div>
       <label class="bsel" title="Branch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg><select id="branchSel" aria-label="Branch"></select></label>
