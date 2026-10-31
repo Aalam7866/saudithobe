@@ -45,7 +45,7 @@ function applyFlow(){
   Object.keys(TK).forEach(k=>delete TK[k]);TASKS.forEach(t=>TK[t.k]=t);
   const used=r=>{const k=ROLE2TASK[r];return !k||on.some(f=>f.k===k)};
   WORKSHOP_ROLES.length=0;WORKSHOP_ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing'].filter(used));
-  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Cashier','Branch manager','Factory supervisor'].filter(used));
+  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Measurement','Cashier','Branch manager','Factory supervisor'].filter(used));
 }
 applyFlow();
 /* all the steps this order needs are done (main steps + the ones the tailor sends) */
@@ -304,9 +304,9 @@ let ROLE='owner',USER=USERS[0];const RA=()=>({...ACCESS[ROLE],name:USER.name,bra
 const can=h=>RA().pages.includes(h);
 const isOwner=()=>ROLE==='owner';
 const isFactoryLogin=()=>ROLE==='tailor'&&isFac(USER.branch);
-const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?(myFac()&&curBranch===myFac()?WORKSHOP_ROLES:['Cashier']):[];
+const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?(myFac()&&curBranch===myFac()?WORKSHOP_ROLES:['Measurement','Cashier']):[];
 const canDed=w=>isOwner()||(ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac())))||(isFactoryLogin()&&w.branch===USER.branch);
-const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&w.role==='Cashier')||(ROLE==='manager'&&myFac()&&w.branch===myFac()&&WORKSHOP_ROLES.includes(w.role));
+const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&(w.role==='Cashier'||w.role==='Measurement'))||(ROLE==='manager'&&myFac()&&w.branch===myFac()&&WORKSHOP_ROLES.includes(w.role));
 const wStatusPill=w=>({leave:'<span class="pill s-cut">On leave</span>',inactive:'<span class="pill s-done">Inactive</span>',blocked:'<span class="pill s-late">Blocked</span>'}[w.status]||'');
 /* ready popups for owner and the branch manager */
 const myNotices=()=>ROLE==='owner'?notices:ROLE==='manager'?notices.filter(n=>n.branch===USER.branch):[];
@@ -369,7 +369,15 @@ function drawNav(cur){
 }
 
 let orderFilter='all',selCust=1,selProf=0,workerRole='all';
+/* a person with more than one job also gets the screens of his other jobs (e.g. a cashier who also takes measurements) */
+const ACC_BASE={};
+function extraAccess(){if(ROLE==='owner')return;const w=workers.find(x=>USER.sid&&x.id===USER.sid)||workers.find(x=>x.name===USER.name);
+  const base=ACC_BASE[ROLE]||(ACC_BASE[ROLE]={pages:[...ACCESS[ROLE].pages]});
+  const more=((w&&w.roles)||[]).map(r=>r==='Measurement'?'measure':r==='Cashier'?'cashier':ROLE2TASK[r]?'tailor':null).filter(k=>k&&k!==ROLE&&ACCESS[k]);
+  const pages=[...new Set([...base.pages,...more.flatMap(k=>k==='tailor'?['mywork']:ACCESS[k].pages)])];
+  if(pages.join()!==ACCESS[ROLE].pages.join())ACCESS[ROLE]={...ACCESS[ROLE],pages}}
 function route(){
+  extraAccess();
   if(document.getElementById('bellN'))updateBell();
   let h=(location.hash||'#'+RA().home).slice(1);if(!can(h))h=RA().home;const r=ROUTES.find(x=>x.h===h)||ROUTES[0];
   drawNav(r.h);document.getElementById('title').textContent=r.t;
@@ -1020,7 +1028,7 @@ function workerForm(w){
      <div class="field" style="grid-column:1/-1;display:flex;flex-direction:row;gap:14px;align-items:center"><div id="wPhV">${wAv(e,72)}</div><div style="display:flex;flex-direction:column;gap:6px"><label class="btn sm" style="cursor:pointer">📷 ${e.photo?'Change photo':'Add photo'}<input type="file" id="wPh" accept="image/*" capture="user" hidden></label>${e.photo?'<button type="button" class="btn sm" id="wPhX">Remove photo</button>':''}</div></div>
      <div class="field" style="grid-column:1/-1"><label for="wName">Full name</label><input id="wName" value="${esc(e.name)}" placeholder="e.g. Imran Ali"></div>
      <div class="field"><label for="wRole">Role</label><select id="wRole">${[...new Set([...(w?[w.role]:[]),...addRoles()])].map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select></div>
-     <div class="field" style="grid-column:1/-1"><label>Also works as <span class="muted" style="font-weight:500">(tick more jobs if he does more than one)</span></label><div class="chips" id="wMore">${WORKSHOP_ROLES.concat(['Cashier']).map(r=>`<label class="chip ${(e.roles||[]).includes(r)?'on':''}" data-mr="${r}"><input type="checkbox" value="${r}" ${(e.roles||[]).includes(r)?'checked':''} style="display:none">${r==='Cutter'?'Cutting':r}</label>`).join('')}</div></div>
+     <div class="field" style="grid-column:1/-1"><label>Also works as <span class="muted" style="font-weight:500">(tick more jobs if he does more than one)</span></label><div class="chips" id="wMore">${WORKSHOP_ROLES.concat(['Measurement','Cashier']).map(r=>`<label class="chip ${(e.roles||[]).includes(r)?'on':''}" data-mr="${r}"><input type="checkbox" value="${r}" ${(e.roles||[]).includes(r)?'checked':''} style="display:none">${r==='Cutter'?'Cutting':r}</label>`).join('')}</div></div>
      ${isOwner()&&FACS().length?`<div class="field" style="grid-column:1/-1" id="wFacF"><label for="wFac">Also supervises a tailoring factory <span class="muted" style="font-weight:500">(for a branch manager who also runs the factory)</span></label><select id="wFac"><option value="0">— No —</option>${FACS().map(f=>`<option value="${f.id}" ${+e.fac===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>`:''}
      <div class="field"><label for="wBranch">Branch</label><select id="wBranch">${(isOwner()?BRANCHES:BRANCHES.filter(b=>b.id===USER.branch)).map(b=>`<option value="${b.id}" ${b.id===e.branch?'selected':''}>${b.name}</option>`).join('')}</select></div>
      <div class="field"><label for="wPhone">Mobile</label><input id="wPhone" class="num" value="${esc(e.phone)}" placeholder="05xxxxxxxx"></div>
@@ -1432,7 +1440,7 @@ function installScreen(b,r,w){
 /* ================= One app per worker ================= */
 const wslug=w=>`${(BRANCHES.find(b=>b.id===w.branch)||{code:'st'}).code.toLowerCase()}-${w.id}-${w.name.split(' ')[0].toLowerCase().replace(/[^a-z]/g,'')}`;
 const wLink=w=>`https://${DOMAIN}/app/${wslug(w)}`;
-const wRoleKey=w=>({'Branch manager':'manager',Cashier:'cashier','Factory supervisor':'tailor'}[w.role])||(ROLE2TASK[w.role]?'tailor':'tailor');
+const wRoleKey=w=>({'Branch manager':'manager',Cashier:'cashier',Measurement:'measure','Factory supervisor':'tailor'}[w.role])||(ROLE2TASK[w.role]?'tailor':'tailor');
 function workerApp(w,fresh){
   const msg=`Assalamu alaikum ${w.name.split(' ')[0]},\nThis is your own Saudi Thobe app (${w.role}, ${bname(w.branch)}):\n${wLink(w)}\nOpen it, set your PIN, then tap Install. It is only for you.`;
   drawer(fresh?`${w.name} added`:`${w.name} · app`,`<div class="muted" style="font-size:13px">${w.role} · ${bname(w.branch)}</div>`,
