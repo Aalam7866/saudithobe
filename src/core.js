@@ -235,7 +235,7 @@ const canAssign=()=>RA().stage;
 /* ================= Helpers ================= */
 let curBranch=0; // 0 = all branches
 const O=()=>orders.filter(o=>!curBranch||o.branch===curBranch||o.made===curBranch);
-const W=()=>workers.filter(w=>!curBranch||w.branch===curBranch);
+const W=()=>workers.filter(w=>!curBranch||w.branch===curBranch||+w.fac===curBranch);
 const sar=n=>Math.round(n).toLocaleString('en-US');
 const fmtD=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const fmtY=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
@@ -1328,7 +1328,7 @@ function facCard(f){
       <div><div class="load" style="width:100%"><i style="width:${load}%;${load>85?'background:var(--bad)':''}"></i></div></div>
       <div><span class="muted">Cutting · Tailor · Hinge · Tatreez</span><span class="num">${st.map(x=>x.n).join(' · ')}</span></div>
       ${byShop.map(x=>`<div><span class="muted">From ${x.b.name}</span><span class="num">${x.n} pcs</span></div>`).join('')}
-      <div><span class="muted">Supervisor</span><span>${(ws.find(w=>w.role==='Factory supervisor')||{}).name||'Not assigned'}</span></div>
+      <div><span class="muted">Supervisor</span><span>${[...ws.filter(w=>w.role==='Factory supervisor'),...workers.filter(w=>+w.fac===f.id)].map(w=>esc(w.name)).join(', ')||'Not assigned'}</span></div>
      </div>
      <div class="bf"><button class="btn pri sm" data-open="${f.id}">Open factory</button><button class="btn sm" data-edit="${f.id}">Edit</button><button class="btn sm" data-staff="${f.id}">Staff</button><button class="btn sm" data-links="${f.id}">Link</button></div>
     </div>`}

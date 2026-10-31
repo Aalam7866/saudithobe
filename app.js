@@ -236,7 +236,7 @@ const canAssign=()=>RA().stage;
 /* ================= Helpers ================= */
 let curBranch=0; // 0 = all branches
 const O=()=>orders.filter(o=>!curBranch||o.branch===curBranch||o.made===curBranch);
-const W=()=>workers.filter(w=>!curBranch||w.branch===curBranch);
+const W=()=>workers.filter(w=>!curBranch||w.branch===curBranch||+w.fac===curBranch);
 const sar=n=>Math.round(n).toLocaleString('en-US');
 const fmtD=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const fmtY=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
@@ -1335,7 +1335,7 @@ function facCard(f){
       <div><div class="load" style="width:100%"><i style="width:${load}%;${load>85?'background:var(--bad)':''}"></i></div></div>
       <div><span class="muted">Cutting · Tailor · Hinge · Tatreez</span><span class="num">${st.map(x=>x.n).join(' · ')}</span></div>
       ${byShop.map(x=>`<div><span class="muted">From ${x.b.name}</span><span class="num">${x.n} pcs</span></div>`).join('')}
-      <div><span class="muted">Supervisor</span><span>${(ws.find(w=>w.role==='Factory supervisor')||{}).name||'Not assigned'}</span></div>
+      <div><span class="muted">Supervisor</span><span>${[...ws.filter(w=>w.role==='Factory supervisor'),...workers.filter(w=>+w.fac===f.id)].map(w=>esc(w.name)).join(', ')||'Not assigned'}</span></div>
      </div>
      <div class="bf"><button class="btn pri sm" data-open="${f.id}">Open factory</button><button class="btn sm" data-edit="${f.id}">Edit</button><button class="btn sm" data-staff="${f.id}">Staff</button><button class="btn sm" data-links="${f.id}">Link</button></div>
     </div>`}
@@ -1406,7 +1406,7 @@ const LINKROLES=[['manager','Branch manager'],['measure','Measurement'],['cashie
 const linkFor=(b,r)=>`https://${DOMAIN}/${slug(b)}/${{manager:'manager',measure:'measurement',cashier:'cashier',tailor:'workshop'}[r]}`;
 function qrInto(el,text){try{if(typeof QRCode!=='undefined'){new QRCode(el,{text,width:160,height:160,correctLevel:QRCode.CorrectLevel.M});return}}catch(e){}el.innerHTML='<span class="muted" style="font-size:11px;text-align:center">QR</span>'}
 function branchLinks(b,fresh){
-  if(LIVE){const ppl=workers.filter(w=>w.branch===b.id&&['manager','measure','cashier','tailor'].includes(w.login||jobLogin(w.role)));
+  if(LIVE){const ppl=workers.filter(w=>(w.branch===b.id||+w.fac===b.id)&&['manager','measure','cashier','tailor'].includes(w.login||jobLogin(w.role)));
     drawer(fresh?`${b.name} is ready`:`${b.name} links`,`<div class="muted" style="font-size:13px">${fresh?'Send each person their own link.':`${b.code} · ${b.city}`}</div>`,
      `<div class="msg" style="border-color:var(--brass)">Each person opens <b>their own link</b>, sets a PIN, and can install it as their own app. A first-time link works only until the PIN is set.</div>
       <div class="links">${ppl.map(w=>`<div class="lk"><div class="qr" id="qrp_${w.id}"></div><div style="min-width:0"><b>${esc(w.name)}</b><span class="muted" style="font-size:12px">${esc(w.role)}${w.pinSet?' · PIN set':' · waiting for first sign in'}</span><span class="url">${esc(wLink(w))}</span>

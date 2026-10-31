@@ -85,7 +85,7 @@ R("const canEditW=w=>", "const managesW=w=>ROLE==='manager'&&(w.branch===USER.br
 
 # branch links in live: each person's own link
 R("function branchLinks(b,fresh){", """function branchLinks(b,fresh){
-  if(LIVE){const ppl=workers.filter(w=>w.branch===b.id&&['manager','measure','cashier','tailor'].includes(w.login||jobLogin(w.role)));
+  if(LIVE){const ppl=workers.filter(w=>(w.branch===b.id||+w.fac===b.id)&&['manager','measure','cashier','tailor'].includes(w.login||jobLogin(w.role)));
     drawer(fresh?`${b.name} is ready`:`${b.name} links`,`<div class="muted" style="font-size:13px">${fresh?'Send each person their own link.':`${b.code} · ${b.city}`}</div>`,
      `<div class="msg" style="border-color:var(--brass)">Each person opens <b>their own link</b>, sets a PIN, and can install it as their own app. A first-time link works only until the PIN is set.</div>
       <div class="links">${ppl.map(w=>`<div class="lk"><div class="qr" id="qrp_${w.id}"></div><div style="min-width:0"><b>${esc(w.name)}</b><span class="muted" style="font-size:12px">${esc(w.role)}${w.pinSet?' · PIN set':' · waiting for first sign in'}</span><span class="url">${esc(wLink(w))}</span>
