@@ -157,11 +157,11 @@ function shopDash(){
 
 /* ================= Daily report: summary (old) · exe daily report · tailoring report ================= */
 let dailyTab='sum';
-const dailyTabsHtml=()=>`<div class="rowtools" style="margin-bottom:-6px"><div class="seg" id="dTabs">${[['sum','Summary'],...(isOwner()?[['exe','Daily report (exe)']]:[]),...(ROLE==='cashier'?[]:[['tail','Tailoring report']])].map(([k,t])=>`<button class="${dailyTab===k?'on':''}" data-dtab="${k}">${t}</button>`).join('')}</div></div>`;
+const dailyTabsHtml=()=>`<div class="rowtools" style="margin-bottom:-6px"><div class="seg" id="dTabs">${[['sum','Summary'],...(isOwner()?[['exe','Daily report (exe)']]:[]),...(isOwner()||ROLE==='manager'?[['meth','By payment method']]:[]),...(ROLE==='cashier'?[]:[['tail','Tailoring report']])].map(([k,t])=>`<button class="${dailyTab===k?'on':''}" data-dtab="${k}">${t}</button>`).join('')}</div></div>`;
 function dailyTabsMount(){const v=document.getElementById('view');v.insertAdjacentHTML('afterbegin',dailyTabsHtml());
   v.querySelectorAll('[data-dtab]').forEach(b=>b.onclick=()=>{dailyTab=b.dataset.dtab;daily()})}
 const _dailySum=daily;
-daily=function(){if(dailyTab==='exe'&&!isOwner())dailyTab='sum';if(dailyTab==='tail'&&ROLE==='cashier')dailyTab='sum';if(dailyTab==='exe')dailyExe();else if(dailyTab==='tail')dailyTailor();else _dailySum();dailyTabsMount()};
+daily=function(){if(dailyTab==='exe'&&!isOwner())dailyTab='sum';if(dailyTab==='tail'&&ROLE==='cashier')dailyTab='sum';if(dailyTab==='meth'&&!(isOwner()||ROLE==='manager'))dailyTab='sum';if(dailyTab==='exe')dailyExe();else if(dailyTab==='meth')dailyMethods();else if(dailyTab==='tail')dailyTailor();else _dailySum();dailyTabsMount()};
 function dayNav(D){return `<div class="perbar"><div class="seg"><button type="button" id="dPrev">◀ Previous</button><button type="button" id="dToday" class="${repDay===0?'on':''}">Today</button><button type="button" id="dNext" ${repDay===0?'disabled':''}>Next ▶</button></div>
   <label class="pfl">Date <input type="date" id="dPick" value="${dkey2(D)}" max="${dkey2(today)}"></label><b style="font-size:14px">${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b>${D.getDay()===5?'<span class="pill s-wait">Friday</span>':''}</div>`}
 function dayNavBind(){const $=x=>document.getElementById(x);const go=n=>{repDay=Math.max(0,n);if(typeof ensurePayRange==='function')ensurePayRange(addD(today,-repDay));daily()};
@@ -335,4 +335,34 @@ function printDayReport(D,branch){
     +(delOnly.length?'<h2>Thobes delivered without payment</h2>'+pTable(['Order','Customer','Pcs','Balance now'],delOnly,null,[2,3]):'')
     +'<h2>New orders booked</h2>'+pTable(['Order','Invoice','Customer','Mobile','Pcs','Delivery','Total','Paid','Due'],booked.map(o=>[ono(o).replace(/^#/,''),oinv(o),cust(o.cid).name,cust(o.cid).phone,o.qty,dmy(o.due),sar2(o.total),sar2(o.paid),sar2(o.total-o.paid)]),['Total','','','',sumBy(booked,o=>o.qty),'',sar2(sumBy(booked,o=>o.total)),sar2(sumBy(booked,o=>o.paid)),sar2(sumBy(booked,o=>o.total-o.paid))],[4,6,7,8])
     +'<div style="display:flex;justify-content:space-between;margin-top:40px"><div style="border-top:1px solid #888;width:200px;text-align:center;padding-top:3px">Cashier signature</div><div style="border-top:1px solid #888;width:200px;text-align:center;padding-top:3px">Manager / Owner</div></div>');
+}
+
+/* ================= Payments by method: one day, a month or from – to (owner / manager) ================= */
+let mthSel='all';
+function dailyMethods(){
+  const P=perGet('meth','month'),B=curBranch,inB=x=>!B||x.branch===B;
+  const pays=payLog.filter(p=>inPer(p.d,P)&&inB(p)).sort((a,b)=>a.d-b.d||a.rno-b.rno);
+  const ms=[...new Set(pays.map(p=>pmName(p)||'Other'))].sort((a,b)=>sumBy(pays.filter(p=>(pmName(p)||'Other')===b),p=>p.amt)-sumBy(pays.filter(p=>(pmName(p)||'Other')===a),p=>p.amt));
+  const tot=sumBy(pays,p=>p.amt);const mt=m=>sumBy(pays.filter(p=>(pmName(p)||'Other')===m),p=>p.amt);
+  // one row per day (or per month for long periods)
+  const byMonth=perDays(P)>62,keyOf=d=>byMonth?ymKey(d):dkey2(d0(d));
+  const keys=[...new Set(pays.map(p=>keyOf(p.d)))].sort();
+  const rows=keys.map(k=>{const ps=pays.filter(p=>keyOf(p.d)===k);const r={k,label:byMonth?ymName(k):pDate(k).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}),n:ps.length,t:sumBy(ps,p=>p.amt),down:sumBy(ps.filter(p=>p.t==='Deposit'),p=>p.amt),due:sumBy(ps.filter(p=>p.t!=='Deposit'),p=>p.amt)};ms.forEach(m=>r[m]=sumBy(ps.filter(p=>(pmName(p)||'Other')===m),p=>p.amt));return r});
+  const list=pays.filter(p=>mthSel==='all'||(pmName(p)||'Other')===mthSel);
+  V(`<div class="panel"><div class="panel-b" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${perBar('mthPer',P)}<span class="sp" style="flex:1"></span><button class="btn pri" id="mthPrint">🖨 Print</button><button class="btn" id="mthCsv">Export CSV</button></div></div>
+  <div class="okpi"><div class="okc tap" data-mt="all"><span>All methods</span><b>${sar2(tot)}<small>SAR</small></b><em>${pl(pays.length,'payment')} · ${perLabel(P)}</em></div>
+   ${ms.map(m=>`<div class="tap ${mthSel===m?'okc':''}" data-mt="${esc(m)}"><span>${esc(m)}</span><b>${sar2(mt(m))}<small>SAR</small></b><em>${tot?Math.round(mt(m)/tot*100):0}% · ${pl(pays.filter(p=>(pmName(p)||'Other')===m).length,'payment')}</em></div>`).join('')}</div>
+  <div class="panel"><div class="panel-h"><h2>${byMonth?'Month by month':'Day by day'}</h2><span class="sp"></span><span class="muted" style="font-size:12px">${esc(B?bname(B):'All branches')} · SAR</span></div>
+   ${xTable([{t:byMonth?'Month':'Date',f:r=>`<b>${r.label}</b>`},...ms.map(m=>({t:esc(m),r:1,f:r=>r[m]?sar2(r[m]):'—'})),{t:'Down (sell)',r:1,f:r=>sar2(r.down)},{t:'Due',r:1,f:r=>sar2(r.due)},{t:'Payments',r:1,f:r=>r.n},{t:'Total',r:1,f:r=>`<b>${sar2(r.t)}</b>`}],rows,{h:'420px',empty:'No payments in this period.',foot:['Total',...ms.map(m=>sar2(mt(m))),sar2(sumBy(rows,r=>r.down)),sar2(sumBy(rows,r=>r.due)),pays.length,sar2(tot)]})}</div>
+  <div class="panel"><div class="panel-h"><h2>Payments · ${mthSel==='all'?'all methods':esc(mthSel)}</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(list.length,'payment')} · ${sar2(sumBy(list,p=>p.amt))} SAR · tap a method above to filter</span></div>
+   ${xTable([{t:'Date',f:p=>dmy(p.d)},{t:'Order',f:p=>`<b class="num">${esc(onoR(p.rno))}</b>`},{t:'Customer',f:p=>{const o=orders.find(x=>x.rno===p.rno);return o?`<span dir="auto">${esc(cust(o.cid).name)}</span>`:'—'}},{t:'Type',f:p=>p.amt<0?'Refund':p.t==='Deposit'?'Sell':'Pay'},{t:'Method',f:p=>esc(pmName(p))},{t:'Reference',f:p=>esc(p.ref||'')},{t:'Amount',r:1,f:p=>`<b>${sar2(p.amt)}</b>`},{t:'Branch',f:p=>esc(bname(p.branch))}],list.slice().reverse(),{attr:p=>`data-lr="${p.rno}"`,h:'460px',empty:'No payments.'})}</div>`);
+  perBind('mthPer',P,daily);
+  document.querySelectorAll('[data-mt]').forEach(t=>t.onclick=()=>{mthSel=t.dataset.mt;daily()});
+  document.querySelectorAll('#view [data-lr]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.lr));
+  const H=[byMonth?'Month':'Date',...ms,'Down (sell)','Due','Payments','Total'],plain=r=>[r.label,...ms.map(m=>sar2(r[m]||0)),sar2(r.down),sar2(r.due),r.n,sar2(r.t)],ft=['Total',...ms.map(m=>sar2(mt(m))),sar2(sumBy(rows,r=>r.down)),sar2(sumBy(rows,r=>r.due)),pays.length,sar2(tot)];
+  const LH=['Date','Order','Customer','Type','Method','Reference','Amount','Branch'],lp=p=>{const o=orders.find(x=>x.rno===p.rno);return [dmy(p.d),onoR(p.rno).replace(/^#/,''),o?cust(o.cid).name:'',p.amt<0?'Refund':p.t==='Deposit'?'Sell':'Pay',pmName(p),p.ref||'',sar2(p.amt),bname(p.branch)]};
+  document.getElementById('mthCsv').onclick=()=>csvOut(`payments_by_method_${dkey2(P.from)}_${dkey2(P.to)}`,[H,...rows.map(plain),ft,[],LH,...list.map(lp)]);
+  document.getElementById('mthPrint').onclick=()=>printRep(`Payments by method · ${B?bname(B):'All branches'}`,`${perLabel(P)} · printed ${new Date().toLocaleString('en-GB')}`,
+    pTiles([['All methods',sar2(tot)],...ms.map(m=>[m,sar2(mt(m))])])+`<h2>${byMonth?'Month by month':'Day by day'}</h2>`+pTable(H,rows.map(plain),ft,H.map((_,i)=>i).slice(1))
+    +`<h2>Payments · ${mthSel==='all'?'all methods':mthSel}</h2>`+pTable(LH,list.map(lp),['Total','','','','','',sar2(sumBy(list,p=>p.amt)),''],[6]));
 }
