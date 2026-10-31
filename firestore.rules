@@ -78,7 +78,8 @@ service cloud.firestore {
             && resource.data.status in ['active', 'leave'] && request.resource.data.status in ['active', 'leave']
             && !changed().hasAny(['uid', 'gen', 'login']))
         // the person himself: only "PIN is set"
-        || (signedIn() && resource.data.uid == request.auth.uid && changed().hasOnly(['pinSet']));
+        // the person himself: "PIN is set" and his own photo
+        || (signedIn() && resource.data.uid == request.auth.uid && changed().hasOnly(['pinSet', 'photo', 'upd']));
       allow delete: if isOwner();
     }
     match /att/{id} {

@@ -219,7 +219,7 @@ function dailyTailor(){
   V(`<div class="panel"><div class="panel-b" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">${dayNav(D)}<span class="sp" style="flex:1"></span><button class="btn" id="dtPrint">Print A4</button><button class="btn" id="dtCsv">Export CSV</button></div></div>
   <div class="okpi">${ks.map(k=>`<div><span>${stageT(k)}</span><b>${S(k)}<small>pcs</small></b></div>`).join('')}<div class="okc"><span>Orders finished</span><b>${readyToday.length}<small>${sumBy(readyToday,o=>o.qty)} pcs</small></b></div><div><span>Sent to factory</span><b>${sent.length}<small>${sumBy(sent,o=>o.qty)} pcs</small></b></div></div>
   <div class="panel"><div class="panel-h"><h2>Work by worker</h2><span class="sp"></span><span class="muted" style="font-size:12px">${esc(B?bname(B):'All branches & factories')} · tap a worker for his full work</span></div>
-   ${xTable([{t:'Worker',f:x=>`<b>${esc(x.w.name)}</b>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',f:x=>x.n.size?`<span class="num muted">${[...x.n].slice(0,8).map(n=>onoR(n)).join(' ')}${x.n.size>8?' …':''}</span>`:''},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},{t:'Present',f:x=>{const a=att(x.w);return a==='a'?'<span class="tbad">Absent</span>':a==='o'?'<span class="muted">Off</span>':a?'Yes':''}}],
+   ${xTable([{t:'Worker',f:x=>`<span style="display:inline-flex;gap:8px;align-items:center">${wAv(x.w,28)}<b>${esc(x.w.name)}</b></span>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',f:x=>x.n.size?`<span class="num muted">${[...x.n].slice(0,8).map(n=>onoR(n)).join(' ')}${x.n.size>8?' …':''}</span>`:''},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},{t:'Present',f:x=>{const a=att(x.w);return a==='a'?'<span class="tbad">Absent</span>':a==='o'?'<span class="muted">Off</span>':a?'Yes':''}}],
      rows,{attr:x=>`data-ow="${x.w.id}"`,h:'calc(100vh - 380px)',empty:'No workshop work on this day.',foot:['Total','',...ks.map(k=>S(k)),sumBy(rows,x=>x.t),'','','']})}</div>
   <div class="grid2" style="grid-template-columns:1fr 1fr">
    <div class="panel"><div class="panel-h"><h2>By branch & factory</h2></div>${xTable([{t:'Place',f:x=>`${bTag(x.b.id)} <b>${esc(x.b.name)}</b>`},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''}))],byPlace,{empty:'No work.'})}</div>
@@ -260,7 +260,7 @@ function bwMount(){const box=document.getElementById('bwPanel');if(!box)return;c
     const rows=people.map(w=>{const e=ent.filter(p=>p.w===w.id);return{w,q:Object.fromEntries(ks.map(k=>[k,sumBy(e.filter(p=>p.stage===k),p=>p.qty)])),t:sumBy(e,p=>p.qty),n:new Set(e.filter(p=>p.rno).map(p=>p.rno)).size,d:new Set(e.map(p=>dkey2(p.d))).size}}).sort((a,b)=>b.t-a.t||a.w.name.localeCompare(b.w.name));
     box.innerHTML=`<div class="panel-h" style="flex-wrap:wrap"><h2>Workers' work</h2><span class="sp"></span><select id="bwB" class="btn sm" style="padding:6px 10px" aria-label="Branch" ${lock?'hidden':''}><option value="0">All branches & factories</option>${BRANCHES.map(b=>`<option value="${b.id}" ${B===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select><button class="btn sm" id="bwCsv">Export CSV</button></div>
      <div class="panel-b" style="padding:12px 16px 0">${perBar('bwPer',P)}<div class="muted" style="font-size:12.5px;margin:8px 0">${perLabel(P)} · tap a worker to see his work day by day</div></div>
-     ${xTable([{t:'Worker',f:x=>`<b>${esc(x.w.name)}</b>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',r:1,f:x=>x.n||''},{t:'Days',r:1,f:x=>x.d||''},{t:'Avg / day',r:1,f:x=>x.d?Math.round(x.t/x.d*10)/10:''}],
+     ${xTable([{t:'Worker',f:x=>`<span style="display:inline-flex;gap:8px;align-items:center">${wAv(x.w,28)}<b>${esc(x.w.name)}</b></span>`},{t:'Job',f:x=>esc(x.w.role==='Cutter'?'Cutting':x.w.role)},{t:'Branch / factory',f:x=>esc(bname(x.w.branch))},...ks.map(k=>({t:stageT(k),r:1,f:x=>x.q[k]||''})),{t:'Total pcs',r:1,f:x=>`<b>${x.t||'—'}</b>`},{t:'Orders',r:1,f:x=>x.n||''},{t:'Days',r:1,f:x=>x.d||''},{t:'Avg / day',r:1,f:x=>x.d?Math.round(x.t/x.d*10)/10:''}],
       rows,{attr:x=>`data-bw="${x.w.id}"`,h:'520px',empty:'No workshop workers.',foot:['Total','','',...ks.map(k=>sumBy(rows,x=>x.q[k])),sumBy(rows,x=>x.t),'','','']})}`;
     perBind('bwPer',P,draw);
     document.getElementById('bwB').onchange=e=>{bwBranch=+e.target.value;draw()};
@@ -366,3 +366,13 @@ function dailyMethods(){
     pTiles([['All methods',sar2(tot)],...ms.map(m=>[m,sar2(mt(m))])])+`<h2>${byMonth?'Month by month':'Day by day'}</h2>`+pTable(H,rows.map(plain),ft,H.map((_,i)=>i).slice(1))
     +`<h2>Payments · ${mthSel==='all'?'all methods':mthSel}</h2>`+pTable(LH,list.map(lp),['Total','','','','','',sar2(sumBy(list,p=>p.amt)),''],[6]));
 }
+
+/* ================= The worker's own app: his photo, name and job on top; he can change his photo ================= */
+function meBar(){const v=document.getElementById('view');if(!v)return;
+  const w=ROLE==='tailor'?ME():(workers.find(x=>x.role==='Tailor'&&x.branch===(curBranch||4))||ME());if(!w)return;
+  const mine=ROLE==='tailor'&&(!USER.sid||w.id===USER.sid);
+  v.insertAdjacentHTML('afterbegin',`<div class="mebar">${wAv(w,64)}<div class="grow"><b>${esc(w.name)}</b><span class="wrole">${esc(roleText(w))}</span><span class="muted">${esc(bname(w.branch))}</span></div>
+   ${mine?`<label class="btn sm" style="cursor:pointer">📷 ${w.photo?'Change my photo':'Add my photo'}<input type="file" id="meph" accept="image/*" capture="user" hidden></label>`:''}</div>`);
+  const i=document.getElementById('meph');if(i)i.onchange=ev=>photoFrom(ev.target.files[0],u=>{w.photo=u;toast('Photo saved');route();if(typeof flush==='function')setTimeout(flush,0)})}
+const _myworkView=mywork;mywork=function(){_myworkView();meBar()};
+const _mypayView=mypay;mypay=function(){_mypayView();meBar()};

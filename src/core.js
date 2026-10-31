@@ -144,6 +144,9 @@ const okW=w=>w.status!=='inactive'&&w.status!=='blocked';
 /* a worker can have more than one job (w.roles: the extra jobs, e.g. a tailor who also does hinge) */
 const wRoles=w=>[...new Set([w.role,...((w&&w.roles)||[])].filter(Boolean))];
 const hasRole=(w,r)=>!!w&&wRoles(w).includes(r);
+/* a picture file → small square JPEG (240 px) as a data URL */
+function photoFrom(f,done){if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=240,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
+  const m=Math.min(im.width,im.height);g.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,s,s);done(cv.toDataURL('image/jpeg',.82))};im.onerror=()=>toast('This picture cannot be read');im.src=r.result};r.readAsDataURL(f)}
 /* worker photo (or his initials) */
 const wAv=(w,px)=>w&&w.photo?`<div class="wav ph" style="${px?`width:${px}px;height:${px}px;`:''}background-image:url('${w.photo}')" role="img" aria-label="${esc(w.name)}"></div>`:`<div class="wav" style="${px?`width:${px}px;height:${px}px;font-size:${Math.round(px*.38)}px`:''}">${initials((w&&w.name)||'?')}</div>`;
 /* a branch manager can also supervise a factory (w.fac) */
@@ -1038,8 +1041,7 @@ function workerForm(w){
     if(t){const b=+$('wBasic').value||0,tg=+$('wTarget').value||0,c=+$('wComm').value||0,ex=tg+10;
       $('wEx').innerHTML=`<b>Example:</b> if he finishes <b class="num">${ex}</b> pcs this month<br><span class="num">${sar(b)} + (${ex} − ${tg}) × ${c} = <b>${sar(b+10*c)} SAR</b></span><br><span class="muted" style="font-size:12px">Below ${tg} pcs he gets the basic salary only.</span>`}};
   let photo=e.photo||'';
-  $('wPh').onchange=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=240,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
-      const m=Math.min(im.width,im.height);g.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,s,s);photo=cv.toDataURL('image/jpeg',.82);$('wPhV').innerHTML=wAv({name:$('wName').value,photo},72)};im.src=r.result};r.readAsDataURL(f)};
+  $('wPh').onchange=ev=>photoFrom(ev.target.files[0],u=>{photo=u;$('wPhV').innerHTML=wAv({name:$('wName').value,photo},72)});
   if($('wPhX'))$('wPhX').onclick=()=>{photo='';$('wPhV').innerHTML=wAv({name:$('wName').value},72);$('wPhX').remove()};
   const moreSync=()=>{const main=$('wRole').value;document.querySelectorAll('#wMore [data-mr]').forEach(l=>{const i=l.querySelector('input');l.hidden=l.dataset.mr===main;if(l.hidden)i.checked=false;l.classList.toggle('on',i.checked)})};
   document.querySelectorAll('#wMore input').forEach(i=>i.onchange=moreSync);$('wRole').addEventListener('change',moreSync);moreSync();
@@ -1277,7 +1279,7 @@ function board(){
   <div class="rowtools"><span class="muted" style="font-size:13px">${fid?bname(fid):'All workshops'} · ${list.filter(o=>o.st!=='ready').reduce((s,o)=>s+o.qty,0)} thobes in production · ${ready.reduce((s,o)=>s+o.qty,0)} ready</span></div>
   <div class="board" style="grid-template-columns:repeat(${TASKS.length+(FLOW_OPT.tready?1:0)},minmax(220px,1fr))">${TASKS.map(t=>{const js=list.filter(o=>pending(o,t.k)).sort((a,b)=>(a.t[t.k]==='doing'?0:1)-(b.t[t.k]==='doing'?0:1)||a.due-b.due);return `<div class="col"><h3>${t.t}<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">
    ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${BRANCHES.find(b=>b.id===o.branch).code}</span></span></div>
-    <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?wk(wid).name:'Not assigned'} · due ${fmtD(o.due)}</div>
+    <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?`<span style="display:inline-flex;gap:6px;align-items:center;vertical-align:middle">${wAv(wk(wid),22)}${esc(wk(wid).name)}</span>`:'Not assigned'} · due ${fmtD(o.due)}</div>
     ${t.k==='sew'||t.k==='cut'?`<div class="mm">${mmLine(o,['tool','sadr','kom','raqba'])}</div>`:''}
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${esc(o.fabric||'')}</b><div class="m">${esc(wk(o.tailor).name)} · due ${fmtD(o.due)}</div>
