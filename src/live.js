@@ -151,8 +151,12 @@ function mergeParts(col){
   (PARTS[col]||[]).forEach(p=>p.forEach((v,k)=>m.set(k,v)));
   const items=[...m.entries()].map(([id,v])=>{if(!KEY[col])v._id=id;return normalize(col,v)});
   if(col==='orders')items.sort((a,b)=>b.created-a.created);
-  arr.length=0;arr.push(...items);
-  synced[col]=new Map(items.map(x=>[idOf(col,x),snap(col,x)]));
+  // keep the same objects on screen: an open drawer (edit worker, order…) still points at the live record
+  const was=new Map(arr.map(x=>[idOf(col,x),x])),keep=TRANSIENT[col]||[];
+  const out=items.map(v=>{const o=was.get(idOf(col,v));if(!o||o===v)return v;
+    for(const k of Object.keys(o))if(!(k in v)&&!keep.includes(k))delete o[k];return Object.assign(o,v)});
+  arr.length=0;arr.push(...out);
+  synced[col]=new Map(out.map(x=>[idOf(col,x),snap(col,x)]));
   if(col==='staff'){applyAtt();USERS.length=0;USERS.push(...workers.map(w=>({role:w.login||jobLogin(w.role),name:w.name,branch:w.branch,sid:w.id})))}
 }
 function sub(col,q){

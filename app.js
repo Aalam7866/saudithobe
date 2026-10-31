@@ -1060,7 +1060,7 @@ function workerForm(w){
   document.querySelectorAll('#wMore input').forEach(i=>i.onchange=moreSync);$('wRole').addEventListener('change',moreSync);moreSync();
   ['wPay','wBasic','wTarget','wComm'].forEach(id=>$(id).oninput=sync);$('wPay').onchange=sync;sync();
   $('wSave').onclick=async()=>{const n=$('wName').value.trim();if(!n){toast('Enter the worker\'s name');$('wName').focus();return}
-    const t=w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
+    const t=(w&&workers.find(x=>x.id===w.id))||w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
     t.roles=[...document.querySelectorAll('#wMore input:checked')].map(i=>i.value).filter(r=>r!==$('wRole').value);
     t.photo=photo;if($('wFac'))t.fac=+$('wFac').value||0;
     Object.assign(t,{name:n,role:$('wRole').value,branch:+$('wBranch').value,phone:$('wPhone').value.trim(),nat:$('wNat').value.trim(),pay:$('wPay').value,rate:+$('wRate').value||0,basic:+$('wBasic').value||0,target:+$('wTarget').value||0,comm:+$('wComm').value||0,joined:new Date($('wJoin').value||today),iqama:$('wIq').value?new Date($('wIq').value):null});
@@ -2732,8 +2732,12 @@ function mergeParts(col){
   (PARTS[col]||[]).forEach(p=>p.forEach((v,k)=>m.set(k,v)));
   const items=[...m.entries()].map(([id,v])=>{if(!KEY[col])v._id=id;return normalize(col,v)});
   if(col==='orders')items.sort((a,b)=>b.created-a.created);
-  arr.length=0;arr.push(...items);
-  synced[col]=new Map(items.map(x=>[idOf(col,x),snap(col,x)]));
+  // keep the same objects on screen: an open drawer (edit worker, order…) still points at the live record
+  const was=new Map(arr.map(x=>[idOf(col,x),x])),keep=TRANSIENT[col]||[];
+  const out=items.map(v=>{const o=was.get(idOf(col,v));if(!o||o===v)return v;
+    for(const k of Object.keys(o))if(!(k in v)&&!keep.includes(k))delete o[k];return Object.assign(o,v)});
+  arr.length=0;arr.push(...out);
+  synced[col]=new Map(out.map(x=>[idOf(col,x),snap(col,x)]));
   if(col==='staff'){applyAtt();USERS.length=0;USERS.push(...workers.map(w=>({role:w.login||jobLogin(w.role),name:w.name,branch:w.branch,sid:w.id})))}
 }
 function sub(col,q){

@@ -39,7 +39,7 @@ R("for(let k=0;k<14;k++){const d=addD(today,-k);if(d.getDay()===5)continue;\n  w
 # ids that must not collide
 R("Math.max(...orders.map(o=>o.rno))+1", "Math.max(1000,...orders.map(o=>o.rno))+1")
 R("cid=customers.length+1;", "cid=Math.max(0,...customers.map(c=>c.id))+1;")
-R("const t=w||{id:workers.length+1,", "const t=w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,")
+R("const t=(w&&workers.find(x=>x.id===w.id))||w||{id:workers.length+1,", "const t=(w&&workers.find(x=>x.id===w.id))||w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,")
 R("const t=b||{id:Math.max(...BRANCHES.map(x=>x.id))+1};", "const t=b||{id:Math.max(0,...BRANCHES.map(x=>x.id))+1};")
 R("const n={id:notices.length+1,", "const n={id:DEMO?notices.length+1:Math.random().toString(36).slice(2,12),")
 R("notices.find(x=>x.id===+b.dataset.popOk)", "notices.find(x=>String(x.id)===b.dataset.popOk)")

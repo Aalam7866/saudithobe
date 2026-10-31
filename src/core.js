@@ -1055,7 +1055,7 @@ function workerForm(w){
   document.querySelectorAll('#wMore input').forEach(i=>i.onchange=moreSync);$('wRole').addEventListener('change',moreSync);moreSync();
   ['wPay','wBasic','wTarget','wComm'].forEach(id=>$(id).oninput=sync);$('wPay').onchange=sync;sync();
   $('wSave').onclick=()=>{const n=$('wName').value.trim();if(!n){toast('Enter the worker\'s name');$('wName').focus();return}
-    const t=w||{id:workers.length+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
+    const t=(w&&workers.find(x=>x.id===w.id))||w||{id:workers.length+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
     t.roles=[...document.querySelectorAll('#wMore input:checked')].map(i=>i.value).filter(r=>r!==$('wRole').value);
     t.photo=photo;if($('wFac'))t.fac=+$('wFac').value||0;
     Object.assign(t,{name:n,role:$('wRole').value,branch:+$('wBranch').value,phone:$('wPhone').value.trim(),nat:$('wNat').value.trim(),pay:$('wPay').value,rate:+$('wRate').value||0,basic:+$('wBasic').value||0,target:+$('wTarget').value||0,comm:+$('wComm').value||0,joined:new Date($('wJoin').value||today),iqama:$('wIq').value?new Date($('wIq').value):null});
