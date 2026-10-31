@@ -1064,7 +1064,7 @@ function daily(){
     if(!noWork)t+=`\n\nTailoring: cut ${ps(prod,'cut')} · stitched ${ps(prod,'sew')} · hinge ${ps(prod,'hinge')} · tatreez ${ps(prod,'tat')}${ironOn()?` · ironed ${ps(prod,'iron')}`:''} pcs`;
     if(!noWork)shopsIn.forEach(b=>{const pp=prod.filter(p=>p.made===b.id);if(pp.length)t+=`\n${b.name}: stitched ${ps(pp,'sew')} pcs`});return t};
   V(`<div class="rowtools"><div class="chips">${[0,1,2,3,4,5,6].map(i=>{const d=addD(today,-i);return `<button class="chip ${repDay===i?'on':''}" data-day="${i}">${i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})}</button>`}).join('')}</div><span class="sp"></span>
-   <button class="btn" id="copyRep">${ico('wa')}Copy for WhatsApp</button></div>
+   ${money?`<button class="btn pri" id="printRep">🖨 Print day report</button>`:''}<button class="btn" id="copyRep">${ico('wa')}Copy for WhatsApp</button></div>
   <div class="demo"><span class="tag">Demo data</span> ${dayLabel}, ${D.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${curBranch?bname(curBranch)+(isFac(curBranch)?'':' branch'):'all branches and factories'}${isFri?' · Friday, shop closed':''}</div>
   ${shopsOnly&&money?`<div class="kpis">
     <div class="kpi"><span class="l">Total sale (orders booked)</span><span class="v">${sar(T('sale'))}<small>SAR</small></span><span class="d muted">${pl(T('n'),'order')} · ${T('pcs')} thobes</span></div>
@@ -1097,6 +1097,7 @@ function daily(){
       <td>${w.role==='Tailor'&&w.pay==='target'?`<div style="display:flex;gap:8px;align-items:center"><div class="load" style="width:70px"><i style="width:${Math.min(100,month/w.target*100)}%;${month>=w.target?'background:var(--ok)':''}"></i></div><span class="num" style="font-size:12px">${month}/${w.target}</span></div>`:'<span class="muted">—</span>'}</td>
       ${money?`<td class="num">${earnToday===null?'<span class="muted">salary</span>':sar(earnToday)}</td>`:''}</tr>`}).join('')||'<tr><td colspan="8" class="muted">No workshop staff here.</td></tr>'}</tbody></table></div></div>`}`);
   document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{repDay=+b.dataset.day;daily()});
+  const prr=document.getElementById('printRep');if(prr)prr.onclick=()=>printDayReport(D,shops.length===1?shops[0].id:curBranch);
   document.getElementById('copyRep').onclick=()=>{const t=summaryText();navigator.clipboard.writeText(t).then(()=>toast('Report copied, paste it in WhatsApp'),()=>toast('Copy blocked here; report text is ready on the real site'))};
   bindRows();
 }
@@ -1120,7 +1121,7 @@ function till(){
    <div class="panel"><div class="panel-h"><h2>Today's cash box</h2><span class="sp"></span><span class="muted" style="font-size:12px">${bname(b)}</span></div>
     <div class="cashbox"><div><span>Cash</span><span class="num">${sar(by('Cash'))}</span></div><div><span>Card (mada)</span><span class="num">${sar(by('Card (mada)'))}</span></div><div><span>Bank transfer</span><span class="num">${sar(by('Transfer'))}</span></div><div><span>Total today</span><span class="num">${sar(log.reduce((s,p)=>s+p.amt,0))} SAR</span></div></div></div>
    <div class="panel"><div class="panel-h"><h2>Today's receipts</h2></div><div class="rows">${log.slice().reverse().map(p=>`<div class="row" style="padding-block:8px"><span class="rid">${onoR(p.rno)}</span><div class="grow"><b style="font-weight:500">${p.t}</b><span>${p.m}</span></div><span class="num">${sar(p.amt)}</span></div>`).join('')||'<div class="empty">No payments yet today.</div>'}</div></div>
-   <button class="btn" id="closeDay">Close the day</button>
+   <button class="btn" id="tPrintDay">🖨 Print today's report</button><button class="btn" id="closeDay">Close the day</button>
   </aside></div>`);
   const tq=document.getElementById('tq');
   tq.oninput=()=>{const q=tq.value.trim();const res=document.getElementById('tres');if(q.length<2){res.innerHTML='';return}
@@ -1130,6 +1131,7 @@ function till(){
   // a ready order: the payment / delivery window (as the exe's) – balance and all pieces filled in
   document.querySelectorAll('[data-pay]').forEach(x=>{x.onclick=()=>receivePayment(+x.dataset.pay,true);x.onkeydown=e=>{if(e.key==='Enter')x.click()}});
   document.querySelectorAll('[data-dep]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.dep);const a=+document.getElementById('dep'+o.rno).value||0;if(!a){toast('Enter the deposit amount');return}o.paid=Math.min(o.total,a);payLog.push({d:today,rno:o.rno,branch:o.branch,amt:o.paid,m:'Cash',t:'Deposit'});toast(`Deposit ${sar(o.paid)} SAR taken for ${ono(o)}`);route()});
+  document.getElementById('tPrintDay').onclick=()=>printDayReport(new Date(today),b);
   document.getElementById('closeDay').onclick=()=>toast('Demo: the day total will be locked and sent to the owner');
   document.querySelectorAll('.rid[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r));
 }

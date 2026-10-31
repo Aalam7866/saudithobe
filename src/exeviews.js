@@ -313,3 +313,26 @@ function flowEditorMount(){const box=document.getElementById('flowBox');if(!box)
       try{if(flowSaver)await flowSaver(flowClean(ed),tr);setFlow(ed,{tready:tr});toast('Flow saved for all branches');ed=JSON.parse(JSON.stringify(FLOW));draw()}
       catch(e){toast('Could not save: '+(e.code||e.message));s.disabled=false;s.textContent='Save flow for all branches'}}};
   draw()}
+
+/* ================= Day report to print (cashier / manager / owner): everything of one day on A4 ================= */
+function printDayReport(D,branch){
+  const B=branch||curBranch,inB=x=>!B||x.branch===B,nm=B?bname(B):'All branches';
+  const pays=payLog.filter(p=>sameDay(p.d,D)&&inB(p)).sort((a,b)=>a.rno-b.rno),dels=delLog.filter(x=>sameDay(x.d,D)&&inB(x)),booked=orders.filter(o=>sameDay(o.created,D)&&inB(o)).sort((a,b)=>a.rno-b.rno);
+  const coll=pays.filter(p=>p.amt>0),refs=pays.filter(p=>p.amt<0),down=coll.filter(p=>p.t==='Deposit'),due=coll.filter(p=>p.t!=='Deposit');
+  const byM={},byU={};pays.forEach(p=>{const m=pmName(p)||'Other',u=p.by||(p.exe?'Shop exe':'—');byM[m]=(byM[m]||0)+p.amt;(byU[u]=byU[u]||{n:0,a:0}).n++;byU[u].a+=p.amt});
+  const cash=sumBy(pays.filter(p=>/cash|نقد/i.test(pmName(p))),p=>p.amt);
+  const usedDel=new Set();
+  const payRowsP=pays.map(p=>{const o=orders.find(x=>x.rno===p.rno)||{};let dq=0;if(p.t!=='Deposit')dels.forEach(x=>{if(!usedDel.has(x)&&x.rno===p.rno){usedDel.add(x);dq+=+x.qty||0}});
+    return [onoR(p.rno).replace(/^#/,''),oinv(o),o.cid?cust(o.cid).name:'',p.amt<0?'Refund':p.t==='Deposit'?'Sell':dq?'Pay + delivery':'Pay',pmName(p),p.ref||'',sar2(p.amt),dq||'',o.total!=null?sar2(o.total-o.paid):'',p.by||(p.exe?'Shop exe':'')]});
+  const delOnly=dels.filter(x=>!usedDel.has(x)).map(x=>{const o=orders.find(y=>y.rno===x.rno)||{};return [onoR(x.rno).replace(/^#/,''),o.cid?cust(o.cid).name:'',x.qty,o.total!=null?sar2(o.total-o.paid):'']});
+  const tiles=[['Date',D.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})],['New orders / pcs',`${booked.length} / ${sumBy(booked,o=>o.qty)}`],['Sales booked',sar2(sumBy(booked,o=>o.total))],
+    ['Collected',sar2(sumBy(coll,p=>p.amt))],['Down payments (sell)',sar2(sumBy(down,p=>p.amt))],['Due payments',sar2(sumBy(due,p=>p.amt))],['Refunds',sar2(-sumBy(refs,p=>p.amt))],['Cash in hand',sar2(cash)],['Pieces delivered',sumBy(dels,x=>x.qty)]];
+  printRep(`Daily report · ${nm}`,`${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · printed ${new Date().toLocaleString('en-GB')} · ${USER.name||''}`,
+    pTiles(tiles)
+    +'<h2>Payments received</h2>'+pTable(['Order','Invoice','Customer','Type','Method','Reference','Amount','Delivered pcs','Balance now','User'],payRowsP,['Total','','','','','',sar2(sumBy(pays,p=>p.amt)),sumBy(dels,x=>x.qty)-sumBy(delOnly,r=>+r[2]||0)||'','',''],[6,7,8])
+    +'<h2>Totals by method</h2>'+pTable(['Method','Amount (SAR)'],Object.entries(byM).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,sar2(v)]),['Total',sar2(sumBy(pays,p=>p.amt))],[1])
+    +'<h2>Totals by user</h2>'+pTable(['User','Payments','Amount (SAR)'],Object.entries(byU).map(([k,v])=>[k,v.n,sar2(v.a)]),null,[1,2])
+    +(delOnly.length?'<h2>Thobes delivered without payment</h2>'+pTable(['Order','Customer','Pcs','Balance now'],delOnly,null,[2,3]):'')
+    +'<h2>New orders booked</h2>'+pTable(['Order','Invoice','Customer','Mobile','Pcs','Delivery','Total','Paid','Due'],booked.map(o=>[ono(o).replace(/^#/,''),oinv(o),cust(o.cid).name,cust(o.cid).phone,o.qty,dmy(o.due),sar2(o.total),sar2(o.paid),sar2(o.total-o.paid)]),['Total','','','',sumBy(booked,o=>o.qty),'',sar2(sumBy(booked,o=>o.total)),sar2(sumBy(booked,o=>o.paid)),sar2(sumBy(booked,o=>o.total-o.paid))],[4,6,7,8])
+    +'<div style="display:flex;justify-content:space-between;margin-top:40px"><div style="border-top:1px solid #888;width:200px;text-align:center;padding-top:3px">Cashier signature</div><div style="border-top:1px solid #888;width:200px;text-align:center;padding-top:3px">Manager / Owner</div></div>');
+}

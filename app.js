@@ -1069,7 +1069,7 @@ function daily(){
     if(!noWork)t+=`\n\nTailoring: cut ${ps(prod,'cut')} · stitched ${ps(prod,'sew')} · hinge ${ps(prod,'hinge')} · tatreez ${ps(prod,'tat')}${ironOn()?` · ironed ${ps(prod,'iron')}`:''} pcs`;
     if(!noWork)shopsIn.forEach(b=>{const pp=prod.filter(p=>p.made===b.id);if(pp.length)t+=`\n${b.name}: stitched ${ps(pp,'sew')} pcs`});return t};
   V(`<div class="rowtools"><div class="chips">${[0,1,2,3,4,5,6].map(i=>{const d=addD(today,-i);return `<button class="chip ${repDay===i?'on':''}" data-day="${i}">${i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})}</button>`}).join('')}</div><span class="sp"></span>
-   <button class="btn" id="copyRep">${ico('wa')}Copy for WhatsApp</button></div>
+   ${money?`<button class="btn pri" id="printRep">🖨 Print day report</button>`:''}<button class="btn" id="copyRep">${ico('wa')}Copy for WhatsApp</button></div>
   <div class="demo">${DEMO?'<span class="tag">Demo data</span> ':''}${dayLabel}, ${D.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${curBranch?bname(curBranch)+(isFac(curBranch)?'':' branch'):'all branches and factories'}${isFri?' · Friday, shop closed':''}</div>
   ${shopsOnly&&money?`<div class="kpis">
     <div class="kpi"><span class="l">Total sale (orders booked)</span><span class="v">${sar(T('sale'))}<small>SAR</small></span><span class="d muted">${pl(T('n'),'order')} · ${T('pcs')} thobes</span></div>
@@ -1102,6 +1102,7 @@ function daily(){
       <td>${w.role==='Tailor'&&w.pay==='target'?`<div style="display:flex;gap:8px;align-items:center"><div class="load" style="width:70px"><i style="width:${Math.min(100,month/w.target*100)}%;${month>=w.target?'background:var(--ok)':''}"></i></div><span class="num" style="font-size:12px">${month}/${w.target}</span></div>`:'<span class="muted">—</span>'}</td>
       ${money?`<td class="num">${earnToday===null?'<span class="muted">salary</span>':sar(earnToday)}</td>`:''}</tr>`}).join('')||'<tr><td colspan="8" class="muted">No workshop staff here.</td></tr>'}</tbody></table></div></div>`}`);
   document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{repDay=+b.dataset.day;daily()});
+  const prr=document.getElementById('printRep');if(prr)prr.onclick=()=>printDayReport(D,shops.length===1?shops[0].id:curBranch);
   document.getElementById('copyRep').onclick=()=>{const t=summaryText();navigator.clipboard.writeText(t).then(()=>toast('Report copied, paste it in WhatsApp'),()=>toast('Copy blocked here; report text is ready on the real site'))};
   bindRows();
 }
@@ -1125,7 +1126,7 @@ function till(){
    <div class="panel"><div class="panel-h"><h2>Today's cash box</h2><span class="sp"></span><span class="muted" style="font-size:12px">${bname(b)}</span></div>
     <div class="cashbox"><div><span>Cash</span><span class="num">${sar(by('Cash'))}</span></div><div><span>Card (mada)</span><span class="num">${sar(by('Card (mada)'))}</span></div><div><span>Bank transfer</span><span class="num">${sar(by('Transfer'))}</span></div><div><span>Total today</span><span class="num">${sar(log.reduce((s,p)=>s+p.amt,0))} SAR</span></div></div></div>
    <div class="panel"><div class="panel-h"><h2>Today's receipts</h2></div><div class="rows">${log.slice().reverse().map(p=>`<div class="row" style="padding-block:8px"><span class="rid">${onoR(p.rno)}</span><div class="grow"><b style="font-weight:500">${p.t}</b><span>${p.m}</span></div><span class="num">${sar(p.amt)}</span></div>`).join('')||'<div class="empty">No payments yet today.</div>'}</div></div>
-   <button class="btn" id="closeDay">Close the day</button>
+   <button class="btn" id="tPrintDay">🖨 Print today's report</button><button class="btn" id="closeDay">Close the day</button>
   </aside></div>`);
   const tq=document.getElementById('tq');
   tq.oninput=()=>{const q=tq.value.trim();const res=document.getElementById('tres');if(q.length<2){res.innerHTML='';return}
@@ -1135,6 +1136,7 @@ function till(){
   // a ready order: the payment / delivery window (as the exe's) – balance and all pieces filled in
   document.querySelectorAll('[data-pay]').forEach(x=>{x.onclick=()=>receivePayment(+x.dataset.pay,true);x.onkeydown=e=>{if(e.key==='Enter')x.click()}});
   document.querySelectorAll('[data-dep]').forEach(x=>x.onclick=()=>{const o=orders.find(y=>y.rno===+x.dataset.dep);const a=+document.getElementById('dep'+o.rno).value||0;if(!a){toast('Enter the deposit amount');return}o.paid=Math.min(o.total,a);payLog.push({d:today,rno:o.rno,branch:o.branch,amt:o.paid,m:'Cash',t:'Deposit'});toast(`Deposit ${sar(o.paid)} SAR taken for ${ono(o)}`);route()});
+  document.getElementById('tPrintDay').onclick=()=>printDayReport(new Date(today),b);
   document.getElementById('closeDay').onclick=()=>toast(DEMO?'Demo: the day total will be locked and sent to the owner':'Day closed. The owner can see it in the daily report');
   document.querySelectorAll('.rid[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r));
 }
@@ -2117,6 +2119,29 @@ function flowEditorMount(){const box=document.getElementById('flowBox');if(!box)
       try{if(flowSaver)await flowSaver(flowClean(ed),tr);setFlow(ed,{tready:tr});toast('Flow saved for all branches');ed=JSON.parse(JSON.stringify(FLOW));draw()}
       catch(e){toast('Could not save: '+(e.code||e.message));s.disabled=false;s.textContent='Save flow for all branches'}}};
   draw()}
+
+/* ================= Day report to print (cashier / manager / owner): everything of one day on A4 ================= */
+function printDayReport(D,branch){
+  const B=branch||curBranch,inB=x=>!B||x.branch===B,nm=B?bname(B):'All branches';
+  const pays=payLog.filter(p=>sameDay(p.d,D)&&inB(p)).sort((a,b)=>a.rno-b.rno),dels=delLog.filter(x=>sameDay(x.d,D)&&inB(x)),booked=orders.filter(o=>sameDay(o.created,D)&&inB(o)).sort((a,b)=>a.rno-b.rno);
+  const coll=pays.filter(p=>p.amt>0),refs=pays.filter(p=>p.amt<0),down=coll.filter(p=>p.t==='Deposit'),due=coll.filter(p=>p.t!=='Deposit');
+  const byM={},byU={};pays.forEach(p=>{const m=pmName(p)||'Other',u=p.by||(p.exe?'Shop exe':'—');byM[m]=(byM[m]||0)+p.amt;(byU[u]=byU[u]||{n:0,a:0}).n++;byU[u].a+=p.amt});
+  const cash=sumBy(pays.filter(p=>/cash|نقد/i.test(pmName(p))),p=>p.amt);
+  const usedDel=new Set();
+  const payRowsP=pays.map(p=>{const o=orders.find(x=>x.rno===p.rno)||{};let dq=0;if(p.t!=='Deposit')dels.forEach(x=>{if(!usedDel.has(x)&&x.rno===p.rno){usedDel.add(x);dq+=+x.qty||0}});
+    return [onoR(p.rno).replace(/^#/,''),oinv(o),o.cid?cust(o.cid).name:'',p.amt<0?'Refund':p.t==='Deposit'?'Sell':dq?'Pay + delivery':'Pay',pmName(p),p.ref||'',sar2(p.amt),dq||'',o.total!=null?sar2(o.total-o.paid):'',p.by||(p.exe?'Shop exe':'')]});
+  const delOnly=dels.filter(x=>!usedDel.has(x)).map(x=>{const o=orders.find(y=>y.rno===x.rno)||{};return [onoR(x.rno).replace(/^#/,''),o.cid?cust(o.cid).name:'',x.qty,o.total!=null?sar2(o.total-o.paid):'']});
+  const tiles=[['Date',D.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})],['New orders / pcs',`${booked.length} / ${sumBy(booked,o=>o.qty)}`],['Sales booked',sar2(sumBy(booked,o=>o.total))],
+    ['Collected',sar2(sumBy(coll,p=>p.amt))],['Down payments (sell)',sar2(sumBy(down,p=>p.amt))],['Due payments',sar2(sumBy(due,p=>p.amt))],['Refunds',sar2(-sumBy(refs,p=>p.amt))],['Cash in hand',sar2(cash)],['Pieces delivered',sumBy(dels,x=>x.qty)]];
+  printRep(`Daily report · ${nm}`,`${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · printed ${new Date().toLocaleString('en-GB')} · ${USER.name||''}`,
+    pTiles(tiles)
+    +'<h2>Payments received</h2>'+pTable(['Order','Invoice','Customer','Type','Method','Reference','Amount','Delivered pcs','Balance now','User'],payRowsP,['Total','','','','','',sar2(sumBy(pays,p=>p.amt)),sumBy(dels,x=>x.qty)-sumBy(delOnly,r=>+r[2]||0)||'','',''],[6,7,8])
+    +'<h2>Totals by method</h2>'+pTable(['Method','Amount (SAR)'],Object.entries(byM).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,sar2(v)]),['Total',sar2(sumBy(pays,p=>p.amt))],[1])
+    +'<h2>Totals by user</h2>'+pTable(['User','Payments','Amount (SAR)'],Object.entries(byU).map(([k,v])=>[k,v.n,sar2(v.a)]),null,[1,2])
+    +(delOnly.length?'<h2>Thobes delivered without payment</h2>'+pTable(['Order','Customer','Pcs','Balance now'],delOnly,null,[2,3]):'')
+    +'<h2>New orders booked</h2>'+pTable(['Order','Invoice','Customer','Mobile','Pcs','Delivery','Total','Paid','Due'],booked.map(o=>[ono(o).replace(/^#/,''),oinv(o),cust(o.cid).name,cust(o.cid).phone,o.qty,dmy(o.due),sar2(o.total),sar2(o.paid),sar2(o.total-o.paid)]),['Total','','','',sumBy(booked,o=>o.qty),'',sar2(sumBy(booked,o=>o.total)),sar2(sumBy(booked,o=>o.paid)),sar2(sumBy(booked,o=>o.total-o.paid))],[4,6,7,8])
+    +'<div style="display:flex;justify-content:space-between;margin-top:40px"><div style="border-top:1px solid #888;width:200px;text-align:center;padding-top:3px">Cashier signature</div><div style="border-top:1px solid #888;width:200px;text-align:center;padding-top:3px">Manager / Owner</div></div>');
+}
 
 /* ================= Purchases & stock · WhatsApp · Message tracker (as the AL THOB exe's pages) =================
    Stock and purchases come from the shop exe (items / purch); WhatsApp messages sent from here and from the exe are both
