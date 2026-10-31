@@ -1813,7 +1813,9 @@ function shopDash(){
   <p class="h4" style="margin:4px 0 -8px">Money & orders</p>
   <div class="okpi">
    ${money?T('sales','Sales booked',`${sar(sumBy(booked,o=>o.total))}<small>SAR</small>`,`${pl(booked.length,'order')} · VAT ${sar(vat)}`):''}
-   ${money?T('coll','Collected',`${sar(sumBy(coll,p=>p.amt))}<small>SAR</small>`,`Down ${sar(sumBy(coll.filter(p=>p.t==='Deposit'),p=>p.amt))} · Due ${sar(sumBy(coll.filter(p=>p.t!=='Deposit'),p=>p.amt))}`,'okc'):''}
+   ${money?T('coll','Collected',`${sar(sumBy(coll,p=>p.amt))}<small>SAR</small>`,`${pl(coll.length,'payment')} · all methods`,'okc'):''}
+   ${money?T('collD','Collected – down payments',`${sar2(sumBy(coll.filter(p=>p.t==='Deposit'),p=>p.amt))}<small>SAR</small>`,`${pl(coll.filter(p=>p.t==='Deposit').length,'order')} booked`,'okc'):''}
+   ${money?T('collU','Collected – due payments',`${sar2(sumBy(coll.filter(p=>p.t!=='Deposit'),p=>p.amt))}<small>SAR</small>`,`${pl(coll.filter(p=>p.t!=='Deposit').length,'payment')} at delivery`,'okc'):''}
    ${money?T('due','All customers due',`${sar(sumBy(dueAll,o=>o.total-o.paid))}<small>SAR</small>`,`${pl(dueAll.length,'order')} unpaid`,'bad'):''}
    ${money?T('ref','Refunds',`${sar(Math.abs(sumBy(refs,p=>p.amt)))}<small>SAR</small>`,pl(refs.length,'refund')):''}
    ${T('orders','Orders / pcs',`${booked.length}<small>/ ${pcs} pcs</small>`,'booked in this period')}
@@ -1838,7 +1840,7 @@ function shopDash(){
   const $=x=>document.getElementById(x);
   $('dashBack').onclick=()=>{dashExe=false;dashboard()};
   perBind('dashPer',P,shopDash);
-  document.querySelectorAll('[data-dk]').forEach(t=>{const go=()=>{const k=t.dataset.dk;if(k==='coll')return payListDrawer('Collected · '+perLabel(P),coll);if(k==='ref')return payListDrawer('Refunds · '+perLabel(P),refs);const [ti,list]=L[k];orderListDrawer(`${ti} · ${k==='due'||k==='open'||k==='late'?'now':perLabel(P)}`,list.slice().sort((a,b)=>k==='due'?(b.total-b.paid)-(a.total-a.paid):b.created-a.created),money)};t.onclick=go;t.onkeydown=e=>{if(e.key==='Enter')go()}});
+  document.querySelectorAll('[data-dk]').forEach(t=>{const go=()=>{const k=t.dataset.dk;if(k==='coll')return payListDrawer('Collected · '+perLabel(P),coll);if(k==='collD')return payListDrawer('Collected – down payments · '+perLabel(P),coll.filter(p=>p.t==='Deposit'));if(k==='collU')return payListDrawer('Collected – due payments · '+perLabel(P),coll.filter(p=>p.t!=='Deposit'));if(k==='ref')return payListDrawer('Refunds · '+perLabel(P),refs);const [ti,list]=L[k];orderListDrawer(`${ti} · ${k==='due'||k==='open'||k==='late'?'now':perLabel(P)}`,list.slice().sort((a,b)=>k==='due'?(b.total-b.paid)-(a.total-a.paid):b.created-a.created),money)};t.onclick=go;t.onkeydown=e=>{if(e.key==='Enter')go()}});
   const body=()=>{const el=$('dashTabBody');let h='';
     if(dashTab==='due'){const g={};dueAll.forEach(o=>{const x=g[o.cid]=g[o.cid]||{c:cust(o.cid),n:0,t:0,d:0,last:o.created};x.n++;x.t+=o.total;x.d+=o.total-o.paid;if(o.created>x.last)x.last=o.created});
       const r=Object.values(g).sort((a,b)=>b.d-a.d);h=xTable([{t:'Customer',f:x=>`<b>${esc(x.c.name)}</b>`},{t:'Mobile',f:x=>`<span class="num">${esc(x.c.phone||'')}</span>`},{t:'Orders',r:1,f:x=>x.n},{t:'Last order',f:x=>fmtD(x.last)},...(money?[{t:'Order total',r:1,f:x=>sar2(x.t)},{t:'Due',r:1,f:x=>`<b class="tbad">${sar2(x.d)}</b>`}]:[])],r,{attr:x=>`data-dc="${x.c.id}"`,h:'460px',empty:'No customer owes money.',foot:['Total',r.length+' customers',sumBy(r,x=>x.n),'',...(money?[sar2(sumBy(r,x=>x.t)),sar2(sumBy(r,x=>x.d))]:[])]})}
@@ -1858,7 +1860,7 @@ function shopDash(){
     el.querySelectorAll('[data-pd2]').forEach(r=>r.onclick=()=>{const k=r.dataset.pd2;const os=open.filter(o=>o.st!=='ready'&&(k==='late'?o.due<today:dkey2(o.due)===k));orderListDrawer(k==='late'?'Late, not ready':'Due '+fmtL(pDate(k)),os,money)})};
   document.querySelectorAll('[data-dt]').forEach(b=>b.onclick=()=>{dashTab=b.dataset.dt;document.querySelectorAll('[data-dt]').forEach(x=>x.classList.toggle('on',x===b));body()});
   body();
-  $('dashPrint').onclick=()=>printRep('Shop dashboard',`${B?bname(B):'All branches'} · ${perLabel(P)}`,pTiles([...(money?[['Sales booked',sar2(sumBy(booked,o=>o.total))],['Collected',sar2(sumBy(coll,p=>p.amt))],['All customers due',sar2(sumBy(dueAll,o=>o.total-o.paid))],['Refunds',sar2(Math.abs(sumBy(refs,p=>p.amt)))]]:[]),
+  $('dashPrint').onclick=()=>printRep('Shop dashboard',`${B?bname(B):'All branches'} · ${perLabel(P)}`,pTiles([...(money?[['Sales booked',sar2(sumBy(booked,o=>o.total))],['Collected',sar2(sumBy(coll,p=>p.amt))],['Collected – down payments',sar2(sumBy(coll.filter(p=>p.t==='Deposit'),p=>p.amt))],['Collected – due payments',sar2(sumBy(coll.filter(p=>p.t!=='Deposit'),p=>p.amt))],['All customers due',sar2(sumBy(dueAll,o=>o.total-o.paid))],['Refunds',sar2(Math.abs(sumBy(refs,p=>p.amt)))]]:[]),
     ['Orders / pcs',`${booked.length} / ${pcs}`],['Not delivered',`${open.length} (${lateL.length} late)`],['Hinge pcs',sumBy(hingeL,o=>+o.hingeQty||o.qty)],['Zip pcs',sumBy(zipL,o=>+o.zipQty)],['Cutting finished',cutD],['Cutting remaining',pcs-cutD],['Total stitched',sewD],['Stitching remaining',pcs-sewD],['Total delivered',delD],['Remaining',pcs-delD],['From earlier months',sumBy(earlier,o=>o.qty-I(o).dq)]])
     +(money?`<h2>Collected by method</h2>`+pTable(['Method','Amount (SAR)'],Object.entries(byM).map(([k,v])=>[k,sar2(v)]),['Total',sar2(sumBy(coll,p=>p.amt))],[1]):''));
 }
