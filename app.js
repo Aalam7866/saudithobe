@@ -1041,6 +1041,7 @@ function workerForm(w){
 let repDay=0; // days back from today
 const sameDay=(a,b)=>+new Date(a.getFullYear(),a.getMonth(),a.getDate())===+b;
 function daily(){
+  const noWork=ROLE==='cashier'; // the cashier: money only, no workers / tailoring
   const D=addD(today,-repDay);const money=RA().money;
   const scope=curBranch?[BRANCHES.find(b=>b.id===curBranch)]:BRANCHES;
   const shops=scope.filter(b=>b.type!=='factory'),shopIds=shops.map(b=>b.id);
@@ -1065,8 +1066,8 @@ function daily(){
   const summaryText=()=>{let t=`*Saudi Thobe daily report*\n${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short',year:'numeric'})} · ${curBranch?bname(curBranch):'All branches'}\n`;
     if(shopsOnly&&money){t+=`\nSales booked: ${sar(T('sale'))} SAR (${T('n')} orders, ${T('pcs')} pcs)\nCollected: ${sar(T('tot'))} SAR\n  Deposits ${sar(T('dep'))} · Delivery payments ${sar(T('bal'))}\n  Cash ${sar(T('cash'))} · mada ${sar(T('mada'))} · Transfer ${sar(T('tr'))}\nDelivered: ${T('dn')} orders, ${T('dq')} pcs\n`;
       rows.forEach(r=>t+=`\n${r.b.name}: sale ${sar(r.sale)} · collected ${sar(r.tot)} · delivered ${r.dq} pcs`)}
-    t+=`\n\nTailoring: cut ${ps(prod,'cut')} · stitched ${ps(prod,'sew')} · hinge ${ps(prod,'hinge')} · tatreez ${ps(prod,'tat')}${ironOn()?` · ironed ${ps(prod,'iron')}`:''} pcs`;
-    shopsIn.forEach(b=>{const pp=prod.filter(p=>p.made===b.id);if(pp.length)t+=`\n${b.name}: stitched ${ps(pp,'sew')} pcs`});return t};
+    if(!noWork)t+=`\n\nTailoring: cut ${ps(prod,'cut')} · stitched ${ps(prod,'sew')} · hinge ${ps(prod,'hinge')} · tatreez ${ps(prod,'tat')}${ironOn()?` · ironed ${ps(prod,'iron')}`:''} pcs`;
+    if(!noWork)shopsIn.forEach(b=>{const pp=prod.filter(p=>p.made===b.id);if(pp.length)t+=`\n${b.name}: stitched ${ps(pp,'sew')} pcs`});return t};
   V(`<div class="rowtools"><div class="chips">${[0,1,2,3,4,5,6].map(i=>{const d=addD(today,-i);return `<button class="chip ${repDay===i?'on':''}" data-day="${i}">${i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})}</button>`}).join('')}</div><span class="sp"></span>
    <button class="btn" id="copyRep">${ico('wa')}Copy for WhatsApp</button></div>
   <div class="demo">${DEMO?'<span class="tag">Demo data</span> ':''}${dayLabel}, ${D.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${curBranch?bname(curBranch)+(isFac(curBranch)?'':' branch'):'all branches and factories'}${isFri?' · Friday, shop closed':''}</div>
@@ -1074,7 +1075,7 @@ function daily(){
     <div class="kpi"><span class="l">Total sale (orders booked)</span><span class="v">${sar(T('sale'))}<small>SAR</small></span><span class="d muted">${pl(T('n'),'order')} · ${T('pcs')} thobes</span></div>
     <div class="kpi"><span class="l">Payments received</span><span class="v">${sar(T('tot'))}<small>SAR</small></span><span class="d muted">Deposits ${sar(T('dep'))} · Delivery ${sar(T('bal'))}</span></div>
     <div class="kpi"><span class="l">Delivered to customers</span><span class="v">${T('dq')}<small>pcs</small></span><span class="d muted">${pl(T('dn'),'order')} handed over</span></div>
-    <div class="kpi"><span class="l">Thobes stitched</span><span class="v">${ps(prod,'sew')}<small>pcs</small></span><span class="d muted">Cut ${ps(prod,'cut')} · Hinge ${ps(prod,'hinge')} · Tatreez ${ps(prod,'tat')}</span></div></div>
+    ${noWork?'':`<div class="kpi"><span class="l">Thobes stitched</span><span class="v">${ps(prod,'sew')}<small>pcs</small></span><span class="d muted">Cut ${ps(prod,'cut')} · Hinge ${ps(prod,'hinge')} · Tatreez ${ps(prod,'tat')}</span></div></div>`}
   <div class="panel"><div class="panel-h"><h2>Sales & payments by branch</h2><span class="sp"></span><span class="muted" style="font-size:12px">SAR</span></div><div class="tbl-wrap"><table>
    <thead><tr><th>Branch</th><th>New orders</th><th>Thobes</th><th>Total sale</th><th>Deposits</th><th>Delivery payments</th><th>Total received</th><th>Cash</th><th>mada</th><th>Transfer</th><th>Delivered</th></tr></thead>
    <tbody>${rows.map(r=>`<tr><td>${bTag(r.b.id)} <b>${r.b.name}</b></td><td class="num">${r.n}</td><td class="num">${r.pcs}</td><td class="num"><b>${sar(r.sale)}</b></td><td class="num">${sar(r.dep)}</td><td class="num">${sar(r.bal)}</td><td class="num"><b>${sar(r.tot)}</b></td><td class="num">${sar(r.cash)}</td><td class="num">${sar(r.mada)}</td><td class="num">${sar(r.tr)}</td><td class="num">${r.dq} pcs · ${r.dn}</td></tr>`).join('')}
@@ -1083,6 +1084,7 @@ function daily(){
    <div class="panel"><div class="panel-h"><h2>Delivered & paid</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(dels.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th>${shops.length>1?'<th>Branch</th>':''}<th>Thobes</th><th>Paid at delivery</th></tr></thead><tbody>${dels.map(p=>`<tr><td><span class="rid">${onoR(p.rno)}</span></td>${shops.length>1?`<td>${bTag(p.branch)}</td>`:''}<td class="num">${p.qty}</td><td class="num">${p.amt?sar(p.amt):'<span class="muted">already paid</span>'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No deliveries.</td></tr>'}</tbody></table></div></div>
    <div class="panel"><div class="panel-h"><h2>New orders booked</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(booked.length,'order')}</span></div><div class="tbl-wrap"><table><thead><tr><th>Receipt</th><th>Customer</th><th>Thobes</th><th>Sale</th><th>Deposit</th></tr></thead><tbody>${booked.map(o=>`<tr class="click" data-r="${o.rno}"><td><span class="rid">${ono(o)}</span> ${shops.length>1?bTag(o.branch):''}</td><td>${cust(o.cid).name}</td><td class="num">${o.qty}</td><td class="num">${sar(o.total)}</td><td class="num">${sar(o.paid)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">No new orders.</td></tr>'}</tbody></table></div></div>
   </div>`:''}
+  ${noWork?'':`
   <h2 style="margin:0;font-size:17px">Tailoring daily report</h2>
   <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${shopsIn.map(b=>{const pp=prod.filter(p=>p.made===b.id);const ws=tailors.filter(w=>w.branch===b.id);const inProd=orders.filter(o=>o.made===b.id&&(o.st==='cut'||o.st==='sew')).reduce((s,o)=>s+o.qty,0);
     const recv=isFac(b.id)?sentToFac.filter(o=>o.made===b.id).reduce((s,o)=>s+o.qty,0):null;
@@ -1098,7 +1100,7 @@ function daily(){
      return `<tr><td><b>${w.name}</b></td><td>${bTag(w.branch)} ${bname(w.branch)}</td><td>${w.role}</td><td>${isFri?'<span class="pill s-done">Friday</span>':a==='a'?'<span class="pill s-late">Absent</span>':w.status==='leave'?'<span class="pill s-cut">Leave</span>':'<span class="pill s-ready">Present</span>'}</td>
       <td class="num"><b>${q}</b> ${{Tailor:'stitched',Cutter:'cut',Ironing:'ironed',Hinge:'hinge',Tatreez:'tatreez','Bottom cutting':'bottom cut'}[w.role]}</td><td class="num">${month}</td>
       <td>${w.role==='Tailor'&&w.pay==='target'?`<div style="display:flex;gap:8px;align-items:center"><div class="load" style="width:70px"><i style="width:${Math.min(100,month/w.target*100)}%;${month>=w.target?'background:var(--ok)':''}"></i></div><span class="num" style="font-size:12px">${month}/${w.target}</span></div>`:'<span class="muted">—</span>'}</td>
-      ${money?`<td class="num">${earnToday===null?'<span class="muted">salary</span>':sar(earnToday)}</td>`:''}</tr>`}).join('')||'<tr><td colspan="8" class="muted">No workshop staff here.</td></tr>'}</tbody></table></div></div>`);
+      ${money?`<td class="num">${earnToday===null?'<span class="muted">salary</span>':sar(earnToday)}</td>`:''}</tr>`}).join('')||'<tr><td colspan="8" class="muted">No workshop staff here.</td></tr>'}</tbody></table></div></div>`}`);
   document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{repDay=+b.dataset.day;daily()});
   document.getElementById('copyRep').onclick=()=>{const t=summaryText();navigator.clipboard.writeText(t).then(()=>toast('Report copied, paste it in WhatsApp'),()=>toast('Copy blocked here; report text is ready on the real site'))};
   bindRows();
@@ -1959,11 +1961,11 @@ function shopDash(){
 
 /* ================= Daily report: summary (old) · exe daily report · tailoring report ================= */
 let dailyTab='sum';
-const dailyTabsHtml=()=>`<div class="rowtools" style="margin-bottom:-6px"><div class="seg" id="dTabs">${[['sum','Summary'],...(RA().money?[['exe','Daily report (exe)']]:[]),['tail','Tailoring report']].map(([k,t])=>`<button class="${dailyTab===k?'on':''}" data-dtab="${k}">${t}</button>`).join('')}</div></div>`;
+const dailyTabsHtml=()=>`<div class="rowtools" style="margin-bottom:-6px"><div class="seg" id="dTabs">${[['sum','Summary'],...(RA().money?[['exe','Daily report (exe)']]:[]),...(ROLE==='cashier'?[]:[['tail','Tailoring report']])].map(([k,t])=>`<button class="${dailyTab===k?'on':''}" data-dtab="${k}">${t}</button>`).join('')}</div></div>`;
 function dailyTabsMount(){const v=document.getElementById('view');v.insertAdjacentHTML('afterbegin',dailyTabsHtml());
   v.querySelectorAll('[data-dtab]').forEach(b=>b.onclick=()=>{dailyTab=b.dataset.dtab;daily()})}
 const _dailySum=daily;
-daily=function(){if(dailyTab==='exe'&&!RA().money)dailyTab='sum';if(dailyTab==='exe')dailyExe();else if(dailyTab==='tail')dailyTailor();else _dailySum();dailyTabsMount()};
+daily=function(){if(dailyTab==='exe'&&!RA().money)dailyTab='sum';if(dailyTab==='tail'&&ROLE==='cashier')dailyTab='sum';if(dailyTab==='exe')dailyExe();else if(dailyTab==='tail')dailyTailor();else _dailySum();dailyTabsMount()};
 function dayNav(D){return `<div class="perbar"><div class="seg"><button type="button" id="dPrev">◀ Previous</button><button type="button" id="dToday" class="${repDay===0?'on':''}">Today</button><button type="button" id="dNext" ${repDay===0?'disabled':''}>Next ▶</button></div>
   <label class="pfl">Date <input type="date" id="dPick" value="${dkey2(D)}" max="${dkey2(today)}"></label><b style="font-size:14px">${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b>${D.getDay()===5?'<span class="pill s-wait">Friday</span>':''}</div>`}
 function dayNavBind(){const $=x=>document.getElementById(x);const go=n=>{repDay=Math.max(0,n);if(typeof ensurePayRange==='function')ensurePayRange(addD(today,-repDay));daily()};

@@ -157,11 +157,11 @@ function shopDash(){
 
 /* ================= Daily report: summary (old) · exe daily report · tailoring report ================= */
 let dailyTab='sum';
-const dailyTabsHtml=()=>`<div class="rowtools" style="margin-bottom:-6px"><div class="seg" id="dTabs">${[['sum','Summary'],...(RA().money?[['exe','Daily report (exe)']]:[]),['tail','Tailoring report']].map(([k,t])=>`<button class="${dailyTab===k?'on':''}" data-dtab="${k}">${t}</button>`).join('')}</div></div>`;
+const dailyTabsHtml=()=>`<div class="rowtools" style="margin-bottom:-6px"><div class="seg" id="dTabs">${[['sum','Summary'],...(RA().money?[['exe','Daily report (exe)']]:[]),...(ROLE==='cashier'?[]:[['tail','Tailoring report']])].map(([k,t])=>`<button class="${dailyTab===k?'on':''}" data-dtab="${k}">${t}</button>`).join('')}</div></div>`;
 function dailyTabsMount(){const v=document.getElementById('view');v.insertAdjacentHTML('afterbegin',dailyTabsHtml());
   v.querySelectorAll('[data-dtab]').forEach(b=>b.onclick=()=>{dailyTab=b.dataset.dtab;daily()})}
 const _dailySum=daily;
-daily=function(){if(dailyTab==='exe'&&!RA().money)dailyTab='sum';if(dailyTab==='exe')dailyExe();else if(dailyTab==='tail')dailyTailor();else _dailySum();dailyTabsMount()};
+daily=function(){if(dailyTab==='exe'&&!RA().money)dailyTab='sum';if(dailyTab==='tail'&&ROLE==='cashier')dailyTab='sum';if(dailyTab==='exe')dailyExe();else if(dailyTab==='tail')dailyTailor();else _dailySum();dailyTabsMount()};
 function dayNav(D){return `<div class="perbar"><div class="seg"><button type="button" id="dPrev">◀ Previous</button><button type="button" id="dToday" class="${repDay===0?'on':''}">Today</button><button type="button" id="dNext" ${repDay===0?'disabled':''}>Next ▶</button></div>
   <label class="pfl">Date <input type="date" id="dPick" value="${dkey2(D)}" max="${dkey2(today)}"></label><b style="font-size:14px">${D.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b>${D.getDay()===5?'<span class="pill s-wait">Friday</span>':''}</div>`}
 function dayNavBind(){const $=x=>document.getElementById(x);const go=n=>{repDay=Math.max(0,n);if(typeof ensurePayRange==='function')ensurePayRange(addD(today,-repDay));daily()};
