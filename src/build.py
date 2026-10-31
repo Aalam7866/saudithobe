@@ -163,9 +163,11 @@ html = f'''<!doctype html>
 </head>
 <body>
 {bodypart.strip()}
-<script type="module" src="/app.js"></script>
+<script type="module" src="/app.js?v=__V__"></script>
 </body>
 </html>
 '''
+import hashlib
+html = html.replace('__V__', hashlib.sha1(app.encode()).hexdigest()[:10])
 (ROOT / 'index.html').write_text(html)
 print('built', len(app), 'bytes app.js')
