@@ -141,8 +141,12 @@ const workers=!DEMO?[]:WNAMES.map(([n,r,b],i)=>({id:i+1,name:n,role:r,branch:b,p
   iqama:n.includes('Al-')?null:addD(today,Math.floor(-10+rnd()*400)),status:i===8?'leave':'active',
   att:Array.from({length:14},(_,k)=>{const d=addD(today,k-13);return d.getDay()===5?'o':(rnd()>.93?'a':'p')})}));
 const okW=w=>w.status!=='inactive'&&w.status!=='blocked';
-const tailorsOf=b=>workers.filter(w=>w.role==='Tailor'&&okW(w)&&(!b||w.branch===b));
-const firstOf=(role,b)=>workers.find(w=>w.role===role&&w.branch===b&&w.status==='active')||workers.find(w=>w.role===role&&w.status==='active');
+/* a worker can have more than one job (w.roles: the extra jobs, e.g. a tailor who also does hinge) */
+const wRoles=w=>[...new Set([w.role,...((w&&w.roles)||[])].filter(Boolean))];
+const hasRole=(w,r)=>!!w&&wRoles(w).includes(r);
+const roleText=w=>wRoles(w).map(r=>r==='Cutter'?'Cutting':r).join(' + ');
+const tailorsOf=b=>workers.filter(w=>hasRole(w,'Tailor')&&okW(w)&&(!b||w.branch===b));
+const firstOf=(role,b)=>workers.find(w=>w.role===role&&w.branch===b&&w.status==='active')||workers.find(w=>hasRole(w,role)&&w.branch===b&&w.status==='active')||workers.find(w=>w.role===role&&w.status==='active');
 
 const NAMES=['Abdullah Al-Shehri','Faisal Al-Otaibi','Sultan Al-Qahtani','Khalid Al-Dosari','Majed Al-Harbi','Turki Al-Mutairi','Naif Al-Ghamdi','Bandar Al-Zahrani','Saud Al-Anazi','Mishal Al-Shammari','Yousef Al-Ahmadi','Hamad Al-Subaie','Rakan Al-Buqami','Omar Al-Juhani','Nasser Al-Yami','Waleed Al-Rashidi','Ibrahim Al-Malki','Ziyad Al-Shamrani','Fahad Al-Sahli','Ahmed Al-Zahrani','Salman Al-Ruwaili','Majid Al-Asmari'];
 const mk=(base)=>({p_mid0_0:'7.75',p_mid0_1:'6.25',p_mid0_2:'5.75',p_cuff_0:'7.5',p_cuff_1:'6.5',p_cuff_2:'6.25',p_mid1:'2.75',p_row0:String(Math.round(base*0.43)),p_row1:String(Math.round(16+rnd()*4)),p_row2:String(Math.round(15+rnd()*4)),p_row4:String(Math.round(21+rnd()*4)),p_chest1:String(Math.round(21+rnd()*4)),p_chest2:'8.5',p_val0:'6',p_val1:'6.75',p_val2:String(Math.round(24+rnd()*3)),p_val3:'7.75',p_t_col_turn:'1',p_t_cuff_chamfer:'1',p_chk_pen:'1'});
@@ -211,7 +215,7 @@ for(let k=0;k<(DEMO?14:0);k++){const d=addD(today,-k);if(d.getDay()===5)continue
     if(w.role==='Tatreez')prodLog.push({d,w:w.id,made:w.branch,stage:'tat',qty:(k===0?1:f?4:2)+Math.floor(r2()*4)});});}
 function stepTask(o,k,by){const cur=o.t[k];if(cur==='done')return;
   if(k==='sew'&&!workers.some(x=>x.id===o.tailor)){const t=by&&by.role==='Tailor'?by:null;if(!t){toast('Choose a tailor first');return}o.tailor=t.id}
-  if(k!=='sew'&&!o.tw[k]){const w=by&&by.role===TK[k].role?by:firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}
+  if(k!=='sew'&&!o.tw[k]){const w=by&&hasRole(by,TK[k].role)?by:firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}
   if(tv(o,k)==='wait'){o.t[k]='doing';toast(`${ono(o)}: ${TK[k].t} started`)}
   else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});
     if(k==='sew'){const t=wk(o.tailor);t.mdone=(t.mdone||0)+o.qty}
@@ -943,7 +947,7 @@ function wStats(w){
 }
 function workersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();
-  const all=W();const list=all.filter(w=>(workerRole==='all'?true:workerRole==='off'?!okW(w):w.role===workerRole)&&(!q||w.name.toLowerCase().includes(q)||w.phone.includes(q)));
+  const all=W();const list=all.filter(w=>(workerRole==='all'?true:workerRole==='off'?!okW(w):hasRole(w,workerRole))&&(!q||w.name.toLowerCase().includes(q)||w.phone.includes(q)));
   const exp=all.filter(w=>{const d=iqDays(w);return d!==null&&d<60}).length;
   const chip=(k,t,n)=>`<button class="chip ${workerRole===k?'on':''}" data-role="${k}">${t}<span class="num">${n}</span></button>`;
   V(`${demoNote}
@@ -953,10 +957,10 @@ function workersView(){
    <div class="kpi"><span class="l">Thobes in hand</span><span class="v">${all.reduce((s,w)=>s+wStats(w).act,0)}</span><span class="d muted">Being cut, stitched or ironed</span></div>
    <div class="kpi"><span class="l">Iqama renewals due</span><span class="v" style="color:${exp?'var(--warn)':'inherit'}">${exp}</span><span class="d muted">Expired or within 60 days</span></div>
   </div>
-  <div class="rowtools"><div class="chips">${chip('all','All',all.length)}${ROLES.filter(r=>WORKSHOP_ROLES.includes(r)||all.some(w=>w.role===r)).map(r=>chip(r,r==='Cutter'?'Cutting':r,all.filter(w=>w.role===r).length)).join('')}${chip('off','Inactive & blocked',all.filter(w=>!okW(w)).length)}</div><span class="sp"></span>${addRoles().length?`<button class="btn pri" id="addW">${ico('plus')}Add ${isFactoryLogin()?'workshop worker':'worker'}</button>`:''}</div>
+  <div class="rowtools"><div class="chips">${chip('all','All',all.length)}${ROLES.filter(r=>WORKSHOP_ROLES.includes(r)||all.some(w=>hasRole(w,r))).map(r=>chip(r,r==='Cutter'?'Cutting':r,all.filter(w=>hasRole(w,r)).length)).join('')}${chip('off','Inactive & blocked',all.filter(w=>!okW(w)).length)}</div><span class="sp"></span>${addRoles().length?`<button class="btn pri" id="addW">${ico('plus')}Add ${isFactoryLogin()?'workshop worker':'worker'}</button>`:''}</div>
   ${!isOwner()?`<div class="muted" style="font-size:12.5px">${isFactoryLogin()?'You can add tailors, cutters, hinge, tatreez and ironing workers to this factory. Only the owner can block, deactivate or delete a worker.':'Only the owner or the factory can add workshop workers. Only the owner can block, deactivate or delete.'}</div>`:''}
   <div class="wgrid">${list.map(w=>{const s=wStats(w);return `<button class="wcard" data-w="${w.id}">
-    <div class="wtop"><div class="wav">${initials(w.name)}</div><div class="grow"><b>${w.name}</b><span>${w.role} · ${bname(w.branch)}</span></div>${wStatusPill(w)}</div>
+    <div class="wtop"><div class="wav">${initials(w.name)}</div><div class="grow"><b>${w.name}</b><span>${esc(roleText(w))} · ${bname(w.branch)}</span></div>${wStatusPill(w)}</div>
     <div class="wstats"><div><span>In hand</span><b>${ROLE2TASK[w.role]?s.act:'—'}</b></div><div><span>Done (month)</span><b>${w.role==='Tailor'?s.doneQ:'—'}</b></div><div><span>${w.pay==='salary'?'Salary':'Pay so far'}</span><b>${sar(s.earn)}</b></div></div>
     ${targetBar(w,s)}
     <div class="att" title="Attendance, last 14 days">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div>
@@ -970,7 +974,7 @@ function workersView(){
 }
 function openWorker(id){
   const w=wk(id),s=wStats(w),os=orders.filter(o=>o.tailor===w.id&&o.st!=='done');
-  const close=drawer(w.name,`<div class="muted" style="font-size:13px">${w.role} · ${bname(w.branch)} branch</div>`,
+  const close=drawer(w.name,`<div class="muted" style="font-size:13px">${esc(roleText(w))} · ${bname(w.branch)}</div>`,
    `<div style="display:flex;gap:8px;flex-wrap:wrap">${wStatusPill(w)||'<span class="pill s-ready">Active</span>'}${iqPill(w)}</div>
     <div class="kv"><div><span>Mobile</span><b style="font-size:13px">${w.phone}</b></div><div><span>Nationality</span><b style="font-family:var(--f-body);font-size:13px">${w.nat}</b></div><div><span>Joined</span><b style="font-size:13px">${fmtY(w.joined)}</b></div>
      <div><span>Pay type</span><b style="font-family:var(--f-body);font-size:13px">${w.pay==='piece'?'Per thobe':w.pay==='target'?'Basic + target':'Monthly salary'}</b></div><div><span>This month</span><b>${sar(s.earn)}</b></div><div><span>Iqama expiry</span><b style="font-size:13px">${w.iqama?fmtY(w.iqama):'—'}</b></div></div>
@@ -1012,6 +1016,7 @@ function workerForm(w){
    `<div class="fgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
      <div class="field" style="grid-column:1/-1"><label for="wName">Full name</label><input id="wName" value="${esc(e.name)}" placeholder="e.g. Imran Ali"></div>
      <div class="field"><label for="wRole">Role</label><select id="wRole">${[...new Set([...(w?[w.role]:[]),...addRoles()])].map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select></div>
+     <div class="field" style="grid-column:1/-1"><label>Also works as <span class="muted" style="font-weight:500">(tick more jobs if he does more than one)</span></label><div class="chips" id="wMore">${WORKSHOP_ROLES.concat(['Cashier']).map(r=>`<label class="chip ${(e.roles||[]).includes(r)?'on':''}" data-mr="${r}"><input type="checkbox" value="${r}" ${(e.roles||[]).includes(r)?'checked':''} style="display:none">${r==='Cutter'?'Cutting':r}</label>`).join('')}</div></div>
      <div class="field"><label for="wBranch">Branch</label><select id="wBranch">${(isOwner()?BRANCHES:BRANCHES.filter(b=>b.id===USER.branch)).map(b=>`<option value="${b.id}" ${b.id===e.branch?'selected':''}>${b.name}</option>`).join('')}</select></div>
      <div class="field"><label for="wPhone">Mobile</label><input id="wPhone" class="num" value="${esc(e.phone)}" placeholder="05xxxxxxxx"></div>
      <div class="field"><label for="wNat">Nationality</label><input id="wNat" value="${esc(e.nat)}"></div>
@@ -1030,9 +1035,12 @@ function workerForm(w){
     $('wRateL').textContent=p==='piece'?'Rate per thobe (SAR)':'Monthly salary (SAR)';
     if(t){const b=+$('wBasic').value||0,tg=+$('wTarget').value||0,c=+$('wComm').value||0,ex=tg+10;
       $('wEx').innerHTML=`<b>Example:</b> if he finishes <b class="num">${ex}</b> pcs this month<br><span class="num">${sar(b)} + (${ex} − ${tg}) × ${c} = <b>${sar(b+10*c)} SAR</b></span><br><span class="muted" style="font-size:12px">Below ${tg} pcs he gets the basic salary only.</span>`}};
+  const moreSync=()=>{const main=$('wRole').value;document.querySelectorAll('#wMore [data-mr]').forEach(l=>{const i=l.querySelector('input');l.hidden=l.dataset.mr===main;if(l.hidden)i.checked=false;l.classList.toggle('on',i.checked)})};
+  document.querySelectorAll('#wMore input').forEach(i=>i.onchange=moreSync);$('wRole').addEventListener('change',moreSync);moreSync();
   ['wPay','wBasic','wTarget','wComm'].forEach(id=>$(id).oninput=sync);$('wPay').onchange=sync;sync();
   $('wSave').onclick=async()=>{const n=$('wName').value.trim();if(!n){toast('Enter the worker\'s name');$('wName').focus();return}
     const t=w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
+    t.roles=[...document.querySelectorAll('#wMore input:checked')].map(i=>i.value).filter(r=>r!==$('wRole').value);
     Object.assign(t,{name:n,role:$('wRole').value,branch:+$('wBranch').value,phone:$('wPhone').value.trim(),nat:$('wNat').value.trim(),pay:$('wPay').value,rate:+$('wRate').value||0,basic:+$('wBasic').value||0,target:+$('wTarget').value||0,comm:+$('wComm').value||0,joined:new Date($('wJoin').value||today),iqama:$('wIq').value?new Date($('wIq').value):null});
     if(!w){if(LIVE){const sb=$('wSave');sb.disabled=true;sb.textContent='Creating login…';try{t.login=jobLogin(t.role);await createStaff(t);if(!workers.some(x=>x.id===t.id))workers.push(t)}catch(e){sb.disabled=false;sb.textContent='Add worker';toast('Could not add: '+(e.code||e.message));return}}else workers.push(t)}close();toast(w?'Changes saved':`${n} added to ${bname(t.branch)}`);if((location.hash||'').slice(1)!=='workers')location.hash='workers';else route();if(!w)workerApp(t,true)};
 }
@@ -1144,23 +1152,27 @@ function till(){
 /* ================= Tailor: My work ================= */
 const ME=()=>(LIVE&&workers.find(w=>w.id===USER.sid))||workers.find(w=>w.name===USER.name)||workers.find(w=>w.role==='Tailor'&&w.branch===USER.branch)||workers.find(w=>w.role==='Tailor');
 function mmLine(o){const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0];return MEAS.filter(([k])=>mVal(p.m,k)!=='').slice(0,4).map(([k,t])=>`<span dir="rtl">${esc(t)}</span> ${esc(mVal(p.m,k))}`).join(' ')||'<span>No measurement yet</span>'}
-function myJobs(w){const k=ROLE2TASK[w.role];if(!k)return[];
+/* the tasks a worker can do (one per job he has) */
+const wTasks=w=>wRoles(w).map(r=>ROLE2TASK[r]).filter(k=>k&&TK[k]);
+function myJobs(w,k){k=k||ROLE2TASK[w.role];if(!k||!TK[k])return[];
   return orders.filter(o=>(pending(o,k)||(k==='sew'&&atTailor(o)))&&(k==='sew'?(o.tailor===w.id||(!workers.some(x=>x.id===o.tailor)&&o.made===w.branch)):(o.made===w.branch&&(!o.tw[k]||o.tw[k]===w.id)))).concat(k==='hinge'?hingeBack(w):[]).sort((a,b)=>a.due-b.due)}
 /* tailor's card after stitching: send for hinge / tatreez / bottom cutting, see where it is, then Ready */
 function tailorBack(o){const ts=TASKS.filter(t=>t.m==='send'&&needs(o,t.k));
   const parts=ts.map(t=>{const v=tv(o,t.k);return v==='done'?`<span class="pill s-ready">${t.t} done</span>`:v==='doing'?`<span class="pill s-cut">At ${t.t.toLowerCase()}</span>`:isSent(o,t.k)?`<span class="pill s-wait">Sent for ${t.t.toLowerCase()}</span>`:canSend(o,t.k)?`<button class="btn pri" data-send="${o.rno}" data-k="${t.k}">Send for ${t.t.toLowerCase()}</button>`:`<span class="pill s-wait">${t.t}: after hinge</span>`});
   const done=allStepsDone(o);
   return parts.join('')+(FLOW_OPT.tready?`<button class="btn ${done?'pri':''}" data-rdy="${o.rno}" ${done?'':'disabled title="Waiting for the other steps"'} style="${done?'background:var(--ok);border-color:var(--ok)':''}">✓ Ready</button>`:'')}
+let myTask='';
 function mywork(){
   const w=ROLE==='tailor'?ME():(workers.find(x=>x.role==='Tailor'&&x.branch===(curBranch||4))||ME());
   if(!w){V('<div class="panel"><div class="empty">Loading your work…</div></div>');return}
-  const k=ROLE2TASK[w.role]||'sew';const s=wStats(w);const jobs=myJobs(w);
+  const tks=wTasks(w);if(!tks.includes(myTask))myTask=tks[0]||'sew';const k=myTask;const s=wStats(w);const jobs=myJobs(w,k);
   V(`<div class="kpis">
     <div class="kpi"><span class="l">Waiting for me</span><span class="v">${jobs.filter(o=>o.t[k]==='wait').reduce((a,o)=>a+o.qty,0)}</span><span class="d muted">${TK[k].t} · ${pl(jobs.length,'job card')}</span></div>
     <div class="kpi"><span class="l">In progress</span><span class="v">${jobs.filter(o=>o.t[k]==='doing').reduce((a,o)=>a+o.qty,0)}</span><span class="d muted">Started, not finished</span></div>
     <div class="kpi"><span class="l">${k==='sew'?'Finished this month':'Done today'}</span><span class="v">${k==='sew'?s.doneQ:prodLog.filter(p=>p.w===w.id&&+p.d===+today).reduce((a,p)=>a+p.qty,0)}<small>pcs</small></span><span class="d ${k==='sew'&&s.doneQ>=w.target?'up':'muted'}">${k==='sew'&&w.pay==='target'?(s.doneQ>=w.target?`Target reached · +${s.extra} extra`:`${w.target-s.doneQ} pcs to target`):w.role}</span></div>
     <a class="kpi" href="#mypay" style="text-decoration:none;color:inherit"><span class="l">My pay this month</span><span class="v">${sar(monthPay(w,ymKey(today)).net)}<small>SAR</small></span><span class="d muted">After deductions · see details ›</span></a></div>
   ${w.pay==='target'&&k==='sew'?`<div class="panel"><div class="panel-b">${targetBar(w,s)}</div></div>`:''}
+  ${tks.length>1?`<div class="seg" id="myTasks">${tks.map(x=>`<button class="${x===k?'on':''}" data-mtk="${x}">${TK[x].t} <span class="num">${myJobs(w,x).length}</span></button>`).join('')}</div>`:''}
   <h2 style="margin:0;font-size:17px">My job cards · ${TK[k].t}</h2>
   ${jobs.map(o=>{const c=cust(o.cid),p=c.profiles[o.profile]||c.profiles[0],d=daysLeft(o);return `<div class="jc">
     <div class="jh"><span class="rid" style="font-size:17px">${ono(o)}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
@@ -1168,6 +1180,7 @@ function mywork(){
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
     <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):k==='hinge'&&tv(o,'hinge')==='done'?`<span class="pill s-ready">Hinge done</span><button class="btn pri" data-send="${o.rno}" data-k="btm">Send for bottom cutting</button>`:`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
+  document.querySelectorAll('[data-mtk]').forEach(b=>b.onclick=()=>{myTask=b.dataset.mtk;mywork()});
   document.querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.send);sendTask(o,b.dataset.k);route()});
   document.querySelectorAll('[data-rdy]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.rdy);markReady(o);route()});
   // the order's JAMEEL sheet (read only), drawn when the card's button is opened

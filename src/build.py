@@ -103,7 +103,7 @@ R("BRANCHES.find(b=>b.id===o.branch).code", "(BRANCHES.find(b=>b.id===o.branch)|
 R("const cust=id=>customers.find(c=>c.id===id);", "const cust=id=>customers.find(c=>c.id===id)||{id:0,name:'—',phone:'',branch:0,profiles:[{name:'Self',m:{}}],hist:[]};")
 R("const wk=id=>workers.find(w=>w.id===id);", "const wk=id=>workers.find(w=>w.id===id)||{id:0,name:'—',role:'',branch:0,att:[],status:'inactive',pay:'salary',rate:0};")
 R("  const o=orders.find(x=>x.rno===rno),c=cust(o.cid),", "  const o=orders.find(x=>x.rno===rno);if(!o)return;const c=cust(o.cid),")
-R("  const k=ROLE2TASK[w.role]||'sew';const s=wStats(w);const jobs=myJobs(w);", "  if(!w){V('<div class=\"panel\"><div class=\"empty\">Loading your work…</div></div>');return}\n  const k=ROLE2TASK[w.role]||'sew';const s=wStats(w);const jobs=myJobs(w);")
+R("  const tks=wTasks(w);if(!tks.includes(myTask))myTask=tks[0]||'sew';", "  if(!w){V('<div class=\"panel\"><div class=\"empty\">Loading your work…</div></div>');return}\n  const tks=wTasks(w);if(!tks.includes(myTask))myTask=tks[0]||'sew';")
 R("try{t.login=jobLogin(t.role);await createStaff(t);workers.push(t)}", "try{t.login=jobLogin(t.role);await createStaff(t);if(!workers.some(x=>x.id===t.id))workers.push(t)}")
 R("try{await createStaff(w);workers.push(w);made++}", "try{await createStaff(w);if(!workers.some(x=>x.id===w.id))workers.push(w);made++}")
 R("return orders.filter(o=>(pending(o,k)||(k==='sew'&&atTailor(o)))&&(k==='sew'?o.tailor===w.id:", "return orders.filter(o=>(pending(o,k)||(k==='sew'&&atTailor(o)))&&(k==='sew'?(o.tailor===w.id||(!workers.some(x=>x.id===o.tailor)&&o.made===w.branch)):")
