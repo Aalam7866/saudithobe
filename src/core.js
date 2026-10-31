@@ -1002,7 +1002,7 @@ function openWorker(id){
   document.querySelectorAll('.drawer [data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r));
 }
 function workerForm(w){
-  const e=w||{name:'',role:addRoles()[0]||'Tailor',branch:isOwner()?(curBranch||1):USER.branch,phone:'',nat:'Pakistan',pay:'target',rate:25,basic:1500,target:60,comm:15,iqama:addD(today,365),joined:today};
+  const e=w||{name:'',role:addRoles()[0]||'Tailor',branch:isOwner()?(curBranch||1):USER.branch,phone:'',nat:'India',pay:'target',rate:25,basic:1500,target:60,comm:15,iqama:addD(today,365),joined:today};
   const close=drawer(w?'Edit worker':'Add worker',`<div class="muted" style="font-size:13px">${w?w.role+' · '+bname(w.branch):'New staff member'}</div>`,
    `<div class="fgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
      <div class="field" style="grid-column:1/-1"><label for="wName">Full name</label><input id="wName" value="${esc(e.name)}" placeholder="e.g. Imran Ali"></div>
