@@ -185,3 +185,23 @@ function printSheet(meas,o,c){
    body{background:#fff;margin:0;padding:6px;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}.jhd{margin-bottom:4px}@page{size:A4 landscape;margin:6mm}</style></head><body>${jHeadHtml(o,c)}<div class="jwrap" style="width:1080px">${html}</div>
    <script>window.onload=()=>setTimeout(()=>print(),500)<\/script></body></html>`);w.document.close();
 }
+
+/* ---------- the order's payments and deliveries, one line each (order drawer) ---------- */
+function payHist(o){
+  const pays=payLog.filter(p=>p.rno===o.rno).sort((a,b)=>a.d-b.d||(a.t==='Deposit'?-1:1)),dels=delLog.filter(x=>x.rno===o.rno).sort((a,b)=>a.d-b.d);
+  const used=new Set(),ev=[];
+  pays.forEach(p=>{let dq=0;if(p.t!=='Deposit'&&p.amt>0){dels.forEach(x=>{if(!used.has(x)&&sameDay(x.d,d0(p.d))){used.add(x);dq+=+x.qty||0}})}
+    ev.push({d:p.d,type:p.amt<0?'Refund':p.t==='Deposit'?'Down payment':dq?'Payment + delivery':'Payment',m:pmName(p),ref:p.ref||'',amt:p.amt,dq,by:p.by||(p.exe?'Shop exe':'')})});
+  dels.filter(x=>!used.has(x)).forEach(x=>ev.push({d:x.d,type:'Delivery only',m:'',ref:'',amt:0,dq:+x.qty||0,by:x.by||''}));
+  ev.sort((a,b)=>a.d-b.d);
+  const listed=Math.round(sumBy(ev,e=>e.amt)*100)/100,gap=Math.round(((+o.paid||0)-listed)*100)/100;
+  const byM={};ev.filter(e=>e.amt>0).forEach(e=>{byM[e.m||'—']=(byM[e.m||'—']||0)+e.amt});
+  const n=ev.filter(e=>e.amt>0).length+(gap>0.5?1:0);
+  const C={'Down payment':'s-info','Payment':'s-ready','Payment + delivery':'s-ready','Delivery only':'s-wait','Refund':'s-late'};
+  return `<div><p class="h4">Payments & deliveries <span class="muted" style="font-weight:500">· ${n?`${n} time${n>1?'s':''} paid`:'no payment yet'}${Object.keys(byM).length?' · '+Object.entries(byM).map(([k,v])=>`${esc(k)} ${sar2(v)}`).join(' + '):''}</span></p>
+   <div class="rows" style="border:1px solid var(--line);border-radius:8px">${ev.map((e,i)=>`<div class="row" style="padding-block:9px;gap:10px"><span class="num muted" style="width:18px">${i+1}</span>
+     <div class="grow"><b style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill ${C[e.type]}">${e.type}</span>${e.m?`<span style="font-weight:500">${esc(e.m)}</span>`:''}</b>
+      <span>${e.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}${e.dq?` · ${e.dq} pcs delivered`:''}${e.ref?' · ref '+esc(e.ref):''}${e.by?' · '+esc(e.by):''}</span></div>
+     ${e.amt?`<b class="num" style="color:${e.amt<0?'var(--bad)':'var(--ok)'}">${e.amt<0?'−':''}${sar2(Math.abs(e.amt))}</b>`:''}</div>`).join('')}
+    ${gap>0.5?`<div class="row" style="padding-block:9px"><span class="num muted" style="width:18px">·</span><div class="grow"><b style="font-weight:500">Earlier payment</b><span>not in the payment list (older than the loaded days, or from the shop's old records)</span></div><b class="num" style="color:var(--ok)">${sar2(gap)}</b></div>`:''}
+    ${!ev.length&&gap<=0.5?'<div class="empty" style="padding:14px">No payments or deliveries yet.</div>':''}</div></div>`}

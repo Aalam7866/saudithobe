@@ -509,6 +509,7 @@ function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.na
   return o.st==='ready'?`Assalamu alaikum ${first},\nYour thobes are ready for pickup at Saudi Thobe, ${bname(o.branch)} branch.\nReceipt no.: ${o.rno}\nBalance due: ${sar(rem)} SAR\nWe look forward to seeing you.`
   :`Assalamu alaikum ${first},\nWe have received your order no. ${o.rno} (${pl(o.qty,'thobe')}) at our ${bname(o.branch)} branch.\nExpected pickup: ${fmtD(o.due)}\nPaid: ${sar(o.paid)} SAR · Balance: ${sar(rem)} SAR`;}
 function openOrder(rno){
+  {const x=orders.find(y=>y.rno===rno);if(x&&typeof ensurePayRange==='function'&&x.created<addD(today,-40))ensurePayRange(x.created)}
   const o=orders.find(x=>x.rno===rno),c=cust(o.cid),i=SI[o.st],rem=o.total-o.paid,prof=c.profiles[o.profile]||c.profiles[0];
   drawer(c.name,`<div class="rid" style="font-size:13px">Receipt ${ono(o)} · ${bname(o.branch)} branch</div>`,
    `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill(o)}<span class="muted num">${c.phone}</span></div>
@@ -516,6 +517,7 @@ function openOrder(rno){
     <div class="kv"><div><span>Thobes</span><b>${o.qty}</b></div><div><span>Ordered</span><b>${fmtD(o.created)}</b></div><div><span>Pickup</span><b>${fmtD(o.due)}</b></div>
      <div><span>Stitched at</span><b style="font-family:var(--f-body);font-size:13px">${o.made===o.branch?'Shop workshop':bname(o.made)}</b></div>
      ${RA().money?`<div><span>Total</span><b>${sar(o.total)}</b></div><div><span>Paid</span><b style="color:var(--ok)">${sar(o.paid)}</b></div><div><span>Balance</span><b style="color:${rem?'var(--bad)':'var(--ok)'}">${sar(rem)}</b></div>`:''}</div>
+    ${RA().money?payHist(o):''}
     <div><p class="h4">Workshop · ${o.made===o.branch?bname(o.made)+' workshop':bname(o.made)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${TASKS.map(t=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="row" style="padding-block:8px"><div class="grow"><b>${t.t}</b><span>${wid?wk(wid).name:'Not assigned yet'}</span></div>${taskPill(o,t.k)}${canTask()&&pending(o,t.k)?`<button class="btn sm" data-tk="${t.k}">${taskBtn(o,t.k)}</button>`:''}</div>`}).join('')}</div></div>
     <div><p class="h4">Tailor</p><div class="row" style="padding:0;border:0"><div class="wav" style="width:36px;height:36px;font-size:14px">${initials(wk(o.tailor).name)}</div><div class="grow"><b>${wk(o.tailor).name}</b><span>${wk(o.tailor).role} · ${bname(wk(o.tailor).branch)}</span></div></div></div>
     ${orderItems(o)}
