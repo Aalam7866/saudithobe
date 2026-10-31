@@ -423,7 +423,7 @@ function lineChart(data){
 
 /* ================= Orders ================= */
 /* Orders: the same columns and filters as the AL THOB exe's Orders page (+ tailor, fabric, made at, branch at the end) */
-const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due'],['ready','Ready'],['done','Delivered'],['late','Late'],['gift','Free gifts']];
+const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due'],['ready','Ready'],['done','Delivered'],['late','Late'],['tdue','Taken with due'],['gift','Free gifts']];
 function oInfo(o){
   const pcs=+o.qty||0,dq=o.st==='done'?pcs:Math.min(pcs,delLog.filter(d=>d.rno===o.rno).reduce((s,d)=>s+(+d.qty||0),0));
   const ps=k=>prodLog.filter(p=>p.rno===o.rno&&p.stage===k).reduce((s,p)=>s+(+p.qty||0),0);
@@ -453,7 +453,7 @@ let oSort={k:'rno',d:-1};
 function ordersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();const money=RA().money;
   const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
-  const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='gift'?!!o.gift:true};
+  const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='tdue'?x.dq>0&&x.due>0.5:f==='gift'?!!o.gift:true};
   const hit=o=>{if(!q)return true;const c=cust(o.cid);return ordMatch(o,q)||(o.bno||'').toLowerCase().includes(q)&&q.length>=4||String(o.cid)===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
   if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
   const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.binvSeq||+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
@@ -484,7 +484,7 @@ function ordersView(){
       <td class="num">${esc(c.phone)}</td>
       <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
       ${money?`<td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num ${x.due>0.5?'tbad':'tok'}">${x.due>0.5?sar(x.due):'—'}</td>`:''}
-      <td><span class="pill ${WHERE_C(x.where)}" title="${esc(x.status)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}</td>
+      <td><span class="pill ${WHERE_C(x.where)}" title="${esc(x.status)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}${x.dq>0&&x.due>0.5?' <span class="pill s-late" title="Thobe taken, money still due">Taken · due</span>':''}</td>
       <td>${bar(x.cut,o.qty)}</td><td>${bar(x.sew,o.qty)}</td><td>${x.hq?bar(x.hd,x.hq):'<span class="muted">—</span>'}</td>
       <td>${o.st==='ready'||o.st==='done'?'<span class="tick">✓</span>':''}</td><td class="r num">${x.dq?x.dq:'<span class="muted">0</span>'}</td>
       ${money?`<td>${o.pm?esc(o.pm):'<span class="muted">—</span>'}</td>`:''}<td>${o.tailor&&wk(o.tailor).id?esc(wk(o.tailor).name):'<span class="muted">—</span>'}</td>

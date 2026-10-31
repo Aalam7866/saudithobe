@@ -426,7 +426,7 @@ function lineChart(data){
 
 /* ================= Orders ================= */
 /* Orders: the same columns and filters as the AL THOB exe's Orders page (+ tailor, fabric, made at, branch at the end) */
-const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due'],['ready','Ready'],['done','Delivered'],['late','Late'],['gift','Free gifts']];
+const OFILTERS=[['all','All orders'],['open','Not delivered'],['due','With due'],['ready','Ready'],['done','Delivered'],['late','Late'],['tdue','Taken with due'],['gift','Free gifts']];
 function oInfo(o){
   const pcs=+o.qty||0,dq=o.st==='done'?pcs:Math.min(pcs,delLog.filter(d=>d.rno===o.rno).reduce((s,d)=>s+(+d.qty||0),0));
   const ps=k=>prodLog.filter(p=>p.rno===o.rno&&p.stage===k).reduce((s,p)=>s+(+p.qty||0),0);
@@ -456,7 +456,7 @@ let oSort={k:'rno',d:-1};
 function ordersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();const money=RA().money;
   const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
-  const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='gift'?!!o.gift:true};
+  const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='tdue'?x.dq>0&&x.due>0.5:f==='gift'?!!o.gift:true};
   const hit=o=>{if(!q)return true;const c=cust(o.cid);return ordMatch(o,q)||(o.bno||'').toLowerCase().includes(q)&&q.length>=4||String(o.cid)===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
   if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
   const val=(o,k)=>{const x=info.get(o.rno),c=cust(o.cid);return k==='rno'?o.rno:k==='inv'?(+o.binvSeq||+o.invoiceNo||0):k==='cust'?c.name.toLowerCase():k==='booked'?+o.created:k==='due'?+o.due:k==='pcs'?o.qty:k==='total'?o.total:k==='paid'?o.paid:k==='bal'?x.due:k==='status'?x.status:o.rno};
@@ -487,7 +487,7 @@ function ordersView(){
       <td class="num">${esc(c.phone)}</td>
       <td class="num">${D(o.created)}</td><td class="num ${lateD?'tbad':''}">${D(o.due)}</td><td class="r num">${o.qty}</td>
       ${money?`<td class="r num">${sar(o.total)}</td><td class="r num">${sar(o.paid)}</td><td class="r num ${x.due>0.5?'tbad':'tok'}">${x.due>0.5?sar(x.due):'—'}</td>`:''}
-      <td><span class="pill ${WHERE_C(x.where)}" title="${esc(x.status)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}</td>
+      <td><span class="pill ${WHERE_C(x.where)}" title="${esc(x.status)}">${esc(x.where)}</span>${x.status==='Late'?' <span class="pill s-late">Late</span>':''}${x.dq>0&&x.due>0.5?' <span class="pill s-late" title="Thobe taken, money still due">Taken · due</span>':''}</td>
       <td>${bar(x.cut,o.qty)}</td><td>${bar(x.sew,o.qty)}</td><td>${x.hq?bar(x.hd,x.hq):'<span class="muted">—</span>'}</td>
       <td>${o.st==='ready'||o.st==='done'?'<span class="tick">✓</span>':''}</td><td class="r num">${x.dq?x.dq:'<span class="muted">0</span>'}</td>
       ${money?`<td>${o.pm?esc(o.pm):'<span class="muted">—</span>'}</td>`:''}<td>${o.tailor&&wk(o.tailor).id?esc(wk(o.tailor).name):'<span class="muted">—</span>'}</td>
@@ -1721,14 +1721,19 @@ function payHist(o){
     ev.push({d:p.d,type:p.amt<0?'Refund':p.t==='Deposit'?'Down payment':dq?'Payment + delivery':'Payment',m:pmName(p),ref:p.ref||'',amt:p.amt,dq,by:p.by||(p.exe?'Shop exe':'')})});
   dels.filter(x=>!used.has(x)).forEach(x=>ev.push({d:x.d,type:'Delivery only',m:'',ref:'',amt:0,dq:+x.qty||0,by:x.by||''}));
   ev.sort((a,b)=>a.d-b.d);
+  // thobes taken while money was still due: the balance left at that moment
+  {const total=+o.total||0,early=Math.max(0,Math.round(((+o.paid||0)-sumBy(ev,e=>e.amt))*100)/100);let paid=early;
+   ev.forEach(e=>{paid+=e.amt;if(e.dq>0){const left=Math.round((total-paid)*100)/100;if(left>0.5){e.dueLeft=left;if(e.type==='Delivery only')e.type='Delivered with due'}}})}
   const listed=Math.round(sumBy(ev,e=>e.amt)*100)/100,gap=Math.round(((+o.paid||0)-listed)*100)/100;
   const byM={};ev.filter(e=>e.amt>0).forEach(e=>{byM[e.m||'—']=(byM[e.m||'—']||0)+e.amt});
   const n=ev.filter(e=>e.amt>0).length+(gap>0.5?1:0);
-  const C={'Down payment':'s-info','Payment':'s-ready','Payment + delivery':'s-ready','Delivery only':'s-wait','Refund':'s-late'};
+  const C={'Down payment':'s-info','Payment':'s-ready','Payment + delivery':'s-ready','Delivery only':'s-wait','Delivered with due':'s-late','Refund':'s-late'};
+  const due=Math.round(((+o.total||0)-(+o.paid||0))*100)/100,taken=oInfo(o).dq;
   return `<div><p class="h4">Payments & deliveries <span class="muted" style="font-weight:500">· ${n?`${n} time${n>1?'s':''} paid`:'no payment yet'}${Object.keys(byM).length?' · '+Object.entries(byM).map(([k,v])=>`${esc(k)} ${sar2(v)}`).join(' + '):''}</span></p>
+   ${taken>0&&due>0.5?`<div class="msg" style="border-color:var(--bad);background:var(--bad-bg);color:var(--bad);margin-bottom:8px;font-weight:600">⚠ Customer took ${taken} of ${o.qty} thobe${o.qty>1?'s':''} but <b>${sar2(due)} SAR</b> is still due · الثوب مستلم والمبلغ متبقي</div>`:''}
    <div class="rows" style="border:1px solid var(--line);border-radius:8px">${ev.map((e,i)=>`<div class="row" style="padding-block:9px;gap:10px"><span class="num muted" style="width:18px">${i+1}</span>
      <div class="grow"><b style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill ${C[e.type]}">${e.type}</span>${e.m?`<span style="font-weight:500">${esc(e.m)}</span>`:''}</b>
-      <span>${e.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}${e.dq?` · ${e.dq} pcs delivered`:''}${e.ref?' · ref '+esc(e.ref):''}${e.by?' · '+esc(e.by):''}</span></div>
+      <span>${e.d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}${e.dq?` · ${e.dq} pcs delivered`:''}${e.dueLeft?` · <b style="color:var(--bad)">${sar2(e.dueLeft)} still due</b>`:''}${e.ref?' · ref '+esc(e.ref):''}${e.by?' · '+esc(e.by):''}</span></div>
      ${e.amt?`<b class="num" style="color:${e.amt<0?'var(--bad)':'var(--ok)'}">${e.amt<0?'−':''}${sar2(Math.abs(e.amt))}</b>`:''}</div>`).join('')}
     ${gap>0.5?`<div class="row" style="padding-block:9px"><span class="num muted" style="width:18px">·</span><div class="grow"><b style="font-weight:500">Earlier payment</b><span>not in the payment list (older than the loaded days, or from the shop's old records)</span></div><b class="num" style="color:var(--ok)">${sar2(gap)}</b></div>`:''}
     ${!ev.length&&gap<=0.5?'<div class="empty" style="padding:14px">No payments or deliveries yet.</div>':''}</div></div>`}
