@@ -2628,9 +2628,12 @@ async function createStaff(w){
   const {initializeApp,getAuth,createUserWithEmailAndPassword,signOut,doc,writeBatch,runTransaction}=fb;
   const {getApps}=fb;
   if(!w.id||(synced.staff.has(String(w.id))&&w.uid))w.id=await nextId('staff');
-  const login=w.login||jobLogin(w.role),key=randKey(),gen=1;
+  const login=w.login||jobLogin(w.role),key=randKey();let gen=Math.max(1,+w.gen||1);
   const a2=getApps().find(a=>a.name==='creator')||initializeApp(FIREBASE_CONFIG,'creator');const au2=getAuth(a2);
-  const cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key);const uid=cred.user.uid;await signOut(au2);
+  // a number used before (a deleted person keeps his old sign-in): take the next login generation, same staff number
+  let cred=null;for(let i=0;i<20&&!cred;i++){try{cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key)}catch(e){if(e.code==='auth/email-already-in-use'){gen++;continue}throw e}}
+  if(!cred)throw new Error('Could not make a new sign-in for this person – try again');
+  const uid=cred.user.uid;await signOut(au2);
   Object.assign(w,{uid,gen,login,pinSet:false,status:w.status||'active'});
   const b=writeBatch(db);
   b.set(doc(db,'staff',String(w.id)),{...plain('staff',w),upd:new Date()},{merge:true});
@@ -2642,9 +2645,10 @@ async function createStaff(w){
 }
 async function resetPin(w){
   const {initializeApp,getAuth,createUserWithEmailAndPassword,signOut,doc,writeBatch,getApps}=fb;
-  const key=randKey(),gen=(w.gen||1)+1;
+  const key=randKey();let gen=(w.gen||1)+1;
   const a2=getApps().find(a=>a.name==='creator')||initializeApp(FIREBASE_CONFIG,'creator');const au2=getAuth(a2);
-  const cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key);await signOut(au2);
+  let cred=null;for(let i=0;i<20&&!cred;i++){try{cred=await createUserWithEmailAndPassword(au2,staffEmail(w.id,gen),key)}catch(e){if(e.code==='auth/email-already-in-use'){gen++;continue}throw e}}
+  if(!cred)throw new Error('Could not make a new sign-in – try again');await signOut(au2);
   const b=writeBatch(db),old=w.uid;w.uid=cred.user.uid;w.gen=gen;w.pinSet=false;
   b.update(doc(db,'staff',String(w.id)),{uid:w.uid,gen,pinSet:false,upd:new Date()});
   if(old)b.delete(doc(db,'uids',old));
