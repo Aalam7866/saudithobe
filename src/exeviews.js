@@ -98,13 +98,15 @@ function shopDash(){
   V(`<div class="rowtools"><button class="btn" id="dashBack">${ico('dash')}Simple dashboard</button><h2 style="margin:0;font-size:17px">Shop dashboard <span class="muted" style="font-weight:500;font-size:13px">· same as AL THOB exe · ${esc(B?bname(B):'All branches')}</span></h2><span class="sp"></span><button class="btn" id="dashPrint">Print</button></div>
   <div class="panel"><div class="panel-b" style="padding:12px 16px">${perBar('dashPer',P)}<div class="muted" style="font-size:12.5px;margin-top:8px">${perLabel(P)} · ${pl(perDays(P),'day')} · tap any box to see the list</div></div></div>
   <p class="h4" style="margin:4px 0 -8px">Money & orders</p>
-  <div class="okpi">
+  ${money?'<div class="okpi c6">':''}
    ${money?T('sales','Sales booked',`${sar(sumBy(booked,o=>o.total))}<small>SAR</small>`,`${pl(booked.length,'order')} · VAT ${sar(vat)}`):''}
    ${money?T('coll','Collected',`${sar(sumBy(coll,p=>p.amt))}<small>SAR</small>`,`${pl(coll.length,'payment')} · all methods`,'okc'):''}
    ${money?T('collD','Collected – down payments',`${sar2(sumBy(coll.filter(p=>p.t==='Deposit'),p=>p.amt))}<small>SAR</small>`,`${pl(coll.filter(p=>p.t==='Deposit').length,'order')} booked`,'okc'):''}
    ${money?T('collU','Collected – due payments',`${sar2(sumBy(coll.filter(p=>p.t!=='Deposit'),p=>p.amt))}<small>SAR</small>`,`${pl(coll.filter(p=>p.t!=='Deposit').length,'payment')} at delivery`,'okc'):''}
    ${money?T('due','All customers due',`${sar(sumBy(dueAll,o=>o.total-o.paid))}<small>SAR</small>`,`${pl(dueAll.length,'order')} unpaid`,'bad'):''}
    ${money?T('ref','Refunds',`${sar(Math.abs(sumBy(refs,p=>p.amt)))}<small>SAR</small>`,pl(refs.length,'refund')):''}
+  ${money?'</div>':''}
+  <div class="okpi c4">
    ${T('orders','Orders / pcs',`${booked.length}<small>/ ${pcs} pcs</small>`,'booked in this period')}
    ${T('open','Not delivered',`${open.length}<small>orders</small>`,`${lateL.length} late`,lateL.length?'bad':'')}
    ${T('hinge','Hinge pcs',`${sumBy(hingeL,o=>+o.hingeQty||o.qty)}`,pl(hingeL.length,'order'))}
