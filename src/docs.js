@@ -236,3 +236,8 @@ function openCustomer(cid){
   if($('cuN'))$('cuN').onclick=()=>{close();location.hash='new';setTimeout(()=>{const x=document.getElementById('fCno');if(x){x.value=c.id;x.onchange&&x.onchange()}},60)};
   if($('cuW'))$('cuW').onclick=()=>{const o=os.find(x=>x.total-x.paid>0.5);const msg=waFill('WA_Due',{name:c.name,order:os.filter(x=>x.total-x.paid>0.5).map(x=>ono(x).replace(/^#/,'')).join(', '),amount:sar2(due)});waOpen(o,'DUE',msg);toast('WhatsApp opened · kept in the Message tracker')};
 }
+
+/* ---------- a search box inside the page (same as the one at the top) ---------- */
+const pgSearch=ph=>`<label class="search pgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pgQ" placeholder="${esc(ph)}" value="${esc(document.getElementById('q').value)}" autocomplete="off" type="search"></label>`;
+function bindPgSearch(){const i=document.getElementById('pgQ');if(!i)return;
+  i.oninput=()=>{const q=document.getElementById('q');q.value=i.value;q.dispatchEvent(new Event('input'));const n=document.getElementById('pgQ');if(n&&n!==i){n.focus();n.setSelectionRange(n.value.length,n.value.length)}}}

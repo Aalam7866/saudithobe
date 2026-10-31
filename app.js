@@ -384,7 +384,7 @@ function dashboard(){
   const PIPE=[...TASKS.map(t=>({k:t.k,t:t.t,n:all.filter(o=>pending(o,t.k)).reduce((s,o)=>s+o.qty,0)})),{k:'ready',t:'Ready for pickup',n:all.filter(o=>o.st==='ready').reduce((s,o)=>s+o.qty,0)}];const mx=Math.max(...PIPE.map(p=>p.n));
   const soon=active.filter(o=>o.st!=='ready').sort((a,b)=>a.due-b.due).slice(0,7);
   V(`${demoNote}
-  ${RA().money?`<div class="rowtools"><span class="sp"></span><button class="btn pri" id="dashExeBtn">${ico('chart')}Shop dashboard (AL THOB)</button></div>`:''}
+  ${RA().money?`<div class="rowtools"><span class="sp"></span>${RA().pay?`<button class="btn" id="dashPay">${ico('cash')}Pay / Deliver</button>`:''}<button class="btn pri" id="dashExeBtn">${ico('chart')}Shop dashboard (AL THOB)</button></div>`:''}
   <div class="kpis">
     <div class="kpi"><span class="l">Orders in progress</span><span class="v">${active.length}<small>orders</small></span><span class="d muted">${active.reduce((s,o)=>s+o.qty,0)} thobes in the workshop</span></div>
     <div class="kpi"><span class="l">Ready for pickup</span><span class="v">${ready.length}<small>orders</small></span><span class="d muted">Waiting for the customer</span></div>
@@ -407,6 +407,7 @@ function dashboard(){
       <div class="panel-b">${lineChart(rev)}</div>
     </div>
   </div>`);
+  const dpy=document.getElementById('dashPay');if(dpy)dpy.onclick=()=>receivePayment(0);
   const dxb=document.getElementById('dashExeBtn');if(dxb)dxb.onclick=()=>{dashExe=true;shopDash();window.scrollTo(0,0)};
   document.querySelectorAll('.stage').forEach(e=>e.onclick=()=>{if(e.dataset.st==='ready'){orderFilter='ready';location.hash='orders'}else location.hash='board'});
   bindRows();
@@ -476,7 +477,7 @@ function ordersView(){
     <div class="otools">
      <div class="seg" role="tablist">${OFILTERS.map(([k,t])=>`<button role="tab" aria-selected="${k===orderFilter}" class="${k===orderFilter?'on':''}" data-of="${k}">${t}<span class="num">${all.filter(o=>pass(o,k)).length}</span></button>`).join('')}</div>
      <span class="sp"></span>
-     <button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
+     ${pgSearch('Order, invoice, name, mobile')}<button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
     </div>
     <div class="tbl-wrap otbl"><table class="ot">
      <thead><tr>${th('rno','Order / Invoice','stk s1')}${th('cust','Customer','stk s2')}<th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
@@ -505,7 +506,7 @@ function ordersView(){
   document.getElementById('oPrint').onclick=()=>{const rs=rowsCsv();const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orders ${dkey2(today)}</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}p{margin:0 0 10px;color:#555}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Orders · ${esc(OFILTERS.find(f=>f[0]===orderFilter)[1])}</h1><p>${esc(curBranch?bname(curBranch):'All branches')} · ${today.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${pl(T.n,'order')}${money?` · total ${sar(T.tot)} SAR · due ${sar(T.due)} SAR`:''}</p><table><thead><tr>${rs[0].map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);
     w.document.close();setTimeout(()=>w.print(),300)};
-  bindRows();
+  bindRows();bindPgSearch();
 }
 function bindRows(){document.querySelectorAll('[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}
 function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.name.split(' ')[0];
@@ -750,7 +751,7 @@ function measurements(){
   const show=list.slice(0,300);
   if(!last.some(o=>o.rno===mOrdSel))mOrdSel=(last.find(o=>oInfo(o).dq<o.qty)||last[0]||{}).rno||0;const mo=last.find(o=>o.rno===mOrdSel)||null;
   V(`<div class="mlay">
-   <div class="panel"><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
+   <div class="panel"><div style="padding:10px 12px 0">${pgSearch('Name, mobile or customer no.')}</div><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
     <div class="clist">${show.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini num" style="font-size:11px">${x.id}</div><div class="grow"><b dir="auto">${esc(x.name)}</b><span>${esc(x.phone)}${jHas((x.profiles[0]||{}).m)?' · 📐':''}</span></div></button>`).join('')}${list.length>show.length?`<div class="muted" style="padding:10px;font-size:12px">Search to find the other ${list.length-show.length}…</div>`:''}</div></div>
    <div class="sec">
     <div class="panel">
@@ -774,7 +775,8 @@ function measurements(){
   jsCur=jSheet(document.getElementById('msHost'),work,{fabrics:fabs,onChange:msN});msN();
   document.getElementById('msZo').onclick=()=>jsCur.zoom(.8);document.getElementById('msZi').onclick=()=>jsCur.zoom(1.25);
   document.getElementById('msFull').onclick=()=>jSheetWindow(`Measurements · ${c.name}`,work,{fabrics:fabs,onDone:m=>{jsCur.load(m)}});
-  document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;measurements()});
+  document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;mOrdSel=0;measurements();const s=document.querySelector('.mlay .sec');if(s&&innerWidth<1000)s.scrollIntoView({behavior:'smooth',block:'start'})});
+  bindPgSearch();
   document.getElementById('mReset').onclick=()=>measurements();
   const mos=document.getElementById('mOrd');if(mos)mos.onchange=()=>{mOrdSel=+mos.value;measurements()};
   document.getElementById('mPrint').onclick=()=>printSheet(mo&&jHas(mo.meas)?mo.meas:work,mo,c);
@@ -849,13 +851,13 @@ function payments(){
     <select id="pBr"><option value="0">All branches</option>${SHOPS().map(b=>`<option value="${b.id}"${b.id===payF.br?' selected':''}>${esc(b.name)}</option>`).join('')}</select>
     <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px">
     <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
-   <div class="tbl-wrap otbl"><table class="ot" style="min-width:1400px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
+   <div class="tbl-wrap otbl"><table class="ot" style="min-width:1520px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th class="r">Down payment</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
     <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
-     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">${onoR(r.rno)}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
-     <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
+     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">${onoR(r.rno)}</span></td><td class="num">${o&&oinv(o)?esc(oinv(o)):'<span class="muted">—</span>'}</td>
+     <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td class="r num">${(()=>{if(r.type==='Down payment')return '<span class="muted">this row</span>';const dp=payLog.filter(p=>p.rno===r.rno&&p.t==='Deposit');const a=dp.reduce((s,p)=>s+(+p.amt||0),0);return a?`<b style="color:var(--ok)">${sar2(a)}</b><small class="sub">${fmtD(dp[0].d)}</small>`:'<span class="muted">—</span>'})()}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
      <td class="r num" style="font-weight:600">${r.amt?sar2(r.amt):'<span class="muted">0</span>'}</td><td>${esc(r.m)}</td><td class="num">${esc(r.ref)}</td><td class="r num">${r.dq||''}</td>
      <td class="r num ${o&&o.total-o.paid>0.5?'tbad':'tok'}">${o?(o.total-o.paid>0.5?sar(o.total-o.paid):'—'):''}</td><td>${bTag(r.branch)} ${bname(r.branch)}</td></tr>`}).join('')}</tbody>
-    ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="7">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
+    ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="8">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
    </table>${rows.length?'':'<div class="empty">No payments in these days.</div>'}</div></div>`);
   const $=id=>document.getElementById(id);
   const apply=()=>{payF.from=new Date($('pFrom').value+'T00:00:00');payF.to=new Date($('pTo').value+'T00:00:00');payF.type=$('pType').value;payF.br=+$('pBr').value;payF.q=$('pQ').value;payments()};
@@ -1525,7 +1527,7 @@ document.getElementById('bellBtn').onclick=bellList;
 document.getElementById('installBtn').onclick=()=>installScreen(null,ROLE);
 document.getElementById('branchSel').onchange=e=>{curBranch=+e.target.value;route()};
 document.getElementById('q').addEventListener('input',()=>{const h=(location.hash||'#dashboard').slice(1);
-  if(h==='customers')customersView();else if(h==='measurements')measurements();else if(h==='workers')workersView();else if(can('orders')){if(h!=='orders'){location.hash='orders';return}ordersView()}});
+  if(h==='customers')customersView();else if(h==='measurements')measurements();else if(h==='workers')workersView();else if(h==='whatsapp')whatsappView();else if(h==='messages')messagesView();else if(can('orders')){if(h!=='orders'){location.hash='orders';return}ordersView()}});
 document.getElementById('themeBtn').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('layer').innerHTML=''});
 addEventListener('hashchange',()=>{document.getElementById('layer').innerHTML='';route()});
@@ -1768,6 +1770,11 @@ function openCustomer(cid){
   if($('cuW'))$('cuW').onclick=()=>{const o=os.find(x=>x.total-x.paid>0.5);const msg=waFill('WA_Due',{name:c.name,order:os.filter(x=>x.total-x.paid>0.5).map(x=>ono(x).replace(/^#/,'')).join(', '),amount:sar2(due)});waOpen(o,'DUE',msg);toast('WhatsApp opened · kept in the Message tracker')};
 }
 
+/* ---------- a search box inside the page (same as the one at the top) ---------- */
+const pgSearch=ph=>`<label class="search pgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pgQ" placeholder="${esc(ph)}" value="${esc(document.getElementById('q').value)}" autocomplete="off" type="search"></label>`;
+function bindPgSearch(){const i=document.getElementById('pgQ');if(!i)return;
+  i.oninput=()=>{const q=document.getElementById('q');q.value=i.value;q.dispatchEvent(new Event('input'));const n=document.getElementById('pgQ');if(n&&n!==i){n.focus();n.setSelectionRange(n.value.length,n.value.length)}}}
+
 /* ================= AL THOB exe-style pages: shop dashboard, daily report (exe + tailoring), worker work by period,
    workshop flow editor. Loaded after core.js, before live.js. ================= */
 
@@ -1865,7 +1872,7 @@ function shopDash(){
     pcs:['Order pieces',booked],cutD:['Cutting finished',booked.filter(o=>I(o).cut>0)],cutR:['Cutting remaining',booked.filter(o=>I(o).cut<o.qty)],sewD:['Stitched',booked.filter(o=>I(o).sew>0)],sewR:['Stitching remaining',booked.filter(o=>I(o).sew<o.qty)],
     delD:['Delivered',booked.filter(o=>I(o).dq>0)],rem:['Remaining to deliver',booked.filter(o=>I(o).dq<o.qty)],early:['From earlier months, not delivered',earlier]};
   const tabs=[['due','Customers with due',new Set(dueAll.map(o=>o.cid)).size],['late','Late deliveries',lateL.length],['plan','Work plan',null],['top','Top 50 customers',null],['hz','Hinge & zip by month',null],...(STOCK.length?[['stock','Low stock',STOCK.filter(s=>(+s.stock||0)<10).length]]:[])];
-  V(`<div class="rowtools"><button class="btn" id="dashBack">${ico('dash')}Simple dashboard</button><h2 style="margin:0;font-size:17px">Shop dashboard <span class="muted" style="font-weight:500;font-size:13px">· same as AL THOB exe · ${esc(B?bname(B):'All branches')}</span></h2><span class="sp"></span><button class="btn" id="dashPrint">Print</button></div>
+  V(`<div class="rowtools"><button class="btn" id="dashBack">${ico('dash')}Simple dashboard</button><h2 style="margin:0;font-size:17px">Shop dashboard <span class="muted" style="font-weight:500;font-size:13px">· same as AL THOB exe · ${esc(B?bname(B):'All branches')}</span></h2><span class="sp"></span>${RA().pay?`<button class="btn pri" id="dashPay2">${ico('cash')}Pay / Deliver</button>`:''}<button class="btn" id="dashPrint">Print</button></div>
   <div class="panel"><div class="panel-b" style="padding:12px 16px">${perBar('dashPer',P)}<div class="muted" style="font-size:12.5px;margin-top:8px">${perLabel(P)} · ${pl(perDays(P),'day')} · tap any box to see the list</div></div></div>
   <p class="h4" style="margin:4px 0 -8px">Money & orders</p>
   ${money?'<div class="okpi c6">':''}
@@ -1898,6 +1905,7 @@ function shopDash(){
   <div class="panel"><div class="panel-h" style="flex-wrap:wrap"><div class="seg" id="dashTabs">${tabs.map(([k,t,n])=>`<button class="${dashTab===k?'on':''}" data-dt="${k}">${t}${n!=null?` <span class="num">${n}</span>`:''}</button>`).join('')}</div></div><div id="dashTabBody"></div></div>`);
   const $=x=>document.getElementById(x);
   $('dashBack').onclick=()=>{dashExe=false;dashboard()};
+  if($('dashPay2'))$('dashPay2').onclick=()=>receivePayment(0);
   perBind('dashPer',P,shopDash);
   document.querySelectorAll('[data-dk]').forEach(t=>{const go=()=>{const k=t.dataset.dk;if(k==='coll')return payListDrawer('Collected · '+perLabel(P),coll);if(k==='collD')return payListDrawer('Collected – down payments · '+perLabel(P),coll.filter(p=>p.t==='Deposit'));if(k==='collU')return payListDrawer('Collected – due payments · '+perLabel(P),coll.filter(p=>p.t!=='Deposit'));if(k==='ref')return payListDrawer('Refunds · '+perLabel(P),refs);const [ti,list]=L[k];orderListDrawer(`${ti} · ${k==='due'||k==='open'||k==='late'?'now':perLabel(P)}`,list.slice().sort((a,b)=>k==='due'?(b.total-b.paid)-(a.total-a.paid):b.created-a.created),money)};t.onclick=go;t.onkeydown=e=>{if(e.key==='Enter')go()}});
   const body=()=>{const el=$('dashTabBody');let h='';
@@ -2152,16 +2160,17 @@ function whatsappView(){
     due:all.filter(o=>o.total-o.paid>0.5).map(o=>({o,kind:'DUE',amt:o.total-o.paid,last:waSent(o,'DUE'),msg:waFill('WA_Due',{name:cust(o.cid).name,order:ono(o).replace(/^#/,''),amount:sar2(o.total-o.paid)})})),
     delay:all.filter(o=>info.get(o.rno).dq<o.qty&&o.st!=='ready'&&daysLeft(o)<=3).map(o=>({o,kind:'DELAY',amt:0,msg:waFill('WA_Delay',{name:cust(o.cid).name,order:ono(o).replace(/^#/,''),day_ar:DAY_AR[waDelay.d.getDay()],date:dmy(waDelay.d),reason_ar:waDelay.why?`\nالسبب: ${waDelay.why}`:'',shop:SHOP.CompanyAr})})),
     custom:(waPick==='open'?all.filter(o=>info.get(o.rno).dq<o.qty):all.filter(o=>daysLeft(o)>-60)).filter((o,i,a)=>a.findIndex(x=>x.cid===o.cid)===i).map(o=>({o,kind:'CUSTOM',amt:0,msg:`السلام عليكم ${cust(o.cid).name}\n${waBody}\n\n${SHOP.CompanyAr}`}))};
-  const L=lists[waTab],left=L.filter(r=>!waDone.has(waTab+r.o.rno));
+  const wq=document.getElementById('q').value.trim().toLowerCase();
+  const L=lists[waTab].filter(r=>!wq||ordMatch(r.o,wq)||cust(r.o.cid).name.toLowerCase().includes(wq)||String(cust(r.o.cid).phone).includes(wq)),left=L.filter(r=>!waDone.has(waTab+r.o.rno));
   V(`<div class="okpi"><div><span>Ready · not sent</span><b>${lists.ready.length}</b><em>thobe ready message</em></div><div class="${lists.due.length?'bad':''}"><span>With due</span><b>${lists.due.length}</b><em>${sar(sumBy(lists.due,r=>r.amt))} SAR</em></div><div><span>Late or due in 3 days</span><b>${lists.delay.length}</b><em>delivery date notice</em></div><div class="okc"><span>Sent today</span><b>${WALOG.filter(w=>sameDay(w.d,today)).length}</b><em>from website and exe</em></div></div>
   <div class="panel"><div class="panel-h" style="flex-wrap:wrap;gap:10px"><div class="seg">${[['ready','Orders ready / الطلبات الجاهزة',lists.ready.length],['due','Due reminders / تذكير بالمستحقات',lists.due.length],['delay','Delivery date changed',lists.delay.length],['custom','Broadcast',lists.custom.length]].map(([k,t,n])=>`<button class="${waTab===k?'on':''}" data-wat="${k}">${t} <span class="num">${n}</span></button>`).join('')}</div>
-   <span class="sp"></span><button class="btn pri" id="waNext" ${left.length?'':'disabled'}>Open next ▶ <span class="num" style="opacity:.8">(${left.length} left)</span></button></div>
+ <span class="sp"></span>${pgSearch('Name, mobile, order')}<button class="btn pri" id="waNext" ${left.length?'':'disabled'}>Open next ▶ <span class="num" style="opacity:.8">(${left.length} left)</span></button></div>
    ${waTab==='delay'?`<div class="panel-b perbar" style="padding:10px 16px"><label class="pfl">New delivery date <input type="date" id="wdD" value="${dkey2(waDelay.d)}"></label><b>${waDelay.d.toLocaleDateString('en-GB',{weekday:'long'})} / ${DAY_AR[waDelay.d.getDay()]}</b>${waDelay.d.getDay()===5?' <span class="pill s-late">Friday</span>':''}<label class="pfl">Reason <input id="wdW" value="${esc(waDelay.why)}" placeholder="optional"></label><label class="pfl"><input type="checkbox" id="wdU" ${waDelay.upd?'checked':''}> also change the delivery date in the order</label></div>`:''}
    ${waTab==='custom'?`<div class="panel-b" style="padding:10px 16px;display:grid;gap:8px"><textarea id="wcT" rows="3" dir="auto" placeholder="Your message · رسالتك" style="border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--ground);color:var(--text);font:inherit">${esc(waBody)}</textarea><div class="seg" style="width:max-content"><button class="${waPick==='open'?'on':''}" data-wp="open">Customers with open orders</button><button class="${waPick==='all'?'on':''}" data-wp="all">Customers of the last 60 days</button></div></div>`:''}
    ${xTable([{t:'Order',f:r=>`<b class="num">${esc(ono(r.o))}</b>`},{t:'Customer',f:r=>`<span dir="auto">${esc(cust(r.o.cid).name)}</span>`},{t:'Mobile',f:r=>`<span class="num">${esc(cust(r.o.cid).phone)}</span>`},{t:'Pcs',r:1,f:r=>r.o.qty},...(waTab==='due'?[{t:'Due',r:1,f:r=>`<b class="tbad">${sar2(r.amt)}</b>`},{t:'Last reminder',f:r=>r.last?dmy(r.last.d):'<span class="tbad">NOT SENT</span>'}]:[]),...(waTab==='delay'?[{t:'Delivery',f:r=>`<span class="${late(r.o)?'tbad':''}">${dmy(r.o.due)}</span>`}]:[]),
      {t:'Message',f:r=>`<span class="muted" dir="rtl" style="display:inline-block;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(r.msg.replace(/\n/g,' '))}</span>`},{t:'',f:r=>waDone.has(waTab+r.o.rno)?'<span class="pill s-ready">Opened</span>':`<button class="btn sm" data-wao="${r.o.rno}">${ico('wa')}Open</button>`}],L,{h:'calc(100vh - 400px)',mw:'980px',empty:'Nobody to message here. 👍'})}
    <div class="panel-b muted" style="font-size:12px">Each click opens one chat in WhatsApp with the message ready – press Send there, then come back and click again. Every message opened is kept in the Message tracker.</div></div>`);
-  document.querySelectorAll('[data-wat]').forEach(b=>b.onclick=()=>{waTab=b.dataset.wat;whatsappView()});
+  document.querySelectorAll('[data-wat]').forEach(b=>b.onclick=()=>{waTab=b.dataset.wat;whatsappView()});bindPgSearch();
   const send=r=>{if(waTab==='custom'&&!waBody.trim()){toast('Write the message first');return}
     if(waOpen(r.o,r.kind,r.msg)){waDone.add(waTab+r.o.rno);if(r.kind==='DELAY'&&waDelay.upd){r.o.due=new Date(waDelay.d)}whatsappView()}};
   document.querySelectorAll('[data-wao]').forEach(b=>b.onclick=()=>send(L.find(r=>r.o.rno===+b.dataset.wao)));
@@ -2187,14 +2196,14 @@ function messagesView(){
   V(`<div class="okpi"><div class="${readyMiss.length?'bad':''} tap" data-mts="ready"><span>Ready · message not sent</span><b>${readyMiss.length}</b><em>${readySent.length} sent</em></div><div class="${dueMiss.length?'bad':''}"><span>Due · never reminded</span><b>${dueMiss.length}</b><em>${sar(sumBy(dueMiss,o=>o.total-o.paid))} SAR</em></div>
    <div class="tap" data-mts="sent"><span>Messages sent</span><b>${logP.length}</b><em>${perLabel(P)}</em></div><div class="tap" data-mts="deliv"><span>Pieces delivered</span><b>${sumBy(delLog.filter(d=>inPer(d.d,P)&&(!curBranch||d.branch===curBranch)),d=>d.qty)}</b><em>${perLabel(P)}</em></div></div>
   <div class="panel"><div class="panel-h" style="flex-wrap:wrap;gap:10px"><div class="seg"><button class="${mtTab==='orders'?'on':''}" data-mtt="orders">Tracker by order / متابعة الطلبات</button><button class="${mtTab==='log'?'on':''}" data-mtt="log">All sent messages / كل الرسائل المرسلة <span class="num">${logP.length}</span></button></div><span class="sp"></span>
-    ${mtTab==='orders'?`<select id="mtS" class="btn sm" style="padding:6px 10px">${[['ready','Ready – not sent first'],['open','All open orders'],['sent','Messages sent (period)'],['deliv','Delivered (period)'],['all','All orders (period)']].map(([k,t])=>`<option value="${k}" ${mtShow===k?'selected':''}>${t}</option>`).join('')}</select>`:''}<button class="btn sm" id="mtCsv">Export CSV</button><a class="btn sm pri" href="#whatsapp">${ico('wa')}WhatsApp</a></div>
+    ${mtTab==='orders'?`<select id="mtS" class="btn sm" style="padding:6px 10px">${[['ready','Ready – not sent first'],['open','All open orders'],['sent','Messages sent (period)'],['deliv','Delivered (period)'],['all','All orders (period)']].map(([k,t])=>`<option value="${k}" ${mtShow===k?'selected':''}>${t}</option>`).join('')}</select>`:''}${pgSearch('Name, mobile, order')}<button class="btn sm" id="mtCsv">Export CSV</button><a class="btn sm pri" href="#whatsapp">${ico('wa')}WhatsApp</a></div>
    <div class="panel-b" style="padding:10px 16px 0">${perBar('mtPer',P)}</div>
    ${mtTab==='orders'?xTable([{t:'Order',f:o=>`<b class="num">${esc(ono(o))}</b>`},{t:'Customer',f:o=>`<span dir="auto">${esc(cust(o.cid).name)}</span>`},{t:'Mobile',f:o=>`<span class="num">${esc(cust(o.cid).phone)}</span>`},{t:'Pcs',r:1,f:o=>o.qty},{t:'Delivered',r:1,f:o=>info.get(o.rno).dq},
       {t:'Status',f:o=>{const x=info.get(o.rno);return `<span class="pill ${WHERE_C(x.where)}">${esc(x.where)}</span>`}},{t:'Ready message',f:o=>o.st==='ready'||info.get(o.rno).dq>0?st(o,'READY'):'—'},{t:'Due',r:1,f:o=>o.total-o.paid>0.5?`<b class="tbad">${sar2(o.total-o.paid)}</b>`:'—'},{t:'Due reminder',f:o=>o.total-o.paid>0.5?st(o,'DUE'):'—'},{t:'Last message',f:o=>`<span class="muted">${lastMsg(o)}</span>`}],
       list.slice(0,600),{attr:o=>`data-lr="${o.rno}"`,h:'calc(100vh - 400px)',mw:'1100px'})
    :xTable([{t:'Date',f:w=>`<span class="num">${esc(w.at||dmy(w.d))}</span>`},{t:'Type',f:w=>`<span class="pill ${w.kind==='READY'?'s-ready':w.kind==='DUE'?'s-late':'s-info'}">${esc(KIND_T[w.kind]||w.kind)}</span>`},{t:'Order',f:w=>`<b class="num">${esc(onoR(w.rno))}</b>`},{t:'Customer',f:w=>`<span dir="auto">${esc(w.cid?cust(w.cid).name:'')}</span>`},{t:'Mobile',f:w=>`<span class="num">${esc(w.mobile||'')}</span>`},{t:'By',f:w=>esc(w.by||'')},{t:'Branch',f:w=>esc(bname(w.branch))}],
-      logP.slice().sort((a,b)=>b.d-a.d||String(b.at).localeCompare(String(a.at))),{h:'calc(100vh - 400px)',mw:'900px',empty:'No messages in this period.'})}</div>`);
-  perBind('mtPer',P,messagesView);
+      logP.filter(w=>!q||String(w.mobile||'').includes(q)||(w.cid&&cust(w.cid).name.toLowerCase().includes(q))||String(onoR(w.rno)).toLowerCase().includes(q)).slice().sort((a,b)=>b.d-a.d||String(b.at).localeCompare(String(a.at))),{h:'calc(100vh - 400px)',mw:'900px',empty:'No messages in this period.'})}</div>`);
+  perBind('mtPer',P,messagesView);bindPgSearch();
   document.querySelectorAll('[data-mtt]').forEach(b=>b.onclick=()=>{mtTab=b.dataset.mtt;messagesView()});
   document.querySelectorAll('[data-mts]').forEach(b=>b.onclick=()=>{mtTab=b.dataset.mts==='sent'?'log':'orders';if(b.dataset.mts!=='sent')mtShow=b.dataset.mts;messagesView()});
   const s=document.getElementById('mtS');if(s)s.onchange=()=>{mtShow=s.value;messagesView()};
@@ -2266,6 +2275,7 @@ const TR_SRC={
  'Pay type':L3('نوع الراتب','वेतन का प्रकार'),'This month':L3('هذا الشهر','इस महीने'),'Joined':L3('تاريخ الانضمام','जुड़ने की तारीख'),'Nationality':L3('الجنسية','राष्ट्रीयता'),'Iqama expiry':L3('انتهاء الإقامة','इक़ामा ख़त्म'),
  'Mark on leave':L3('إجازة','छुट्टी पर'),'Deactivate':L3('إيقاف','बंद करें'),'Block':L3('حظر','ब्लॉक'),'App link':L3('رابط التطبيق','ऐप लिंक'),'Sign in':L3('دخول','लॉगिन'),'Enter':L3('دخول','अंदर जाएँ'),
  'Measurements':L3('المقاسات','नाप'),'Due reminder':L3('تذكير بالمبلغ','बाकी की याद'),'Payments & deliveries':L3('المدفوعات والتسليم','भुगतान और डिलीवरी'),
+ 'Pay / Deliver':L3('دفع / تسليم','भुगतान / डिलीवरी'),'Receive payment / Deliver':L3('استلام دفعة / تسليم','भुगतान लें / डिलीवरी'),'Down payment ':L3('العربون','एडवांस'),
  'Ready · not taken':L3('جاهز · لم يُستلم','तैयार · नहीं ले गया'),'In the workshop':L3('في الورشة','वर्कशॉप में'),
  'Workers\' work':L3('عمل العمال','कारीगरों का काम'),'Attendance · last 14 days':L3('الحضور · آخر ١٤ يوم','हाज़िरी · पिछले 14 दिन'),'Language':L3('اللغة','भाषा'),
 };

@@ -381,7 +381,7 @@ function dashboard(){
   const PIPE=[...TASKS.map(t=>({k:t.k,t:t.t,n:all.filter(o=>pending(o,t.k)).reduce((s,o)=>s+o.qty,0)})),{k:'ready',t:'Ready for pickup',n:all.filter(o=>o.st==='ready').reduce((s,o)=>s+o.qty,0)}];const mx=Math.max(...PIPE.map(p=>p.n));
   const soon=active.filter(o=>o.st!=='ready').sort((a,b)=>a.due-b.due).slice(0,7);
   V(`${demoNote}
-  ${RA().money?`<div class="rowtools"><span class="sp"></span><button class="btn pri" id="dashExeBtn">${ico('chart')}Shop dashboard (AL THOB)</button></div>`:''}
+  ${RA().money?`<div class="rowtools"><span class="sp"></span>${RA().pay?`<button class="btn" id="dashPay">${ico('cash')}Pay / Deliver</button>`:''}<button class="btn pri" id="dashExeBtn">${ico('chart')}Shop dashboard (AL THOB)</button></div>`:''}
   <div class="kpis">
     <div class="kpi"><span class="l">Orders in progress</span><span class="v">${active.length}<small>orders</small></span><span class="d muted">${active.reduce((s,o)=>s+o.qty,0)} thobes in the workshop</span></div>
     <div class="kpi"><span class="l">Ready for pickup</span><span class="v">${ready.length}<small>orders</small></span><span class="d muted">Waiting for the customer</span></div>
@@ -404,6 +404,7 @@ function dashboard(){
       <div class="panel-b">${lineChart(rev)}</div>
     </div>
   </div>`);
+  const dpy=document.getElementById('dashPay');if(dpy)dpy.onclick=()=>receivePayment(0);
   const dxb=document.getElementById('dashExeBtn');if(dxb)dxb.onclick=()=>{dashExe=true;shopDash();window.scrollTo(0,0)};
   document.querySelectorAll('.stage').forEach(e=>e.onclick=()=>{if(e.dataset.st==='ready'){orderFilter='ready';location.hash='orders'}else location.hash='board'});
   bindRows();
@@ -473,7 +474,7 @@ function ordersView(){
     <div class="otools">
      <div class="seg" role="tablist">${OFILTERS.map(([k,t])=>`<button role="tab" aria-selected="${k===orderFilter}" class="${k===orderFilter?'on':''}" data-of="${k}">${t}<span class="num">${all.filter(o=>pass(o,k)).length}</span></button>`).join('')}</div>
      <span class="sp"></span>
-     <button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
+     ${pgSearch('Order, invoice, name, mobile')}<button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
     </div>
     <div class="tbl-wrap otbl"><table class="ot">
      <thead><tr>${th('rno','Order / Invoice','stk s1')}${th('cust','Customer','stk s2')}<th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
@@ -502,7 +503,7 @@ function ordersView(){
   document.getElementById('oPrint').onclick=()=>{const rs=rowsCsv();const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orders ${dkey2(today)}</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}p{margin:0 0 10px;color:#555}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Orders · ${esc(OFILTERS.find(f=>f[0]===orderFilter)[1])}</h1><p>${esc(curBranch?bname(curBranch):'All branches')} · ${today.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${pl(T.n,'order')}${money?` · total ${sar(T.tot)} SAR · due ${sar(T.due)} SAR`:''}</p><table><thead><tr>${rs[0].map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);
     w.document.close();setTimeout(()=>w.print(),300)};
-  bindRows();
+  bindRows();bindPgSearch();
 }
 function bindRows(){document.querySelectorAll('[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}
 function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.name.split(' ')[0];
@@ -747,7 +748,7 @@ function measurements(){
   const show=list.slice(0,300);
   if(!last.some(o=>o.rno===mOrdSel))mOrdSel=(last.find(o=>oInfo(o).dq<o.qty)||last[0]||{}).rno||0;const mo=last.find(o=>o.rno===mOrdSel)||null;
   V(`<div class="mlay">
-   <div class="panel"><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
+   <div class="panel"><div style="padding:10px 12px 0">${pgSearch('Name, mobile or customer no.')}</div><div class="panel-h"><h2>Customers</h2><span class="sp"></span><span class="muted num" style="font-size:12px">${list.length}</span></div>
     <div class="clist">${show.map(x=>`<button class="crow ${x.id===c.id?'on':''}" data-c="${x.id}"><div class="ini num" style="font-size:11px">${x.id}</div><div class="grow"><b dir="auto">${esc(x.name)}</b><span>${esc(x.phone)}${jHas((x.profiles[0]||{}).m)?' · 📐':''}</span></div></button>`).join('')}${list.length>show.length?`<div class="muted" style="padding:10px;font-size:12px">Search to find the other ${list.length-show.length}…</div>`:''}</div></div>
    <div class="sec">
     <div class="panel">
@@ -771,7 +772,8 @@ function measurements(){
   jsCur=jSheet(document.getElementById('msHost'),work,{fabrics:fabs,onChange:msN});msN();
   document.getElementById('msZo').onclick=()=>jsCur.zoom(.8);document.getElementById('msZi').onclick=()=>jsCur.zoom(1.25);
   document.getElementById('msFull').onclick=()=>jSheetWindow(`Measurements · ${c.name}`,work,{fabrics:fabs,onDone:m=>{jsCur.load(m)}});
-  document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;measurements()});
+  document.querySelectorAll('.crow').forEach(b=>b.onclick=()=>{selCust=+b.dataset.c;mOrdSel=0;measurements();const s=document.querySelector('.mlay .sec');if(s&&innerWidth<1000)s.scrollIntoView({behavior:'smooth',block:'start'})});
+  bindPgSearch();
   document.getElementById('mReset').onclick=()=>measurements();
   const mos=document.getElementById('mOrd');if(mos)mos.onchange=()=>{mOrdSel=+mos.value;measurements()};
   document.getElementById('mPrint').onclick=()=>printSheet(mo&&jHas(mo.meas)?mo.meas:work,mo,c);
@@ -846,13 +848,13 @@ function payments(){
     <select id="pBr"><option value="0">All branches</option>${SHOPS().map(b=>`<option value="${b.id}"${b.id===payF.br?' selected':''}>${esc(b.name)}</option>`).join('')}</select>
     <input id="pQ" placeholder="Search: name / order / receipt" value="${esc(payF.q)}" style="min-width:200px">
     <button class="btn sm pri" id="pShow">Show</button><span class="muted" style="font-size:13px"><b>${pl(rows.length,'row')}</b> · Total <b class="num">${sar2(tot)}</b></span></div>
-   <div class="tbl-wrap otbl"><table class="ot" style="min-width:1400px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
+   <div class="tbl-wrap otbl"><table class="ot" style="min-width:1520px"><thead><tr><th class="stk s1">Date</th><th>Receipt</th><th>Order No</th><th>Invoice</th><th>Customer</th><th class="r">Order Total</th><th class="r">Down payment</th><th>Type</th><th>Action</th><th class="r">Amount</th><th>Method</th><th>Reference</th><th class="r">Delivered Qty</th><th class="r">Balance now</th><th>Branch</th></tr></thead>
     <tbody>${rows.map(r=>{const o=orders.find(x=>x.rno===r.rno),c=o?cust(o.cid):null;return `<tr class="click${r.k===payF.sel?' sel':''}" data-pk="${r.k}" tabindex="0">
-     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">${onoR(r.rno)}</span></td><td class="num">${o&&o.invoiceNo?o.invoiceNo:'<span class="muted">—</span>'}</td>
-     <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
+     <td class="stk s1 num">${D(r.d)}</td><td class="num">${r.receipt||'<span class="muted">—</span>'}</td><td><span class="rid">${onoR(r.rno)}</span></td><td class="num">${o&&oinv(o)?esc(oinv(o)):'<span class="muted">—</span>'}</td>
+     <td><b dir="auto">${c?esc(c.name):'—'}</b></td><td class="r num">${o?sar(o.total):'—'}</td><td class="r num">${(()=>{if(r.type==='Down payment')return '<span class="muted">this row</span>';const dp=payLog.filter(p=>p.rno===r.rno&&p.t==='Deposit');const a=dp.reduce((s,p)=>s+(+p.amt||0),0);return a?`<b style="color:var(--ok)">${sar2(a)}</b><small class="sub">${fmtD(dp[0].d)}</small>`:'<span class="muted">—</span>'})()}</td><td>${r.type}</td><td><span class="pill ${r.act==='DELIVER'?'s-ready':'s-cut'}">${r.act}</span></td>
      <td class="r num" style="font-weight:600">${r.amt?sar2(r.amt):'<span class="muted">0</span>'}</td><td>${esc(r.m)}</td><td class="num">${esc(r.ref)}</td><td class="r num">${r.dq||''}</td>
      <td class="r num ${o&&o.total-o.paid>0.5?'tbad':'tok'}">${o?(o.total-o.paid>0.5?sar(o.total-o.paid):'—'):''}</td><td>${bTag(r.branch)} ${bname(r.branch)}</td></tr>`}).join('')}</tbody>
-    ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="7">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
+    ${rows.length?`<tfoot><tr><td class="stk s1">Total</td><td colspan="8">${pl(rows.length,'row')}</td><td class="r num">${sar2(tot)}</td><td colspan="2"></td><td class="r num">${rows.reduce((s,r)=>s+r.dq,0)}</td><td colspan="2"></td></tr></tfoot>`:''}
    </table>${rows.length?'':'<div class="empty">No payments in these days.</div>'}</div></div>`);
   const $=id=>document.getElementById(id);
   const apply=()=>{payF.from=new Date($('pFrom').value+'T00:00:00');payF.to=new Date($('pTo').value+'T00:00:00');payF.type=$('pType').value;payF.br=+$('pBr').value;payF.q=$('pQ').value;payments()};
@@ -1507,7 +1509,7 @@ document.getElementById('bellBtn').onclick=bellList;
 document.getElementById('installBtn').onclick=()=>installScreen(null,ROLE);
 document.getElementById('branchSel').onchange=e=>{curBranch=+e.target.value;route()};
 document.getElementById('q').addEventListener('input',()=>{const h=(location.hash||'#dashboard').slice(1);
-  if(h==='customers')customersView();else if(h==='measurements')measurements();else if(h==='workers')workersView();else if(can('orders')){if(h!=='orders'){location.hash='orders';return}ordersView()}});
+  if(h==='customers')customersView();else if(h==='measurements')measurements();else if(h==='workers')workersView();else if(h==='whatsapp')whatsappView();else if(h==='messages')messagesView();else if(can('orders')){if(h!=='orders'){location.hash='orders';return}ordersView()}});
 document.getElementById('themeBtn').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('layer').innerHTML=''});
 addEventListener('hashchange',()=>{document.getElementById('layer').innerHTML='';route()});

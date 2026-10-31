@@ -95,7 +95,7 @@ function shopDash(){
     pcs:['Order pieces',booked],cutD:['Cutting finished',booked.filter(o=>I(o).cut>0)],cutR:['Cutting remaining',booked.filter(o=>I(o).cut<o.qty)],sewD:['Stitched',booked.filter(o=>I(o).sew>0)],sewR:['Stitching remaining',booked.filter(o=>I(o).sew<o.qty)],
     delD:['Delivered',booked.filter(o=>I(o).dq>0)],rem:['Remaining to deliver',booked.filter(o=>I(o).dq<o.qty)],early:['From earlier months, not delivered',earlier]};
   const tabs=[['due','Customers with due',new Set(dueAll.map(o=>o.cid)).size],['late','Late deliveries',lateL.length],['plan','Work plan',null],['top','Top 50 customers',null],['hz','Hinge & zip by month',null],...(STOCK.length?[['stock','Low stock',STOCK.filter(s=>(+s.stock||0)<10).length]]:[])];
-  V(`<div class="rowtools"><button class="btn" id="dashBack">${ico('dash')}Simple dashboard</button><h2 style="margin:0;font-size:17px">Shop dashboard <span class="muted" style="font-weight:500;font-size:13px">· same as AL THOB exe · ${esc(B?bname(B):'All branches')}</span></h2><span class="sp"></span><button class="btn" id="dashPrint">Print</button></div>
+  V(`<div class="rowtools"><button class="btn" id="dashBack">${ico('dash')}Simple dashboard</button><h2 style="margin:0;font-size:17px">Shop dashboard <span class="muted" style="font-weight:500;font-size:13px">· same as AL THOB exe · ${esc(B?bname(B):'All branches')}</span></h2><span class="sp"></span>${RA().pay?`<button class="btn pri" id="dashPay2">${ico('cash')}Pay / Deliver</button>`:''}<button class="btn" id="dashPrint">Print</button></div>
   <div class="panel"><div class="panel-b" style="padding:12px 16px">${perBar('dashPer',P)}<div class="muted" style="font-size:12.5px;margin-top:8px">${perLabel(P)} · ${pl(perDays(P),'day')} · tap any box to see the list</div></div></div>
   <p class="h4" style="margin:4px 0 -8px">Money & orders</p>
   ${money?'<div class="okpi c6">':''}
@@ -128,6 +128,7 @@ function shopDash(){
   <div class="panel"><div class="panel-h" style="flex-wrap:wrap"><div class="seg" id="dashTabs">${tabs.map(([k,t,n])=>`<button class="${dashTab===k?'on':''}" data-dt="${k}">${t}${n!=null?` <span class="num">${n}</span>`:''}</button>`).join('')}</div></div><div id="dashTabBody"></div></div>`);
   const $=x=>document.getElementById(x);
   $('dashBack').onclick=()=>{dashExe=false;dashboard()};
+  if($('dashPay2'))$('dashPay2').onclick=()=>receivePayment(0);
   perBind('dashPer',P,shopDash);
   document.querySelectorAll('[data-dk]').forEach(t=>{const go=()=>{const k=t.dataset.dk;if(k==='coll')return payListDrawer('Collected · '+perLabel(P),coll);if(k==='collD')return payListDrawer('Collected – down payments · '+perLabel(P),coll.filter(p=>p.t==='Deposit'));if(k==='collU')return payListDrawer('Collected – due payments · '+perLabel(P),coll.filter(p=>p.t!=='Deposit'));if(k==='ref')return payListDrawer('Refunds · '+perLabel(P),refs);const [ti,list]=L[k];orderListDrawer(`${ti} · ${k==='due'||k==='open'||k==='late'?'now':perLabel(P)}`,list.slice().sort((a,b)=>k==='due'?(b.total-b.paid)-(a.total-a.paid):b.created-a.created),money)};t.onclick=go;t.onkeydown=e=>{if(e.key==='Enter')go()}});
   const body=()=>{const el=$('dashTabBody');let h='';
