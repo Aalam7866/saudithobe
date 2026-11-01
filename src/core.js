@@ -1237,7 +1237,8 @@ const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',btm:'Botto
 function monthPay(w,ym){
   const ent=prodLog.filter(p=>p.w===w.id&&ymKey(p.d)===ym).sort((a,b)=>b.d-a.d);
   const qty=ent.reduce((s,p)=>s+(+p.qty||0),0);
-  const ded=[...dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym),...(typeof advCuts==='function'?advCuts(w,ym):[])].sort((a,b)=>b.d-a.d);
+  const all=[...dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym),...(typeof advCuts==='function'?advCuts(w,ym):[])].sort((a,b)=>b.d-a.d);
+  const ded=all.filter(x=>!x.bonus),bon=all.filter(x=>x.bonus),bonT=bon.reduce((s,x)=>s+(+x.amt||0),0); // a bonus is kept in ded with bonus:true
   const dedT=ded.reduce((s,x)=>s+(+x.amt||0),0);
   // a worker with more than one job can have his own target / commission (or rate) for each job: w.rt[role]
   const own=jobRates(w),parts=[];let rest=ent;
@@ -1250,7 +1251,7 @@ function monthPay(w,ym){
   const comm=w.pay==='target'?(parts.length?parts.reduce((s,x)=>s+x.c,0):extra*(+w.comm||0)):0;
   const base=w.pay==='piece'?(parts.length?parts.reduce((s,x)=>s+x.c,0):qty*(+w.rate||0)):w.pay==='target'?(+w.basic||0):(+w.rate||0);
   const earn=base+comm;
-  return{ent,qty,ded,dedT,extra,comm,base,earn,net:earn-dedT,parts};
+  return{ent,qty,ded,dedT,bon,bonT,extra,comm,base,earn,net:earn+bonT-dedT,parts};
 }
 let payYm=ymKey(today),payDay='',payMode='m';
 function mypay(){
@@ -1275,6 +1276,7 @@ function mypay(){
      ${w.pay==='target'?`<div><dt>Basic salary</dt><dd class="num">${sar(w.basic)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>${mp.parts&&mp.parts.length?partsHtml(w,mp)+`<div><dt>Commission total</dt><dd class="num">${sar(mp.comm)} SAR</dd></div>`:`<div><dt>Target</dt><dd class="num">${w.target} pcs</dd></div><div><dt>Commission (${mp.extra} extra × ${w.comm})</dt><dd class="num">${sar(mp.comm)} SAR</dd></div>`}`
       :perPc?`<div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>${mp.parts&&mp.parts.length?partsHtml(w,mp):`<div><dt>Rate</dt><dd class="num">${w.rate} SAR per thobe</dd></div>`}<div><dt>Earned</dt><dd class="num">${sar(mp.base)} SAR</dd></div>`
       :`<div><dt>Monthly salary</dt><dd class="num">${sar(w.rate)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>`}
+     ${mp.bon&&mp.bon.length?mp.bon.map(x=>`<div><dt>Bonus${x.reason?' · '+esc(x.reason):''}</dt><dd class="num" style="color:var(--ok)">+ ${sar(x.amt)} SAR</dd></div>`).join(''):''}
      <div><dt>Deductions</dt><dd class="num" style="color:var(--bad)">${mp.dedT?'− '+sar(mp.dedT):'0'} SAR</dd></div></dl>
      <div class="tot"><div class="big"><span>Net pay</span><span class="num">${sar(mp.net)} SAR</span></div></div></div>
     <p class="muted" style="font-size:12px;margin:8px 0 0">${ym===ymKey(today)?'This month so far – it grows with every piece you finish.':'Whole month.'}</p></div></div>`;
