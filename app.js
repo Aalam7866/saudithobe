@@ -1000,6 +1000,7 @@ function openWorker(id){
       <div><dt>Target</dt><dd class="num">${w.target} pcs</dd></div>
       <div><dt>Extra pieces × commission</dt><dd class="num">${s.extra} × ${w.comm} = ${sar(s.extra*w.comm)} SAR</dd></div></dl>
       <div class="tot"><div class="big"><span>Total</span><span class="num">${sar(s.earn)} SAR</span></div></div></div></div>`:''}
+    ${jobRates(w).length?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Each job · ${ymName(ymKey(today))}</p><div class="slip" style="position:static"><dl>${partsHtml(w,mp)}</dl><div class="tot"><div class="big"><span>${w.pay==='target'?'Basic + commission':'Earned'}</span><span class="num">${sar(mp.earn)} SAR</span></div></div></div></div>`})():''}
     ${canDed(w)?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Deductions · ${ymName(ymKey(today))} <span class="muted" style="font-weight:500">(${sar(mp.dedT)} SAR · net pay ${sar(mp.net)} SAR)</span></p>
       <div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span>${isOwner()?`<button class="btn sm" data-dedx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`:''}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
       <div class="fgrid" style="margin-top:8px;grid-template-columns:120px 1fr 1fr auto;align-items:end"><div class="field"><label for="dAmt">Amount</label><input id="dAmt" type="number" min="1" class="num"></div><div class="field"><label for="dWhy">Reason</label><input id="dWhy" placeholder="Advance, absent, damage…"></div><div class="field"><label for="dDay">Date</label><input id="dDay" type="date" value="${dkey2(today)}"></div><button class="btn" id="dAdd">Add</button></div></div>`})():''}
@@ -1044,6 +1045,7 @@ function workerForm(w){
      <div class="field" data-t><label for="wTarget">Monthly target (pcs)</label><input id="wTarget" type="number" class="num" value="${e.target}"></div>
      <div class="field" data-t><label for="wComm">Extra commission (SAR per pc over target)</label><input id="wComm" type="number" class="num" value="${e.comm}"></div>
      <div class="field" data-t style="grid-column:1/-1"><div class="msg" id="wEx" style="border-color:var(--brass)"></div></div>
+     <div class="field" id="wRtF" style="grid-column:1/-1" hidden><label>Target & commission for each job <span class="muted" style="font-weight:500">(the fields above are for his main job)</span></label><div id="wRt"></div></div>
      <div class="field"><label for="wJoin">Joining date</label><input id="wJoin" type="date" value="${e.joined.toISOString().slice(0,10)}"></div>
      <div class="field"><label for="wIq">Iqama expiry</label><input id="wIq" type="date" value="${e.iqama?e.iqama.toISOString().slice(0,10):''}"></div>
     </div>`,
@@ -1053,16 +1055,27 @@ function workerForm(w){
     $('wRateL').textContent=p==='piece'?'Rate per thobe (SAR)':'Monthly salary (SAR)';
     if(t){const b=+$('wBasic').value||0,tg=+$('wTarget').value||0,c=+$('wComm').value||0,ex=tg+10;
       $('wEx').innerHTML=`<b>Example:</b> if he finishes <b class="num">${ex}</b> pcs this month<br><span class="num">${sar(b)} + (${ex} − ${tg}) × ${c} = <b>${sar(b+10*c)} SAR</b></span><br><span class="muted" style="font-size:12px">Below ${tg} pcs he gets the basic salary only.</span>`}};
+  const rt={...(e.rt||{})};
+  const rtDraw=()=>{const p=$('wPay').value,main=$('wRole').value;
+    document.querySelectorAll('#wRt [data-rr]').forEach(i=>{rt[i.dataset.rr]={...(rt[i.dataset.rr]||{}),[i.dataset.rk]:+i.value||0}});
+    const js=[...document.querySelectorAll('#wMore input:checked')].map(i=>i.value).filter(r=>r!==main&&ROLE2TASK[r]);
+    const show=js.length&&(p==='target'||p==='piece');$('wRtF').hidden=!show;if(!show){$('wRt').innerHTML='';return}
+    const f=(r,k,l)=>`<div class="field"><label>${l}</label><input type="number" class="num" data-rr="${r}" data-rk="${k}" value="${rt[r]&&rt[r][k]!=null?rt[r][k]:(k==='target'?+$('wTarget').value||0:k==='comm'?+$('wComm').value||0:+$('wRate').value||0)}"></div>`;
+    $('wRt').innerHTML=`<div style="display:grid;gap:8px">`+[main].concat(js).map((r,i)=>i===0
+      ?`<div class="muted" style="font-size:12.5px"><b>${esc(jobT(r))}</b> (main job): ${p==='target'?`target ${+$('wTarget').value||0} pcs · ${+$('wComm').value||0} SAR/pc over target`:`${+$('wRate').value||0} SAR per thobe`}</div>`
+      :`<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:end"><b style="padding-bottom:10px">${esc(jobT(r))}</b>${p==='target'?f(r,'target','Target (pcs)')+f(r,'comm','SAR/pc over target'):f(r,'rate','SAR per thobe')+'<span></span>'}</div>`).join('')+`<div class="muted" style="font-size:12px">The basic salary is paid once. Each job's pieces count against that job's own target.</div></div>`};
   let photo=e.photo||'';
   $('wPh').onchange=ev=>photoFrom(ev.target.files[0],u=>{photo=u;$('wPhV').innerHTML=wAv({name:$('wName').value,photo},72)});
   if($('wPhX'))$('wPhX').onclick=()=>{photo='';$('wPhV').innerHTML=wAv({name:$('wName').value},72);$('wPhX').remove()};
   const moreSync=()=>{const main=$('wRole').value;document.querySelectorAll('#wMore [data-mr]').forEach(l=>{const i=l.querySelector('input');l.hidden=l.dataset.mr===main;if(l.hidden)i.checked=false;l.classList.toggle('on',i.checked)})};
-  document.querySelectorAll('#wMore input').forEach(i=>i.onchange=moreSync);$('wRole').addEventListener('change',moreSync);moreSync();
+  document.querySelectorAll('#wMore input').forEach(i=>i.onchange=()=>{moreSync();rtDraw()});$('wRole').addEventListener('change',()=>{moreSync();rtDraw()});moreSync();
+  ['wPay','wTarget','wComm','wRate'].forEach(id=>$(id).addEventListener('change',rtDraw));rtDraw();
   if(!isOwner()&&ROLE==='manager'&&myFac()){$('wBranch').disabled=true;if(!w){const fb=()=>{$('wBranch').value=String(WORKSHOP_ROLES.includes($('wRole').value)?myFac():USER.branch)};$('wRole').addEventListener('change',fb);fb()}}
   ['wPay','wBasic','wTarget','wComm'].forEach(id=>$(id).oninput=sync);$('wPay').onchange=sync;sync();
   $('wSave').onclick=async()=>{const n=$('wName').value.trim();if(!n){toast('Enter the worker\'s name');$('wName').focus();return}
     const t=(w&&workers.find(x=>x.id===w.id))||w||{id:Math.max(0,...workers.filter(x=>!x.exeEmp&&x.id<100000).map(x=>x.id))+1,status:'active',mdone:0,att:Array.from({length:14},(_,k)=>addD(today,k-13).getDay()===5?'o':'p')};
     t.roles=[...document.querySelectorAll('#wMore input:checked')].map(i=>i.value).filter(r=>r!==$('wRole').value);
+    rtDraw();const rk=Object.keys(rt).filter(r=>t.roles.includes(r)&&ROLE2TASK[r]);t.rt=rk.length?Object.fromEntries(rk.map(r=>[r,rt[r]])):null;
     t.photo=photo;if($('wFac'))t.fac=+$('wFac').value||0;
     Object.assign(t,{name:n,role:$('wRole').value,branch:+$('wBranch').value,phone:$('wPhone').value.trim(),nat:$('wNat').value.trim(),pay:$('wPay').value,rate:+$('wRate').value||0,basic:+$('wBasic').value||0,target:+$('wTarget').value||0,comm:+$('wComm').value||0,joined:new Date($('wJoin').value||today),iqama:$('wIq').value?new Date($('wIq').value):null});
     if(!w){if(LIVE){const sb=$('wSave');sb.disabled=true;sb.textContent='Creating login…';try{t.login=jobLogin(t.role);await createStaff(t);if(!workers.some(x=>x.id===t.id))workers.push(t)}catch(e){sb.disabled=false;sb.textContent='Add worker';toast('Could not add: '+(e.code||e.message));return}}else workers.push(t)}close();toast(w?'Changes saved':`${n} added to ${bname(t.branch)}`);if((location.hash||'').slice(1)!=='workers')location.hash='workers';else route();if(!w)workerApp(t,true)};
@@ -1215,6 +1228,12 @@ function mywork(){
 /* ================= Worker: my work & pay (by month / by date) ================= */
 const ymKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 const ymName=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'})};
+/* the extra workshop jobs of a worker that have their own target / commission */
+const jobRates=w=>(w.pay==='target'||w.pay==='piece')?wRoles(w).filter(r=>r!==w.role&&ROLE2TASK[r]&&w.rt&&w.rt[r]).map(r=>[r,w.rt[r]]):[];
+const jobT=r=>r==='Cutter'?'Cutting':r;
+const partsHtml=(w,mp)=>mp.parts&&mp.parts.length?mp.parts.map(x=>w.pay==='target'
+  ?`<div><dt>${esc(jobT(x.role))}: ${x.qty} pcs · target ${x.target} · ${x.extra} extra × ${x.comm}</dt><dd class="num">${sar(x.c)} SAR</dd></div>`
+  :`<div><dt>${esc(jobT(x.role))}: ${x.qty} pcs × ${x.rate}</dt><dd class="num">${sar(x.c)} SAR</dd></div>`).join(''):'';
 const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',btm:'Bottom cutting',iron:'Ironing'};
 /* one worker's month: his work entries, pay (per thobe / salary / basic + target + commission) and deductions */
 function monthPay(w,ym){
@@ -1222,11 +1241,18 @@ function monthPay(w,ym){
   const qty=ent.reduce((s,p)=>s+(+p.qty||0),0);
   const ded=dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym).sort((a,b)=>b.d-a.d);
   const dedT=ded.reduce((s,x)=>s+(+x.amt||0),0);
-  const extra=w.pay==='target'?Math.max(0,qty-(+w.target||0)):0;
-  const comm=w.pay==='target'?extra*(+w.comm||0):0;
-  const base=w.pay==='piece'?qty*(+w.rate||0):w.pay==='target'?(+w.basic||0):(+w.rate||0);
+  // a worker with more than one job can have his own target / commission (or rate) for each job: w.rt[role]
+  const own=jobRates(w),parts=[];let rest=ent;
+  for(const [r,x] of own){const k=ROLE2TASK[r],e2=rest.filter(p=>p.stage===k);rest=rest.filter(p=>p.stage!==k);
+    const q=e2.reduce((s,p)=>s+(+p.qty||0),0),ex=w.pay==='target'?Math.max(0,q-(+x.target||0)):0;
+    parts.push({role:r,qty:q,target:+x.target||0,comm:+x.comm||0,rate:+x.rate||0,extra:ex,c:w.pay==='target'?ex*(+x.comm||0):w.pay==='piece'?q*(+x.rate||0):0})}
+  const qMain=rest.reduce((s,p)=>s+(+p.qty||0),0);
+  if(parts.length){const ex=w.pay==='target'?Math.max(0,qMain-(+w.target||0)):0;parts.unshift({role:w.role,qty:qMain,target:+w.target||0,comm:+w.comm||0,rate:+w.rate||0,extra:ex,c:w.pay==='target'?ex*(+w.comm||0):w.pay==='piece'?qMain*(+w.rate||0):0})}
+  const extra=w.pay==='target'?(parts.length?parts.reduce((s,x)=>s+x.extra,0):Math.max(0,qty-(+w.target||0))):0;
+  const comm=w.pay==='target'?(parts.length?parts.reduce((s,x)=>s+x.c,0):extra*(+w.comm||0)):0;
+  const base=w.pay==='piece'?(parts.length?parts.reduce((s,x)=>s+x.c,0):qty*(+w.rate||0)):w.pay==='target'?(+w.basic||0):(+w.rate||0);
   const earn=base+comm;
-  return{ent,qty,ded,dedT,extra,comm,base,earn,net:earn-dedT};
+  return{ent,qty,ded,dedT,extra,comm,base,earn,net:earn-dedT,parts};
 }
 let payYm=ymKey(today),payDay='',payMode='m';
 function mypay(){
@@ -1248,8 +1274,8 @@ function mypay(){
   const slip=`<div class="panel"><div class="panel-h"><h2>My pay · ${ymName(ym)}</h2></div><div class="panel-b">
     ${w.pay==='target'?targetBar(w,{doneQ:mp.qty,extra:mp.extra}):''}
     <div class="slip" style="position:static;margin-top:10px"><dl>
-     ${w.pay==='target'?`<div><dt>Basic salary</dt><dd class="num">${sar(w.basic)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div><div><dt>Target</dt><dd class="num">${w.target} pcs</dd></div><div><dt>Commission (${mp.extra} extra × ${w.comm})</dt><dd class="num">${sar(mp.comm)} SAR</dd></div>`
-      :perPc?`<div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div><div><dt>Rate</dt><dd class="num">${w.rate} SAR per thobe</dd></div><div><dt>Earned</dt><dd class="num">${sar(mp.base)} SAR</dd></div>`
+     ${w.pay==='target'?`<div><dt>Basic salary</dt><dd class="num">${sar(w.basic)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>${mp.parts&&mp.parts.length?partsHtml(w,mp)+`<div><dt>Commission total</dt><dd class="num">${sar(mp.comm)} SAR</dd></div>`:`<div><dt>Target</dt><dd class="num">${w.target} pcs</dd></div><div><dt>Commission (${mp.extra} extra × ${w.comm})</dt><dd class="num">${sar(mp.comm)} SAR</dd></div>`}`
+      :perPc?`<div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>${mp.parts&&mp.parts.length?partsHtml(w,mp):`<div><dt>Rate</dt><dd class="num">${w.rate} SAR per thobe</dd></div>`}<div><dt>Earned</dt><dd class="num">${sar(mp.base)} SAR</dd></div>`
       :`<div><dt>Monthly salary</dt><dd class="num">${sar(w.rate)} SAR</dd></div><div><dt>Pieces done</dt><dd class="num">${mp.qty} pcs</dd></div>`}
      <div><dt>Deductions</dt><dd class="num" style="color:var(--bad)">${mp.dedT?'− '+sar(mp.dedT):'0'} SAR</dd></div></dl>
      <div class="tot"><div class="big"><span>Net pay</span><span class="num">${sar(mp.net)} SAR</span></div></div></div>
