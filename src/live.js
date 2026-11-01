@@ -6,17 +6,17 @@
    make to them is written back by flush() (field-level diff, so two people editing the
    same order at once do not overwrite each other).
    ===================================================================================== */
-const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,items:STOCK,emb:EMBL,purch:PURCH,walog:WALOG};
+const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,adv:advLog,items:STOCK,emb:EMBL,purch:PURCH,walog:WALOG};
 const KEY={items:x=>String(x.code),emb:x=>String(x.code),branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
-const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded']);
+const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded','adv']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
 let fb=null,app=null,db=null,auth=null,ME_UID=null,writing=0;
 const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const randKey=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('');
 const pinPass=(sid,pin)=>`ST#${pin}#${sid}#thobe`;
 const staffEmail=(sid,gen)=>`s${sid}g${gen}@saudithobe.men`;
-const JOB_LOGIN={'Branch manager':'manager',Cashier:'cashier',Measurement:'measure'};
+const JOB_LOGIN={'Branch manager':'manager',Cashier:'cashier',Measurement:'measure',Accountant:'accountant'};
 const jobLogin=j=>JOB_LOGIN[j]||'tailor';
 const SITE=location.origin.startsWith('http')?location.origin:'https://saudithobe.men';
 
@@ -56,7 +56,7 @@ async function doFlush(){
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
-    if(col==='ded'||((col==='payments'||col==='deliveries')&&ROLE==='owner'))for(const id of [...synced[col].keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,col,id));synced[col].delete(id)}
+    if(col==='ded'||col==='adv'||((col==='payments'||col==='deliveries')&&ROLE==='owner'))for(const id of [...synced[col].keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,col,id));synced[col].delete(id)}
   }
 }
 async function createOrder(o){
@@ -144,7 +144,7 @@ function normalize(col,x){
     if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
   if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
   if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
-  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'||col==='purch'||col==='walog'){if(!(x.d instanceof Date))x.d=today}
+  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'||col==='adv'||col==='purch'||col==='walog'){if(!(x.d instanceof Date))x.d=today}
   return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
@@ -182,7 +182,7 @@ function startListeners(){
   // the shop's fabric stock and embroidery list (sent by the AL THOB exe; read-only here)
   sub('items',collection(db,'items'));
   sub('emb',collection(db,'emb'));
-  if(ROLE==='owner'||ROLE==='manager'){sub('purch',collection(db,'purch'));sub('walog',query(collection(db,'walog'),where('d','>=',since(120))))}
+  if(ROLE==='owner'||ROLE==='manager'||ROLE==='accountant'){sub('purch',collection(db,'purch'));sub('walog',query(collection(db,'walog'),where('d','>=',since(120))))}
   sub('orders',query(collection(db,'orders'),where('created','>=',since(150))));
   sub('orders',query(collection(db,'orders'),where('st','in',['cut','sew','ready'])));
   sub('payments',query(collection(db,'payments'),where('d','>=',since(45))));
@@ -192,9 +192,11 @@ function startListeners(){
   if(worker)sub('prod',query(collection(db,'prod'),where('w','==',USER.sid)));
   else sub('prod',query(collection(db,'prod'),where('d','>=',since(45))));
   // salary deductions: the owner all, a manager / supervisor his branch, a worker only his own
-  if(ROLE==='owner')sub('ded',collection(db,'ded'));
-  else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
-  else if(ROLE==='manager'||isFactoryLogin()){sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));if(USER.fac)sub('ded',query(collection(db,'ded'),where('branch','==',USER.fac)))}
+  // advances (adv) follow the same rule
+  for(const c of ['ded','adv']){
+  if(ROLE==='owner'||ROLE==='accountant')sub(c,collection(db,c));
+  else if(worker)sub(c,query(collection(db,c),where('sid','==',USER.sid)));
+  else if(ROLE==='manager'||isFactoryLogin()){sub(c,query(collection(db,c),where('branch','==',USER.branch)));if(USER.fac)sub(c,query(collection(db,c),where('branch','==',USER.fac)))}}
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
   // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices

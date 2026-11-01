@@ -45,7 +45,7 @@ function applyFlow(){
   Object.keys(TK).forEach(k=>delete TK[k]);TASKS.forEach(t=>TK[t.k]=t);
   const used=r=>{const k=ROLE2TASK[r];return !k||on.some(f=>f.k===k)};
   WORKSHOP_ROLES.length=0;WORKSHOP_ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing'].filter(used));
-  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Measurement','Cashier','Branch manager','Factory supervisor'].filter(used));
+  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Measurement','Cashier','Branch manager','Factory supervisor','Accountant'].filter(used));
 }
 applyFlow();
 /* all the steps this order needs are done (main steps + the ones the tailor sends) */
@@ -266,6 +266,7 @@ const ROUTES=[
  {h:'measurements',t:'Measurements',s:'Measure',i:'tape'},
  {h:'customers',t:'Customers',s:'Customers',i:'users'},
  {h:'payments',t:'Payments',s:'Payments',i:'cash',g:'Business'},
+ {h:'salary',t:'Salaries & advances',s:'Salaries',i:'cash'},
  {h:'workers',t:'Workers',s:'Workers',i:'worker'},
  {h:'branches',t:'Branches & factories',s:'Branches',i:'branch'},
  {h:'daily',t:'Daily report',s:'Daily',i:'cal'},
@@ -281,7 +282,7 @@ const ROUTES=[
 /* ================= Logins (5 roles) ================= */
 const ACCESS={
  owner:{no:1,label:'Owner · Admin',name:'Owner',icon:'crown',branch:0,lock:false,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
+   pages:['dashboard','daily','orders','new','measurements','customers','payments','salary','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
    can:['Every branch and factory','Daily report: sales, payments, tailoring','Add branches, factories and workers','Only owner can block, deactivate or delete workers']},
  manager:{no:2,label:'Branch manager',name:'Faisal Al-Harthi',icon:'branch',branch:1,lock:true,home:'dashboard',money:true,pay:true,stage:true,
    pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers','reports','stock','whatsapp','messages','board'],tabs:['dashboard','daily','orders','new','workers'],
@@ -294,19 +295,22 @@ const ACCESS={
    can:['Find a receipt fast','Take deposits and balances','Hand over ready thobes','Today\'s cash and card total']},
  tailor:{no:5,label:'Tailor & factory',name:'Ghulam Rasool',icon:'needle',branch:4,lock:true,home:'mywork',money:false,pay:false,stage:true,
    pages:['mywork','mypay'],tabs:['mywork','mypay'],
-   can:['Only his own job cards with measurements','Move his thobes to the next stage','His own daily work report, by month or by date','His salary, target, commission and deductions']}};
+   can:['Only his own job cards with measurements','Move his thobes to the next stage','His own daily work report, by month or by date','His salary, target, commission and deductions']},
+ accountant:{no:6,label:'Accountant',name:'Rashid Khan',icon:'cash',branch:0,lock:false,home:'salary',money:true,pay:true,stage:false,
+   pages:['salary','dashboard','daily','payments','workers','reports','stock','orders','customers'],tabs:['salary','dashboard','daily','payments','workers'],
+   can:['Every branch and factory: money only','Salary sheet of each month: earned, advance cuts, deductions, net pay','Give advances and set how much is cut each month','Add deductions for any month, print and CSV']}};
 const USERS=[
  {role:'owner',name:'Owner',branch:0},
  {role:'manager',name:'Faisal Al-Harthi',branch:1},{role:'manager',name:'Turki Al-Dawsari',branch:2},{role:'manager',name:'Majed Al-Ghamdi',branch:3},
  {role:'measure',name:'Yasir Mahmood',branch:1},{role:'measure',name:'Sohail Ahmed',branch:2},{role:'measure',name:'Arshad Mehmood',branch:3},
  {role:'cashier',name:'Imran Ali',branch:1},{role:'cashier',name:'Kamal Hassan',branch:2},{role:'cashier',name:'Hani Al-Sharif',branch:3},
- {role:'tailor',name:'Ghulam Rasool',branch:4},{role:'tailor',name:'Abu Ahmed',branch:1},{role:'tailor',name:'Javed Akhtar',branch:2},{role:'tailor',name:'Bilal Qureshi',branch:3}];
-let ROLE='owner',USER=DEMO?USERS[0]:{role:'owner',name:'',branch:0};const RA=()=>({...ACCESS[ROLE],name:USER.name,branch:USER.branch});
+ {role:'accountant',name:'Rashid Khan',branch:0},{role:'tailor',name:'Ghulam Rasool',branch:4},{role:'tailor',name:'Abu Ahmed',branch:1},{role:'tailor',name:'Javed Akhtar',branch:2},{role:'tailor',name:'Bilal Qureshi',branch:3}];
+let ROLE='owner',USER=DEMO?USERS[0]:{role:'owner',name:'',branch:0};const RA=()=>({...ACCESS[ROLE],name:USER.name,branch:ROLE==='accountant'?0:USER.branch});
 const can=h=>RA().pages.includes(h);
 const isOwner=()=>ROLE==='owner';
 const isFactoryLogin=()=>ROLE==='tailor'&&isFac(USER.branch)&&(DEMO||USER.job==='Factory supervisor');
 const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?(myFac()?['Measurement','Cashier',...WORKSHOP_ROLES]:['Measurement','Cashier']):[];
-const canDed=w=>isOwner()||(ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac())))||(isFactoryLogin()&&w.branch===USER.branch);
+const canDed=w=>isOwner()||ROLE==='accountant'||(ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac())))||(isFactoryLogin()&&w.branch===USER.branch);
 const managesW=w=>ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac()))||isFactoryLogin()&&w.branch===USER.branch;
 const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&(w.role==='Cashier'||w.role==='Measurement'))||(ROLE==='manager'&&myFac()&&w.branch===myFac()&&WORKSHOP_ROLES.includes(w.role));
 const wStatusPill=w=>({leave:'<span class="pill s-cut">On leave</span>',inactive:'<span class="pill s-done">Inactive</span>',blocked:'<span class="pill s-late">Blocked</span>'}[w.status]||'');
@@ -385,7 +389,7 @@ function route(){
   drawNav(r.h);document.getElementById('title').textContent=r.t;
   const b=BRANCHES.find(x=>x.id===curBranch);
   document.getElementById('subtitle').textContent=(b?`${b.name}${b.type==='factory'?'':' branch'} · `:'All branches · ')+today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
+  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,salary:salaryView,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
   if(ROLE!=='owner'){const a=RA();document.getElementById('view').insertAdjacentHTML('afterbegin',`<div class="rolebar">${ico(a.icon)}<span>Signed in as <b>${a.name}</b> · ${a.label}${a.branch?' · '+bname(a.branch):''}. ${a.lock?'Locked to this '+(isFac(a.branch)?'factory':'branch')+'.':''} ${a.money?'':'Prices and cash are hidden for this login.'}</span></div>`);document.querySelectorAll('.rolebar svg').forEach(x=>{x.style.width='18px';x.style.color='var(--brass)'})}
   window.scrollTo(0,0);
 }
@@ -1002,7 +1006,7 @@ function openWorker(id){
       <div class="tot"><div class="big"><span>Total</span><span class="num">${sar(s.earn)} SAR</span></div></div></div></div>`:''}
     ${jobRates(w).length?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Each job · ${ymName(ymKey(today))}</p><div class="slip" style="position:static"><dl>${partsHtml(w,mp)}</dl><div class="tot"><div class="big"><span>${w.pay==='target'?'Basic + commission':'Earned'}</span><span class="num">${sar(mp.earn)} SAR</span></div></div></div></div>`})():''}
     ${canDed(w)?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Deductions · ${ymName(ymKey(today))} <span class="muted" style="font-weight:500">(${sar(mp.dedT)} SAR · net pay ${sar(mp.net)} SAR)</span></p>
-      <div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span>${isOwner()?`<button class="btn sm" data-dedx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`:''}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
+      <div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span>${(isOwner()||ROLE==='accountant')&&dedLog.indexOf(x)>=0?`<button class="btn sm" data-dedx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`:''}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
       <div class="fgrid" style="margin-top:8px;grid-template-columns:120px 1fr 1fr auto;align-items:end"><div class="field"><label for="dAmt">Amount</label><input id="dAmt" type="number" min="1" class="num"></div><div class="field"><label for="dWhy">Reason</label><input id="dWhy" placeholder="Advance, absent, damage…"></div><div class="field"><label for="dDay">Date</label><input id="dDay" type="date" value="${dkey2(today)}"></div><button class="btn" id="dAdd">Add</button></div></div>`})():''}
     ${(isOwner()||managesW(w))&&okW(w)?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">Today</b>${w.att[13]==='a'?'<span class="pill s-late">Absent</span>':'<span class="pill s-ready">Present</span>'}<button class="btn sm" id="attW">${w.att[13]==='a'?'Mark present':'Mark absent'}</button></div>`:''}
     <div><p class="h4">Attendance · last 14 days <span class="muted" style="font-weight:500">(${s.absent} absent)</span></p><div class="att">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div><p class="muted" style="font-size:11.5px;margin:6px 0 0">Green present · red absent · grey Friday</p></div>
@@ -1239,7 +1243,7 @@ const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',btm:'Botto
 function monthPay(w,ym){
   const ent=prodLog.filter(p=>p.w===w.id&&ymKey(p.d)===ym).sort((a,b)=>b.d-a.d);
   const qty=ent.reduce((s,p)=>s+(+p.qty||0),0);
-  const ded=dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym).sort((a,b)=>b.d-a.d);
+  const ded=[...dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym),...(typeof advCuts==='function'?advCuts(w,ym):[])].sort((a,b)=>b.d-a.d);
   const dedT=ded.reduce((s,x)=>s+(+x.amt||0),0);
   // a worker with more than one job can have his own target / commission (or rate) for each job: w.rt[role]
   const own=jobRates(w),parts=[];let rest=ent;
@@ -1433,7 +1437,7 @@ const LINKROLES=[['manager','Branch manager'],['measure','Measurement'],['cashie
 const linkFor=(b,r)=>`https://${DOMAIN}/${slug(b)}/${{manager:'manager',measure:'measurement',cashier:'cashier',tailor:'workshop'}[r]}`;
 function qrInto(el,text){try{if(typeof QRCode!=='undefined'){new QRCode(el,{text,width:160,height:160,correctLevel:QRCode.CorrectLevel.M});return}}catch(e){}el.innerHTML='<span class="muted" style="font-size:11px;text-align:center">QR</span>'}
 function branchLinks(b,fresh){
-  if(LIVE){const ppl=workers.filter(w=>(w.branch===b.id||+w.fac===b.id)&&['manager','measure','cashier','tailor'].includes(w.login||jobLogin(w.role)));
+  if(LIVE){const ppl=workers.filter(w=>(w.branch===b.id||+w.fac===b.id)&&['manager','measure','cashier','tailor','accountant'].includes(w.login||jobLogin(w.role)));
     drawer(fresh?`${b.name} is ready`:`${b.name} links`,`<div class="muted" style="font-size:13px">${fresh?'Send each person their own link.':`${b.code} · ${b.city}`}</div>`,
      `<div class="msg" style="border-color:var(--brass)">Each person opens <b>their own link</b>, sets a PIN, and can install it as their own app. A first-time link works only until the PIN is set.</div>
       <div class="links">${ppl.map(w=>`<div class="lk"><div class="qr" id="qrp_${w.id}"></div><div style="min-width:0"><b>${esc(w.name)}</b><span class="muted" style="font-size:12px">${esc(w.role)}${w.pinSet?' · PIN set':' · waiting for first sign in'}</span><span class="url">${esc(wLink(w))}</span>
@@ -2366,6 +2370,160 @@ function messagesView(){
     :csvOut('whatsapp_log',[['Date','Type','Order','Customer','Mobile','By','Message'],...logP.map(w=>[w.at||dmy(w.d),KIND_T[w.kind]||w.kind,onoR(w.rno),w.cid?cust(w.cid).name:'',w.mobile,w.by||'',w.msg||''])]);
 }
 
+/* ================= Accountant: salaries, advances, monthly deductions =================
+   advance (collection adv): {sid, branch, d, amt, reason, by, plan:{'2026-11':200,'2026-12':200}}
+   plan = how much is cut from his salary in each month; those cuts count as deductions in monthPay(). */
+const advLog=[];
+const isAcct=()=>ROLE==='accountant';
+const canMoney=()=>isOwner()||isAcct();
+const ymDate=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1)};
+const ymAdd=(ym,n)=>{const d=ymDate(ym);return ymKey(new Date(d.getFullYear(),d.getMonth()+n,1))};
+const advOf=sid=>advLog.filter(a=>a.sid===sid);
+const advCut=(a,ym)=>+((a.plan||{})[ym])||0;
+const advPlanned=a=>Object.values(a.plan||{}).reduce((s,v)=>s+(+v||0),0);
+const advPaid=(a,upTo=ymKey(today))=>Object.entries(a.plan||{}).filter(([k])=>k<=upTo).reduce((s,[,v])=>s+(+v||0),0);
+const advBal=(a,upTo)=>Math.max(0,(+a.amt||0)-advPaid(a,upTo));
+function advCuts(w,ym){return advOf(w.id).filter(a=>advCut(a,ym)>0).map(a=>({sid:w.id,branch:w.branch,d:ymDate(ym),amt:advCut(a,ym),reason:`Advance repayment (taken ${fmtD(a.d)})`,by:a.by||'',adv:a}))}
+function advSummary(w){const L=advOf(w.id),ym=ymKey(today);
+  const total=sumBy(L,a=>a.amt),paid=sumBy(L,a=>Math.min(+a.amt||0,advPaid(a)));
+  return{list:L,total,paid,bal:Math.max(0,total-paid),now:sumBy(L,a=>advCut(a,ym)),next:sumBy(L,a=>advCut(a,ymAdd(ym,1))),unplanned:sumBy(L,a=>Math.max(0,(+a.amt||0)-advPlanned(a)))}}
+// equal cuts from a start month until the advance is covered
+function makePlan(amt,per,start){const p={};let left=+amt||0,ym=start,i=0;per=+per||0;if(per<=0)return p;while(left>0&&i<60){const c=Math.min(per,left);p[ym]=c;left-=c;ym=ymAdd(ym,1);i++}return p}
+const monthOpts=(sel,back=12,fwd=12)=>{const o=[];for(let i=-back;i<=fwd;i++)o.push(ymAdd(ymKey(today),i));return o.map(m=>`<option value="${m}" ${m===sel?'selected':''}>${ymName(m)}</option>`).join('')};
+
+if(DEMO){const t=workers.filter(w=>w.role==='Tailor').slice(5,8),ym=ymKey(today);
+  t.forEach((w,i)=>advLog.push({sid:w.id,branch:w.branch,d:addD(today,-(20+i*15)),amt:[1500,800,600][i],reason:['Family need','Iqama renewal','Ticket'][i],by:'Owner',plan:makePlan([1500,800,600][i],[500,200,300][i],ymAdd(ym,i?-1:0))}))}
+
+/* ---------- Salaries & advances page (owner + accountant) ---------- */
+let salYm=ymKey(today),salTab='sheet';
+function salRows(ym){return W().filter(w=>okW(w)||w.status==='leave').map(w=>{const mp=monthPay(w,ym);const a=sumBy(mp.ded.filter(x=>x.adv),x=>x.amt);return{w,mp,adv:a,oth:mp.dedT-a}})}
+function salaryView(){
+  const ym=salYm,R=salRows(ym);
+  const T={earn:sumBy(R,r=>r.mp.earn),adv:sumBy(R,r=>r.adv),oth:sumBy(R,r=>r.oth),net:sumBy(R,r=>r.mp.net)};
+  const advAll=advLog.filter(a=>W().some(w=>w.id===a.sid)),out=sumBy(advAll,a=>advBal(a));
+  const tab=(k,t)=>`<button class="${salTab===k?'on':''}" data-st="${k}">${t}</button>`;
+  let body='';
+  if(salTab==='sheet')body=xTable([
+     {t:'Worker',f:r=>`<div style="display:flex;gap:8px;align-items:center">${wAv(r.w,30)}<div><b>${esc(r.w.name)}</b><div class="muted" style="font-size:11.5px">${esc(roleText(r.w))}</div></div></div>`},
+     {t:'Branch',f:r=>esc(bname(r.w.branch))},
+     {t:'Pay type',f:r=>esc(payLabel(r.w))},
+     {t:'Pcs',r:1,f:r=>r.mp.qty},
+     {t:'Earned',r:1,f:r=>sar(r.mp.earn)},
+     {t:'Advance cut',r:1,f:r=>r.adv?`<span class="tbad">− ${sar(r.adv)}</span>`:'—'},
+     {t:'Other deductions',r:1,f:r=>r.oth?`<span class="tbad">− ${sar(r.oth)}</span>`:'—'},
+     {t:'Net pay',r:1,f:r=>`<b>${sar(r.mp.net)}</b>`},
+     {t:'Advance left',r:1,f:r=>{const s=advSummary(r.w);return s.bal?sar(s.bal):'—'}}],
+    R,{attr:r=>`data-sw="${r.w.id}"`,mw:'980px',foot:['Total','','',sumBy(R,r=>r.mp.qty),sar(T.earn),'− '+sar(T.adv),'− '+sar(T.oth),sar(T.net),sar(out)],empty:'No workers.'});
+  else if(salTab==='adv')body=xTable([
+     {t:'Worker',f:a=>{const w=workers.find(x=>x.id===a.sid);return `<b>${esc(w?w.name:'#'+a.sid)}</b>`}},
+     {t:'Taken',f:a=>fmtL(a.d)},{t:'Reason',f:a=>esc(a.reason||'')},
+     {t:'Amount',r:1,f:a=>sar(a.amt)},{t:'Recovered',r:1,f:a=>sar(Math.min(+a.amt||0,advPaid(a)))},{t:'Left',r:1,f:a=>`<b>${sar(advBal(a))}</b>`},
+     {t:'Cut plan',f:a=>{const e=Object.entries(a.plan||{}).sort();return e.length?`<span style="font-size:12px">${e.map(([k,v])=>`<span class="${k===ymKey(today)?'pill s-cut':k<ymKey(today)?'muted':''}" style="white-space:nowrap">${ymName(k).slice(0,3)} ${k.slice(2,4)}: ${sar(v)}</span>`).join(' · ')}</span>`:'<span class="tbad">No plan</span>'}}],
+    advAll.slice().sort((a,b)=>b.d-a.d),{attr:a=>`data-av="${advLog.indexOf(a)}"`,mw:'900px',empty:'No advances.'});
+  else{const D=dedLog.filter(x=>ymKey(x.d)===ym&&W().some(w=>w.id===x.sid)).sort((a,b)=>b.d-a.d);
+    body=xTable([{t:'Worker',f:x=>{const w=workers.find(y=>y.id===x.sid);return `<b>${esc(w?w.name:'#'+x.sid)}</b>`}},{t:'Date',f:x=>fmtL(x.d)},{t:'Reason',f:x=>esc(x.reason||'')},{t:'By',f:x=>esc(x.by||'')},{t:'Amount',r:1,f:x=>`<span class="tbad">− ${sar(x.amt)}</span>`},
+      {t:'',f:x=>`<button class="btn sm" data-dx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`}],D,{empty:'No deductions this month.',foot:['Total','','','',`− ${sar(sumBy(D,x=>x.amt))}`,'']})}
+  V(`<div class="panel"><div class="panel-h" style="flex-wrap:wrap;gap:8px"><h2>Salaries & advances</h2><span class="sp"></span>
+      <label class="pfl">Month <select id="salYm">${monthOpts(ym,23,2)}</select></label>
+      <button class="btn" id="salAdv">${ico('plus')} Advance</button><button class="btn" id="salDed">${ico('plus')} Deduction</button>
+      <button class="btn" id="salPrint">Print</button><button class="btn" id="salCsv">CSV</button></div>
+     <div class="okpi" style="margin:4px 0 12px"><div><span>Workers</span><b>${R.length}</b></div><div><span>Earned</span><b>${sar(T.earn)}</b><em>SAR · ${ymName(ym)}</em></div><div><span>Advance cuts</span><b class="tbad">${sar(T.adv)}</b></div><div><span>Other deductions</span><b class="tbad">${sar(T.oth)}</b></div><div><span>Net to pay</span><b>${sar(T.net)}</b><em>SAR</em></div><div><span>Advances outstanding</span><b>${sar(out)}</b><em>${pl(advAll.filter(a=>advBal(a)>0).length,'advance')}</em></div></div>
+     <div class="seg" style="margin-bottom:10px">${tab('sheet','Salary sheet')}${tab('adv','Advances')}${tab('ded','Deductions')}</div>
+     ${body}<p class="muted" style="font-size:12px;margin:8px 0 0">Tap a worker to set his advance cuts and deductions month by month.</p></div>`);
+  const $=id=>document.getElementById(id);
+  $('salYm').onchange=e=>{salYm=e.target.value;salaryView()};
+  document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{salTab=b.dataset.st;salaryView()});
+  document.querySelectorAll('[data-sw]').forEach(r=>r.onclick=()=>salDrawer(+r.dataset.sw));
+  document.querySelectorAll('[data-av]').forEach(r=>r.onclick=()=>{const a=advLog[+r.dataset.av];if(a)salDrawer(a.sid)});
+  document.querySelectorAll('[data-dx]').forEach(b=>b.onclick=e=>{e.stopPropagation();const i=+b.dataset.dx;if(i<0)return;const x=dedLog[i];dedLog.splice(i,1);toast(`Deduction removed (${sar(x.amt)} SAR)`);salaryView()});
+  $('salAdv').onclick=()=>advForm();$('salDed').onclick=()=>dedForm();
+  const lines=()=>R.map(r=>[r.w.name,roleText(r.w),bname(r.w.branch),payLabel(r.w),r.mp.qty,sar(r.mp.earn),r.adv?sar(r.adv):'',r.oth?sar(r.oth):'',sar(r.mp.net),sar(advSummary(r.w).bal)||'']);
+  const head=['Worker','Job','Branch','Pay type','Pcs','Earned','Advance cut','Deductions','Net pay','Advance left'];
+  $('salCsv').onclick=()=>csvOut(`salary-${ym}`,[head,...lines()]);
+  $('salPrint').onclick=()=>printRep(`Salary sheet · ${ymName(ym)}`,`${curBranch?bname(curBranch):'All branches'} · printed ${fmtL(today)} by ${USER.name||''}`,
+    pTiles([['Workers',R.length],['Earned',sar(T.earn)],['Advance cuts',sar(T.adv)],['Other deductions',sar(T.oth)],['Net to pay',sar(T.net)]])+pTable(head,lines(),['Total','','','',sumBy(R,r=>r.mp.qty),sar(T.earn),sar(T.adv),sar(T.oth),sar(T.net),sar(out)],[4,5,6,7,8,9]));
+}
+
+/* one worker: pay of the month, his advances with the month-by-month cut plan, and deductions */
+function salDrawer(sid,ym=salYm){
+  const w=workers.find(x=>x.id===sid);if(!w)return;const mp=monthPay(w,ym),s=advSummary(w);
+  const oth=mp.ded.filter(x=>!x.adv);
+  const close=drawer(esc(w.name),`<div class="muted" style="font-size:13px">${esc(roleText(w))} · ${esc(bname(w.branch))} · ${esc(payLabel(w))}</div>`,
+   `<div class="okpi"><div><span>Earned · ${ymName(ym)}</span><b>${sar(mp.earn)}</b></div><div><span>Deductions</span><b class="tbad">${sar(mp.dedT)}</b></div><div><span>Net pay</span><b>${sar(mp.net)}</b></div><div><span>Advance left</span><b>${sar(s.bal)}</b><em>of ${sar(s.total)}</em></div></div>
+    <div><p class="h4">Advances</p>${s.list.length?s.list.map(a=>{const i=advLog.indexOf(a);const ks=Object.keys(a.plan||{}).sort();const from=ks[0]||ymKey(today);
+      const months=[];for(let k=0;k<Math.max(6,ks.length?(ymDiff(from,ks[ks.length-1])+2):6);k++)months.push(ymAdd(from,k));
+      return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>${sar(a.amt)} SAR</b><span class="muted">taken ${fmtL(a.d)}${a.reason?' · '+esc(a.reason):''}${a.by?' · by '+esc(a.by):''}</span><span class="sp" style="flex:1"></span><span>Left <b>${sar(advBal(a))}</b></span></div>
+       <div class="fgrid" style="grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:6px;margin-top:8px">${months.map(m=>`<div class="field"><label style="font-size:11.5px">${ymName(m)}${m===ymKey(today)?' ·now':''}</label><input type="number" min="0" class="num" data-ap="${i}" data-am="${m}" value="${advCut(a,m)||''}" placeholder="0"></div>`).join('')}</div>
+       <div class="muted" style="font-size:12px;margin-top:6px" id="apInfo${i}">Planned ${sar(advPlanned(a))} of ${sar(a.amt)} SAR${advPlanned(a)<a.amt?` · <span class="tbad">${sar(a.amt-advPlanned(a))} not planned yet</span>`:''}</div>
+       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="number" min="1" class="num" id="apPer${i}" placeholder="SAR / month" style="width:120px"><select id="apFrom${i}">${monthOpts(from,6,12)}</select><button class="btn sm" data-aplan="${i}">Fill plan</button><span class="sp" style="flex:1"></span>${isOwner()?`<button class="btn sm" data-adel="${i}" style="color:var(--bad)">Delete advance</button>`:''}</div></div>`}).join(''):'<div class="empty" style="padding:12px">No advance taken.</div>'}
+     <button class="btn sm" id="sdAdv">${ico('plus')} New advance</button></div>
+    <div><p class="h4">Deductions · ${ymName(ym)}</p><div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num tbad" style="font-weight:600">− ${sar(x.amt)}</span>${x.adv?'':`<button class="btn sm" data-sdx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
+     <div class="fgrid" style="margin-top:8px;grid-template-columns:110px 1fr 150px auto;align-items:end"><div class="field"><label for="sdAmt">Amount</label><input id="sdAmt" type="number" min="1" class="num"></div><div class="field"><label for="sdWhy">Reason</label><input id="sdWhy" placeholder="Absent, damage, fine…"></div><div class="field"><label for="sdYm">Month</label><select id="sdYm">${monthOpts(ym,6,12)}</select></div><button class="btn" id="sdAdd">Add</button></div></div>`,
+   `<button class="btn pri" id="sdSave">Save cut plan</button><button class="btn" id="sdClose">Close</button>`);
+  const $=id=>document.getElementById(id);
+  const readPlans=()=>{document.querySelectorAll('[data-ap]').forEach(i=>{const a=advLog[+i.dataset.ap];if(!a)return;a.plan={...(a.plan||{})};const v=+i.value||0;if(v>0)a.plan[i.dataset.am]=v;else delete a.plan[i.dataset.am]})};
+  document.querySelectorAll('[data-ap]').forEach(i=>i.oninput=()=>{const a=advLog[+i.dataset.ap];const tot=sumBy([...document.querySelectorAll(`[data-ap="${i.dataset.ap}"]`)],x=>x.value);
+    $('apInfo'+i.dataset.ap).innerHTML=`Planned ${sar(tot)} of ${sar(a.amt)} SAR${tot<a.amt?` · <span class="tbad">${sar(a.amt-tot)} not planned yet</span>`:tot>a.amt?` · <span class="tbad">${sar(tot-a.amt)} more than the advance</span>`:''}`});
+  document.querySelectorAll('[data-aplan]').forEach(b=>b.onclick=()=>{const i=+b.dataset.aplan,a=advLog[i],per=+$('apPer'+i).value||0;if(per<=0){toast('Write how much to cut each month');return}
+    readPlans();const start=$('apFrom'+i).value;const keep=Object.fromEntries(Object.entries(a.plan||{}).filter(([k])=>k<start));const left=(+a.amt||0)-Object.values(keep).reduce((s,v)=>s+v,0);
+    a.plan={...keep,...makePlan(left,per,start)};toast('Plan filled');salDrawer(sid,ym)});
+  document.querySelectorAll('[data-adel]').forEach(b=>b.onclick=()=>{const i=+b.dataset.adel;if(!confirmTwice(b))return;advLog.splice(i,1);toast('Advance deleted');salDrawer(sid,ym);if(location.hash==='#salary')salaryView()});
+  document.querySelectorAll('[data-sdx]').forEach(b=>b.onclick=()=>{const i=+b.dataset.sdx;if(i<0)return;dedLog.splice(i,1);toast('Deduction removed');salDrawer(sid,ym)});
+  $('sdAdd').onclick=()=>{const a=+$('sdAmt').value||0,why=$('sdWhy').value.trim(),m=$('sdYm').value;if(a<=0){toast('Enter the amount');return}if(!why){toast('Write the reason');return}
+    readPlans();dedLog.push({sid:w.id,branch:w.branch,d:m===ymKey(today)?new Date(today):ymDate(m),amt:a,reason:why,by:USER.name||'Owner'});toast(`${sar(a)} SAR deducted · ${ymName(m)}`);salDrawer(sid,ym)};
+  $('sdAdv').onclick=()=>{readPlans();advForm(w.id)};
+  $('sdSave').onclick=()=>{readPlans();toast('Saved');close();if((location.hash||'').slice(1)==='salary')salaryView()};
+  $('sdClose').onclick=()=>{close();if((location.hash||'').slice(1)==='salary')salaryView()};
+}
+const ymDiff=(a,b)=>{const x=ymDate(a),y=ymDate(b);return (y.getFullYear()-x.getFullYear())*12+y.getMonth()-x.getMonth()};
+function confirmTwice(b){if(b.dataset.sure)return true;b.dataset.sure=1;b.textContent='Tap again to delete';setTimeout(()=>{delete b.dataset.sure},4000);return false}
+const wOpts=sel=>W().filter(w=>okW(w)||w.status==='leave').sort((a,b)=>a.name.localeCompare(b.name)).map(w=>`<option value="${w.id}" ${w.id===sel?'selected':''}>${esc(w.name)} · ${esc(w.role)} · ${esc(bname(w.branch))}</option>`).join('');
+
+/* new advance: amount, date, reason and how much to cut each month */
+function advForm(sid){
+  const close=drawer('New advance','<div class="muted" style="font-size:13px">Money given to a worker before salary. It is cut from his salary month by month.</div>',
+   `<div class="fgrid"><div class="field" style="grid-column:1/-1"><label for="avW">Worker</label><select id="avW">${wOpts(sid)}</select></div>
+    <div class="field"><label for="avAmt">Advance amount (SAR)</label><input id="avAmt" type="number" min="1" class="num"></div>
+    <div class="field"><label for="avD">Date given</label><input id="avD" type="date" value="${dkey2(today)}"></div>
+    <div class="field" style="grid-column:1/-1"><label for="avWhy">Reason</label><input id="avWhy" placeholder="Family need, ticket, iqama…"></div>
+    <div class="field"><label for="avPer">Cut each month (SAR)</label><input id="avPer" type="number" min="1" class="num"></div>
+    <div class="field"><label for="avFrom">Start cutting from</label><select id="avFrom">${monthOpts(ymKey(today),0,12)}</select></div>
+    <div class="field" style="grid-column:1/-1"><div class="msg" id="avPrev" style="border-color:var(--brass)">Write the amount and the monthly cut to see the plan.</div></div></div>`,
+   `<button class="btn pri" id="avSave">Save advance</button>`);
+  const $=id=>document.getElementById(id);
+  const prev=()=>{const p=makePlan($('avAmt').value,$('avPer').value,$('avFrom').value),e=Object.entries(p);
+    $('avPrev').innerHTML=e.length?`<b>${e.length} month${e.length>1?'s':''}:</b> ${e.map(([k,v])=>`${ymName(k)} <b class="num">${sar(v)}</b>`).join(' · ')}<br><span class="muted" style="font-size:12px">You can change any month later from Salaries & advances.</span>`:'Write the amount and the monthly cut to see the plan.'};
+  ['avAmt','avPer'].forEach(i=>$(i).oninput=prev);$('avFrom').onchange=prev;
+  $('avSave').onclick=()=>{const w=workers.find(x=>x.id===+$('avW').value),amt=+$('avAmt').value||0;if(!w){toast('Choose the worker');return}if(amt<=0){toast('Enter the amount');return}
+    advLog.push({sid:w.id,branch:w.branch,d:new Date(($('avD').value||dkey2(today))+'T00:00:00'),amt,reason:$('avWhy').value.trim(),by:USER.name||'Owner',plan:makePlan(amt,$('avPer').value,$('avFrom').value)});
+    toast(`Advance ${sar(amt)} SAR · ${w.name}`);close();if((location.hash||'').slice(1)==='salary')salaryView();else salDrawer(w.id)};
+}
+
+/* deduction for one month, or the same amount for several months */
+function dedForm(sid){
+  const close=drawer('Add deduction','<div class="muted" style="font-size:13px">Cut from salary: absent days, damage, fine, room rent…</div>',
+   `<div class="fgrid"><div class="field" style="grid-column:1/-1"><label for="dfW">Worker</label><select id="dfW">${wOpts(sid)}</select></div>
+    <div class="field"><label for="dfAmt">Amount each month (SAR)</label><input id="dfAmt" type="number" min="1" class="num"></div>
+    <div class="field"><label for="dfYm">Month</label><select id="dfYm">${monthOpts(salYm,6,12)}</select></div>
+    <div class="field" style="grid-column:1/-1"><label for="dfWhy">Reason</label><input id="dfWhy" placeholder="Absent 2 days, damaged fabric, room rent…"></div>
+    <div class="field"><label for="dfN">Repeat for</label><select id="dfN">${[1,2,3,4,5,6,9,12].map(n=>`<option value="${n}">${n===1?'This month only':n+' months'}</option>`).join('')}</select></div></div>`,
+   `<button class="btn pri" id="dfSave">Save</button>`);
+  const $=id=>document.getElementById(id);
+  $('dfSave').onclick=()=>{const w=workers.find(x=>x.id===+$('dfW').value),a=+$('dfAmt').value||0,why=$('dfWhy').value.trim(),n=+$('dfN').value||1;
+    if(!w){toast('Choose the worker');return}if(a<=0){toast('Enter the amount');return}if(!why){toast('Write the reason');return}
+    for(let k=0;k<n;k++){const m=ymAdd($('dfYm').value,k);dedLog.push({sid:w.id,branch:w.branch,d:m===ymKey(today)?new Date(today):ymDate(m),amt:a,reason:why+(n>1?` (${k+1}/${n})`:''),by:USER.name||'Owner'})}
+    toast(`${sar(a)} SAR deducted${n>1?` × ${n} months`:''} · ${w.name}`);close();if((location.hash||'').slice(1)==='salary')salaryView()};
+}
+
+/* worker's own app: his advance */
+const _mypayAcct=mypay;mypay=function(){_mypayAcct();
+  const w=ROLE==='tailor'?ME():(workers.find(x=>x.role==='Tailor'&&x.branch===(curBranch||4))||ME());if(!w)return;const s=advSummary(w);if(!s.list.length)return;
+  const v=document.getElementById('view');const at=v.querySelector('.mebar');
+  const html=`<div class="panel" id="myAdv"><div class="panel-h"><h2>My advance</h2></div>
+    <div class="okpi"><div><span>Advance taken</span><b>${sar(s.total)}</b><em>SAR</em></div><div><span>Paid back</span><b>${sar(s.paid)}</b><em>incl. this month</em></div><div><span>Still to pay</span><b class="${s.bal?'tbad':''}">${sar(s.bal)}</b><em>SAR</em></div><div><span>Cut this month</span><b>${sar(s.now)}</b><em>next month ${sar(s.next)}</em></div></div>
+    ${s.list.filter(a=>advBal(a)>0||advCut(a,ymKey(today))).map(a=>`<div class="muted" style="font-size:12.5px;margin:8px 18px 12px"><b style="color:var(--ink)">${sar(a.amt)} SAR</b> taken ${fmtL(a.d)}${a.reason?' · '+esc(a.reason):''} — cuts: ${Object.entries(a.plan||{}).sort().filter(([k])=>k>=ymKey(today)).map(([k,v])=>`${ymName(k)} ${sar(v)}`).join(' · ')||'not planned yet'}</div>`).join('')}</div>`;
+  if(at)at.insertAdjacentHTML('afterend',html);else v.insertAdjacentHTML('afterbegin',html)};
+
 /* ================= Language: English · العربية · हिन्दी =================
    The screens are written in English; this swaps every known label on the page (menu, titles, buttons, table heads, tiles)
    for the chosen language, also on whatever is drawn later. Names, numbers and Arabic text stay as they are.
@@ -2614,17 +2772,17 @@ function jSheetWindow(title,meas,opt={}){
    make to them is written back by flush() (field-level diff, so two people editing the
    same order at once do not overwrite each other).
    ===================================================================================== */
-const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,items:STOCK,emb:EMBL,purch:PURCH,walog:WALOG};
+const COL={branches:BRANCHES,staff:workers,customers,orders,payments:payLog,deliveries:delLog,prod:prodLog,notices,ded:dedLog,adv:advLog,items:STOCK,emb:EMBL,purch:PURCH,walog:WALOG};
 const KEY={items:x=>String(x.code),emb:x=>String(x.code),branches:x=>String(x.id),staff:x=>String(x.id),customers:x=>String(x.id),orders:x=>String(x.rno)};
 const TRANSIENT={staff:['att','mdone'],orders:[],customers:[]};
-const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded']);
+const STAMP=new Set(['orders','customers','payments','deliveries','prod','staff','ded','adv']);
 const synced={};Object.keys(COL).forEach(c=>synced[c]=new Map());
 let fb=null,app=null,db=null,auth=null,ME_UID=null,writing=0;
 const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const randKey=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('');
 const pinPass=(sid,pin)=>`ST#${pin}#${sid}#thobe`;
 const staffEmail=(sid,gen)=>`s${sid}g${gen}@saudithobe.men`;
-const JOB_LOGIN={'Branch manager':'manager',Cashier:'cashier',Measurement:'measure'};
+const JOB_LOGIN={'Branch manager':'manager',Cashier:'cashier',Measurement:'measure',Accountant:'accountant'};
 const jobLogin=j=>JOB_LOGIN[j]||'tailor';
 const SITE=location.origin.startsWith('http')?location.origin:'https://saudithobe.men';
 
@@ -2664,7 +2822,7 @@ async function doFlush(){
         synced[col].set(id,structuredClone(cur))}
     }
     if(col==='staff')for(const id of [...synced.staff.keys()])if(!seen.has(id)){const old=synced.staff.get(id);await removeStaff(id,old);synced.staff.delete(id)}
-    if(col==='ded'||((col==='payments'||col==='deliveries')&&ROLE==='owner'))for(const id of [...synced[col].keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,col,id));synced[col].delete(id)}
+    if(col==='ded'||col==='adv'||((col==='payments'||col==='deliveries')&&ROLE==='owner'))for(const id of [...synced[col].keys()])if(!seen.has(id)){await fb.deleteDoc(fb.doc(db,col,id));synced[col].delete(id)}
   }
 }
 async function createOrder(o){
@@ -2752,7 +2910,7 @@ function normalize(col,x){
     if(x.profile==null)x.profile=0;if(x.made==null)x.made=x.branch;if(x.tailor==null)x.tailor=0;if(x.fabric==null)x.fabric='';if(x.note==null)x.note='';if(!(x.created instanceof Date))x.created=today;if(!(x.due instanceof Date))x.due=x.created}
   if(col==='customers'){if(!Array.isArray(x.profiles)||!x.profiles.length)x.profiles=[{name:'Self',m:{}}];x.profiles.forEach(p=>{p.m=p.m||{}});x.hist=x.hist||[];if(x.phone==null)x.phone=''}
   if(col==='staff'){if(!(x.joined instanceof Date))x.joined=today;if(x.status==null)x.status='active';if(x.phone==null)x.phone='';if(x.nat==null)x.nat='';['rate','basic','target','comm'].forEach(k=>{if(x[k]==null)x[k]=0});if(!x.pay)x.pay='salary';if(x.iqama===undefined)x.iqama=null}
-  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'||col==='purch'||col==='walog'){if(!(x.d instanceof Date))x.d=today}
+  if(col==='payments'||col==='deliveries'||col==='prod'||col==='ded'||col==='adv'||col==='purch'||col==='walog'){if(!(x.d instanceof Date))x.d=today}
   return x}
 function mergeParts(col){
   const arr=COL[col],m=new Map();
@@ -2790,7 +2948,7 @@ function startListeners(){
   // the shop's fabric stock and embroidery list (sent by the AL THOB exe; read-only here)
   sub('items',collection(db,'items'));
   sub('emb',collection(db,'emb'));
-  if(ROLE==='owner'||ROLE==='manager'){sub('purch',collection(db,'purch'));sub('walog',query(collection(db,'walog'),where('d','>=',since(120))))}
+  if(ROLE==='owner'||ROLE==='manager'||ROLE==='accountant'){sub('purch',collection(db,'purch'));sub('walog',query(collection(db,'walog'),where('d','>=',since(120))))}
   sub('orders',query(collection(db,'orders'),where('created','>=',since(150))));
   sub('orders',query(collection(db,'orders'),where('st','in',['cut','sew','ready'])));
   sub('payments',query(collection(db,'payments'),where('d','>=',since(45))));
@@ -2800,9 +2958,11 @@ function startListeners(){
   if(worker)sub('prod',query(collection(db,'prod'),where('w','==',USER.sid)));
   else sub('prod',query(collection(db,'prod'),where('d','>=',since(45))));
   // salary deductions: the owner all, a manager / supervisor his branch, a worker only his own
-  if(ROLE==='owner')sub('ded',collection(db,'ded'));
-  else if(worker)sub('ded',query(collection(db,'ded'),where('sid','==',USER.sid)));
-  else if(ROLE==='manager'||isFactoryLogin()){sub('ded',query(collection(db,'ded'),where('branch','==',USER.branch)));if(USER.fac)sub('ded',query(collection(db,'ded'),where('branch','==',USER.fac)))}
+  // advances (adv) follow the same rule
+  for(const c of ['ded','adv']){
+  if(ROLE==='owner'||ROLE==='accountant')sub(c,collection(db,c));
+  else if(worker)sub(c,query(collection(db,c),where('sid','==',USER.sid)));
+  else if(ROLE==='manager'||isFactoryLogin()){sub(c,query(collection(db,c),where('branch','==',USER.branch)));if(USER.fac)sub(c,query(collection(db,c),where('branch','==',USER.fac)))}}
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
   unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
   // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices

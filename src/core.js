@@ -45,7 +45,7 @@ function applyFlow(){
   Object.keys(TK).forEach(k=>delete TK[k]);TASKS.forEach(t=>TK[t.k]=t);
   const used=r=>{const k=ROLE2TASK[r];return !k||on.some(f=>f.k===k)};
   WORKSHOP_ROLES.length=0;WORKSHOP_ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing'].filter(used));
-  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Measurement','Cashier','Branch manager','Factory supervisor'].filter(used));
+  ROLES.length=0;ROLES.push(...['Tailor','Cutter','Hinge','Tatreez','Bottom cutting','Ironing','Measurement','Cashier','Branch manager','Factory supervisor','Accountant'].filter(used));
 }
 applyFlow();
 /* all the steps this order needs are done (main steps + the ones the tailor sends) */
@@ -265,6 +265,7 @@ const ROUTES=[
  {h:'measurements',t:'Measurements',s:'Measure',i:'tape'},
  {h:'customers',t:'Customers',s:'Customers',i:'users'},
  {h:'payments',t:'Payments',s:'Payments',i:'cash',g:'Business'},
+ {h:'salary',t:'Salaries & advances',s:'Salaries',i:'cash'},
  {h:'workers',t:'Workers',s:'Workers',i:'worker'},
  {h:'branches',t:'Branches & factories',s:'Branches',i:'branch'},
  {h:'daily',t:'Daily report',s:'Daily',i:'cal'},
@@ -280,7 +281,7 @@ const ROUTES=[
 /* ================= Logins (5 roles) ================= */
 const ACCESS={
  owner:{no:1,label:'Owner · Admin',name:'Owner',icon:'crown',branch:0,lock:false,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
+   pages:['dashboard','daily','orders','new','measurements','customers','payments','salary','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
    can:['Every branch and factory','Daily report: sales, payments, tailoring','Add branches, factories and workers','Only owner can block, deactivate or delete workers']},
  manager:{no:2,label:'Branch manager',name:'Faisal Al-Harthi',icon:'branch',branch:1,lock:true,home:'dashboard',money:true,pay:true,stage:true,
    pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers','reports','stock','whatsapp','messages','board'],tabs:['dashboard','daily','orders','new','workers'],
@@ -293,19 +294,22 @@ const ACCESS={
    can:['Find a receipt fast','Take deposits and balances','Hand over ready thobes','Today\'s cash and card total']},
  tailor:{no:5,label:'Tailor & factory',name:'Ghulam Rasool',icon:'needle',branch:4,lock:true,home:'mywork',money:false,pay:false,stage:true,
    pages:['mywork','mypay'],tabs:['mywork','mypay'],
-   can:['Only his own job cards with measurements','Move his thobes to the next stage','His own daily work report, by month or by date','His salary, target, commission and deductions']}};
+   can:['Only his own job cards with measurements','Move his thobes to the next stage','His own daily work report, by month or by date','His salary, target, commission and deductions']},
+ accountant:{no:6,label:'Accountant',name:'Rashid Khan',icon:'cash',branch:0,lock:false,home:'salary',money:true,pay:true,stage:false,
+   pages:['salary','dashboard','daily','payments','workers','reports','stock','orders','customers'],tabs:['salary','dashboard','daily','payments','workers'],
+   can:['Every branch and factory: money only','Salary sheet of each month: earned, advance cuts, deductions, net pay','Give advances and set how much is cut each month','Add deductions for any month, print and CSV']}};
 const USERS=[
  {role:'owner',name:'Owner',branch:0},
  {role:'manager',name:'Faisal Al-Harthi',branch:1},{role:'manager',name:'Turki Al-Dawsari',branch:2},{role:'manager',name:'Majed Al-Ghamdi',branch:3},
  {role:'measure',name:'Yasir Mahmood',branch:1},{role:'measure',name:'Sohail Ahmed',branch:2},{role:'measure',name:'Arshad Mehmood',branch:3},
  {role:'cashier',name:'Imran Ali',branch:1},{role:'cashier',name:'Kamal Hassan',branch:2},{role:'cashier',name:'Hani Al-Sharif',branch:3},
- {role:'tailor',name:'Ghulam Rasool',branch:4},{role:'tailor',name:'Abu Ahmed',branch:1},{role:'tailor',name:'Javed Akhtar',branch:2},{role:'tailor',name:'Bilal Qureshi',branch:3}];
-let ROLE='owner',USER=USERS[0];const RA=()=>({...ACCESS[ROLE],name:USER.name,branch:USER.branch});
+ {role:'accountant',name:'Rashid Khan',branch:0},{role:'tailor',name:'Ghulam Rasool',branch:4},{role:'tailor',name:'Abu Ahmed',branch:1},{role:'tailor',name:'Javed Akhtar',branch:2},{role:'tailor',name:'Bilal Qureshi',branch:3}];
+let ROLE='owner',USER=USERS[0];const RA=()=>({...ACCESS[ROLE],name:USER.name,branch:ROLE==='accountant'?0:USER.branch});
 const can=h=>RA().pages.includes(h);
 const isOwner=()=>ROLE==='owner';
 const isFactoryLogin=()=>ROLE==='tailor'&&isFac(USER.branch);
 const addRoles=()=>isOwner()?ROLES:isFactoryLogin()?WORKSHOP_ROLES:ROLE==='manager'?(myFac()?['Measurement','Cashier',...WORKSHOP_ROLES]:['Measurement','Cashier']):[];
-const canDed=w=>isOwner()||(ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac())))||(isFactoryLogin()&&w.branch===USER.branch);
+const canDed=w=>isOwner()||ROLE==='accountant'||(ROLE==='manager'&&(w.branch===USER.branch||(myFac()&&w.branch===myFac())))||(isFactoryLogin()&&w.branch===USER.branch);
 const canEditW=w=>isOwner()||(isFactoryLogin()&&w.branch===USER.branch&&WORKSHOP_ROLES.includes(w.role))||(ROLE==='manager'&&w.branch===USER.branch&&(w.role==='Cashier'||w.role==='Measurement'))||(ROLE==='manager'&&myFac()&&w.branch===myFac()&&WORKSHOP_ROLES.includes(w.role));
 const wStatusPill=w=>({leave:'<span class="pill s-cut">On leave</span>',inactive:'<span class="pill s-done">Inactive</span>',blocked:'<span class="pill s-late">Blocked</span>'}[w.status]||'');
 /* ready popups for owner and the branch manager */
@@ -383,7 +387,7 @@ function route(){
   drawNav(r.h);document.getElementById('title').textContent=r.t;
   const b=BRANCHES.find(x=>x.id===curBranch);
   document.getElementById('subtitle').textContent=(b?`${b.name}${b.type==='factory'?'':' branch'} · `:'All branches · ')+today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
+  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,salary:salaryView,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
   if(ROLE!=='owner'){const a=RA();document.getElementById('view').insertAdjacentHTML('afterbegin',`<div class="rolebar">${ico(a.icon)}<span>Signed in as <b>${a.name}</b> · ${a.label}${a.branch?' · '+bname(a.branch):''}. ${a.lock?'Locked to this '+(isFac(a.branch)?'factory':'branch')+'.':''} ${a.money?'':'Prices and cash are hidden for this login.'}</span></div>`);document.querySelectorAll('.rolebar svg').forEach(x=>{x.style.width='18px';x.style.color='var(--brass)'})}
   window.scrollTo(0,0);
 }
@@ -999,7 +1003,7 @@ function openWorker(id){
       <div class="tot"><div class="big"><span>Total</span><span class="num">${sar(s.earn)} SAR</span></div></div></div></div>`:''}
     ${jobRates(w).length?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Each job · ${ymName(ymKey(today))}</p><div class="slip" style="position:static"><dl>${partsHtml(w,mp)}</dl><div class="tot"><div class="big"><span>${w.pay==='target'?'Basic + commission':'Earned'}</span><span class="num">${sar(mp.earn)} SAR</span></div></div></div></div>`})():''}
     ${canDed(w)?(()=>{const mp=monthPay(w,ymKey(today));return `<div><p class="h4">Deductions · ${ymName(ymKey(today))} <span class="muted" style="font-weight:500">(${sar(mp.dedT)} SAR · net pay ${sar(mp.net)} SAR)</span></p>
-      <div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span>${isOwner()?`<button class="btn sm" data-dedx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`:''}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
+      <div class="rows" style="border:1px solid var(--line);border-radius:8px">${mp.ded.map(x=>`<div class="row" style="padding-block:8px"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span>${(isOwner()||ROLE==='accountant')&&dedLog.indexOf(x)>=0?`<button class="btn sm" data-dedx="${dedLog.indexOf(x)}" aria-label="Remove">${ico('x')}</button>`:''}</div>`).join('')||'<div class="empty" style="padding:12px">No deductions this month.</div>'}</div>
       <div class="fgrid" style="margin-top:8px;grid-template-columns:120px 1fr 1fr auto;align-items:end"><div class="field"><label for="dAmt">Amount</label><input id="dAmt" type="number" min="1" class="num"></div><div class="field"><label for="dWhy">Reason</label><input id="dWhy" placeholder="Advance, absent, damage…"></div><div class="field"><label for="dDay">Date</label><input id="dDay" type="date" value="${dkey2(today)}"></div><button class="btn" id="dAdd">Add</button></div></div>`})():''}
     <div><p class="h4">Attendance · last 14 days <span class="muted" style="font-weight:500">(${s.absent} absent)</span></p><div class="att">${w.att.map(a=>`<i class="${a==='a'?'a':a==='o'?'o':''}"></i>`).join('')}</div><p class="muted" style="font-size:11.5px;margin:6px 0 0">Green present · red absent · grey Friday</p></div>
     ${ROLE2TASK[w.role]?'<div id="wwSec"></div>':''}
@@ -1233,7 +1237,7 @@ const STAGE_T={cut:'Cutting',sew:'Tailor',hinge:'Hinge',tat:'Tatreez',btm:'Botto
 function monthPay(w,ym){
   const ent=prodLog.filter(p=>p.w===w.id&&ymKey(p.d)===ym).sort((a,b)=>b.d-a.d);
   const qty=ent.reduce((s,p)=>s+(+p.qty||0),0);
-  const ded=dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym).sort((a,b)=>b.d-a.d);
+  const ded=[...dedLog.filter(x=>x.sid===w.id&&ymKey(x.d)===ym),...(typeof advCuts==='function'?advCuts(w,ym):[])].sort((a,b)=>b.d-a.d);
   const dedT=ded.reduce((s,x)=>s+(+x.amt||0),0);
   // a worker with more than one job can have his own target / commission (or rate) for each job: w.rt[role]
   const own=jobRates(w),parts=[];let rest=ent;
