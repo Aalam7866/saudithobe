@@ -66,6 +66,14 @@ const TR_SRC={
  'Pay / Deliver':L3('دفع / تسليم','भुगतान / डिलीवरी'),'Receive payment / Deliver':L3('استلام دفعة / تسليم','भुगतान लें / डिलीवरी'),'Down payment ':L3('العربون','एडवांस'),
  'Ready · not taken':L3('جاهز · لم يُستلم','तैयार · नहीं ले गया'),'In the workshop':L3('في الورشة','वर्कशॉप में'),
  'Workers\' work':L3('عمل العمال','कारीगरों का काम'),'Attendance · last 14 days':L3('الحضور · آخر ١٤ يوم','हाज़िरी · पिछले 14 दिन'),'Language':L3('اللغة','भाषा'),
+ 'Work log':L3('سجل العمل','काम का रिकॉर्ड'),'In work now':L3('في العمل الآن','अभी काम में'),'No piece is in work right now.':L3('لا توجد قطعة في العمل الآن.','अभी कोई पीस काम में नहीं है।'),'Not assigned':L3('غير معيّن','किसी को नहीं दिया'),
+ 'Workshop load':L3('حمل الورشة','वर्कशॉप का लोड'),'Still to stitch':L3('باقي للخياطة','सिलाई बाकी'),'Capacity':L3('الطاقة','क्षमता'),'Already late':L3('متأخر','पहले से लेट'),'New order can be delivered':L3('تسليم الطلب الجديد','नया ऑर्डर कब मिलेगा'),
+ 'Duty hours & capacity':L3('ساعات الدوام والطاقة','ड्यूटी टाइम और क्षमता'),'Duty hours':L3('ساعات الدوام','ड्यूटी टाइम'),'Workshop capacity':L3('طاقة الورشة','वर्कशॉप की क्षमता'),'Weekly day off':L3('يوم الإجازة الأسبوعي','हफ़्ते की छुट्टी'),
+ 'Pieces per day':L3('قطع في اليوم','रोज़ के पीस'),'Delivery days for a new order':L3('أيام التسليم للطلب الجديد','नए ऑर्डर के डिलीवरी दिन'),'Margin days before delivery':L3('أيام احتياط قبل التسليم','डिलीवरी से पहले के अतिरिक्त दिन'),'Add shift':L3('إضافة فترة','शिफ्ट जोड़ें'),
+ 'Not ready':L3('غير جاهز','तैयार नहीं'),'Tomorrow':L3('غداً','कल'),'Clear':L3('مسح','हटाएँ'),'By order':L3('حسب الطلب','ऑर्डर से'),'All entries':L3('كل القيود','सारी एंट्री'),'Work time':L3('وقت العمل','काम का समय'),
+ 'Orders worked on':L3('طلبات تم العمل عليها','जिन ऑर्डर पर काम हुआ'),'Finished':L3('انتهى','खत्म'),'Started':L3('بدأ','शुरू'),'Avg per piece':L3('متوسط القطعة','औसत प्रति पीस'),'Pcs with time':L3('قطع بوقت','समय वाले पीस'),
+ 'All workers':L3('كل العمال','सभी कारीगर'),'All steps':L3('كل المراحل','सभी काम'),'↩ Give back':L3('↩ إرجاع','↩ वापस करें'),'Pieces I did':L3('القطع التي عملتها','मैंने जो पीस बनाए'),'My work on this order':L3('عملي على هذا الطلب','इस ऑर्डर पर मेरा काम'),
+ 'Time taken':L3('الوقت المستغرق','कितना समय लगा'),'Type an order number to see what you did on it, and when.':L3('اكتب رقم الطلب لترى ما عملته عليه ومتى.','ऑर्डर नंबर डालें — उस पर क्या और कब काम किया, दिखेगा।'),
 };
 const TR={ar:{},hi:{}};Object.entries(TR_SRC).forEach(([k,v])=>{TR.ar[k]=v.ar;TR.hi[k]=v.hi});
 function trText(n){const d=TR[LANG];const v=n.nodeValue;if(!v)return;const k=v.trim();if(k&&d[k]!==undefined&&d[k]!==k)n.nodeValue=v.replace(k,d[k])}

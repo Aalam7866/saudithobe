@@ -223,8 +223,8 @@ for(let k=0;k<(DEMO?14:0);k++){const d=addD(today,-k);if(d.getDay()===5)continue
 function stepTask(o,k,by){const cur=o.t[k];if(cur==='done')return;
   if(k==='sew'&&!workers.some(x=>x.id===o.tailor)){const t=by&&by.role==='Tailor'?by:null;if(!t){toast('Choose a tailor first');return}o.tailor=t.id}
   if(k!=='sew'&&!o.tw[k]){const w=by&&hasRole(by,TK[k].role)?by:firstOf(TK[k].role,o.made);o.tw[k]=w?w.id:null}
-  if(tv(o,k)==='wait'){o.t[k]='doing';toast(`${ono(o)}: ${TK[k].t} started`)}
-  else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});
+  if(tv(o,k)==='wait'){o.t[k]='doing';xStart(o,k);toast(`${ono(o)}: ${TK[k].t} started`)}
+  else{o.t[k]='done';const wid=k==='sew'?o.tailor:o.tw[k];{const fin=xFin(o,k,{d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});if(wid)prodLog.push(fin)}
     if(k==='sew'){const t=wk(o.tailor);t.mdone=(t.mdone||0)+o.qty}
     toast(`${ono(o)}: ${TK[k].t} finished${k==='cut'?' · sent to the tailor':k==='sew'?(toSend(o).length?' · now send it for '+toSend(o).map(t=>t.t.toLowerCase()).join(', '):FLOW_OPT.tready?' · tick Ready when it is ready':''):k==='hinge'&&needs(o,'btm')&&TK.btm&&tv(o,'btm')==='wait'&&!isSent(o,'btm')?' · now send it for bottom cutting':TK[k].m==='send'?' · back to the tailor':''}`)}
   const before=o.st;syncSt(o);if(before!=='ready'&&o.st==='ready')notifyReady(o)}
@@ -270,6 +270,7 @@ const ROUTES=[
  {h:'workers',t:'Workers',s:'Workers',i:'worker'},
  {h:'branches',t:'Branches & factories',s:'Branches',i:'branch'},
  {h:'daily',t:'Daily report',s:'Daily',i:'cal'},
+ {h:'worklog',t:'Work log',s:'Work log',i:'needle'},
  {h:'reports',t:'Reports',i:'chart'},
  {h:'stock',t:'Purchases & stock',s:'Stock',i:'box'},
  {h:'whatsapp',t:'WhatsApp',s:'WhatsApp',i:'wa'},
@@ -282,10 +283,10 @@ const ROUTES=[
 /* ================= Logins (5 roles) ================= */
 const ACCESS={
  owner:{no:1,label:'Owner · Admin',name:'Owner',icon:'crown',branch:0,lock:false,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','salary','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
+   pages:['dashboard','daily','worklog','orders','new','measurements','customers','payments','salary','workers','branches','reports','stock','whatsapp','messages','settings','till','board'],tabs:['dashboard','daily','orders','workers','branches'],
    can:['Every branch and factory','Daily report: sales, payments, tailoring','Add branches, factories and workers','Only owner can block, deactivate or delete workers']},
  manager:{no:2,label:'Branch manager',name:'Faisal Al-Harthi',icon:'branch',branch:1,lock:true,home:'dashboard',money:true,pay:true,stage:true,
-   pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers','reports','stock','whatsapp','messages','board'],tabs:['dashboard','daily','orders','new','workers'],
+   pages:['dashboard','daily','worklog','orders','new','measurements','customers','payments','till','workers','reports','stock','whatsapp','messages','board'],tabs:['dashboard','daily','orders','new','workers'],
    can:['Only his own branch','Shop dashboard and daily report (exe style) + tailoring report','Orders, customers, payments and cashier desk','His branch workers: attendance and work by date / month','Branch reports']},
  measure:{no:3,label:'Measurement',name:'Yasir Mahmood',icon:'tape',branch:1,lock:true,home:'measurements',money:false,pay:false,stage:false,
    pages:['measurements','customers','new'],tabs:['measurements','new','customers'],
@@ -297,7 +298,7 @@ const ACCESS={
    pages:['mywork','mypay'],tabs:['mywork','mypay'],
    can:['Only his own job cards with measurements','Move his thobes to the next stage','His own daily work report, by month or by date','His salary, target, commission and deductions']},
  accountant:{no:6,label:'Accountant',name:'Rashid Khan',icon:'cash',branch:0,lock:false,home:'salary',money:true,pay:true,stage:false,
-   pages:['salary','dashboard','daily','payments','workers','reports','stock','orders','customers'],tabs:['salary','dashboard','daily','payments','workers'],
+   pages:['salary','dashboard','daily','worklog','payments','workers','reports','stock','orders','customers'],tabs:['salary','dashboard','daily','payments','workers'],
    can:['Every branch and factory: money only','Salary sheet of each month: earned, advance cuts, deductions, net pay','Give advances and set how much is cut each month','Add deductions for any month, print and CSV']}};
 const USERS=[
  {role:'owner',name:'Owner',branch:0},
@@ -389,7 +390,7 @@ function route(){
   drawNav(r.h);document.getElementById('title').textContent=r.t;
   const b=BRANCHES.find(x=>x.id===curBranch);
   document.getElementById('subtitle').textContent=(b?`${b.name}${b.type==='factory'?'':' branch'} · `:'All branches · ')+today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,salary:salaryView,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
+  ({dashboard,daily,orders:ordersView,new:newOrder,measurements,customers:customersView,payments,salary:salaryView,worklog:workLogView,workers:workersView,branches,reports,stock:stockView,whatsapp:whatsappView,messages:messagesView,settings,till,mywork,mypay,board})[r.h]();
   if(ROLE!=='owner'){const a=RA();document.getElementById('view').insertAdjacentHTML('afterbegin',`<div class="rolebar">${ico(a.icon)}<span>Signed in as <b>${a.name}</b> · ${a.label}${a.branch?' · '+bname(a.branch):''}. ${a.lock?'Locked to this '+(isFac(a.branch)?'factory':'branch')+'.':''} ${a.money?'':'Prices and cash are hidden for this login.'}</span></div>`);document.querySelectorAll('.rolebar svg').forEach(x=>{x.style.width='18px';x.style.color='var(--brass)'})}
   window.scrollTo(0,0);
 }
@@ -415,6 +416,7 @@ function dashboard(){
     <div class="kpi"><span class="l">Revenue, last 7 days</span><span class="v">${sar(wkv)}<small>SAR</small></span><span class="d ${wkv>=pw?'up':'dn'}">${wkv>=pw?'▲':'▼'} ${pw?Math.abs(Math.round((wkv-pw)/pw*100)):0}% vs previous week</span></div>
     <div class="kpi"><span class="l">Balance due from customers</span><span class="v">${sar(due)}<small>SAR</small></span><span class="d muted">${all.filter(o=>o.total>o.paid).length} unpaid receipts</span></div>
   </div>
+  ${nowPanel()}${capPanel()}
   <div class="panel">
     <div class="panel-h"><h2>Workshop right now</h2><span class="sp"></span><span class="muted" style="font-size:12.5px">Thobes waiting or in progress at each step · tap to open the board</span></div>
     <div class="pipe">${PIPE.map(p=>`<div class="stage" data-st="${p.k}"><div class="n">${p.n}</div><div class="t">${p.t}</div><div class="bar"><i style="width:${mx?p.n/mx*100:0}%"></i></div></div>`).join('')}</div>
@@ -480,7 +482,7 @@ const OSTAT_C={Delivered:'s-done','Partly delivered':'s-info',Ready:'s-ready',La
 let oSort={k:'rno',d:-1};
 function ordersView(){
   const q=document.getElementById('q').value.trim().toLowerCase();const money=RA().money;
-  const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
+  const all=O().filter(xDueOk);const info=new Map(all.map(o=>[o.rno,oInfo(o)]));
   const pass=(o,f)=>{const x=info.get(o.rno);return f==='all'?true:f==='open'?x.dq<o.qty:f==='due'?x.due>0.5:f==='ready'?o.st==='ready'&&x.dq<o.qty:f==='done'?x.status==='Delivered':f==='late'?x.dq<o.qty&&o.due<today:f==='tdue'?x.dq>0&&x.due>0.5:f==='gift'?!!o.gift:true};
   const hit=o=>{if(!q)return true;const c=cust(o.cid);return ordMatch(o,q)||(o.bno||'').toLowerCase().includes(q)&&q.length>=4||String(o.cid)===q||c.name.toLowerCase().includes(q)||String(c.phone).includes(q)};
   if(!OFILTERS.some(f=>f[0]===orderFilter))orderFilter='all';
@@ -503,6 +505,7 @@ function ordersView(){
      <span class="sp"></span>
      ${pgSearch('Order, invoice, name, mobile')}<button class="btn sm" id="oCsv" title="Download as CSV (Excel)">${ico('orders')}CSV</button><button class="btn sm" id="oPrint" title="Print this list">${ico('cal')}Print</button>
     </div>
+    ${xDueBar(all,info)}
     <div class="tbl-wrap otbl"><table class="ot">
      <thead><tr>${th('rno','Order / Invoice','stk s1')}${th('cust','Customer','stk s2')}<th>Mobile</th>${th('booked','Booked')}${th('due','Delivery')}${th('pcs','Pcs','r')}
       ${money?th('total','Total','r')+th('paid','Paid','r')+th('bal','Due','r'):''}${th('status','Status')}<th>Cut</th><th>Stitched</th><th>Hinge</th><th>Ready</th><th class="r">Delivered</th>${money?'<th>Method</th>':''}<th>Tailor</th><th>Fabric</th><th>Made at</th><th>Branch</th></tr></thead>
@@ -530,7 +533,7 @@ function ordersView(){
   document.getElementById('oPrint').onclick=()=>{const rs=rowsCsv();const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orders ${dkey2(today)}</title><style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 4px}p{margin:0 0 10px;color:#555}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left;white-space:nowrap}th{background:#eee}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Orders · ${esc(OFILTERS.find(f=>f[0]===orderFilter)[1])}</h1><p>${esc(curBranch?bname(curBranch):'All branches')} · ${today.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · ${pl(T.n,'order')}${money?` · total ${sar(T.tot)} SAR · due ${sar(T.due)} SAR`:''}</p><table><thead><tr>${rs[0].map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rs.slice(1).map(r=>`<tr>${r.map(v=>`<td dir="auto">${esc(v??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);
     w.document.close();setTimeout(()=>w.print(),300)};
-  bindRows();bindPgSearch();
+  bindRows();bindPgSearch();xDueBind();
 }
 function bindRows(){document.querySelectorAll('[data-r]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.r))}
 function waText(o){const c=cust(o.cid);const rem=o.total-o.paid;const first=c.name.split(' ')[0];
@@ -571,7 +574,7 @@ let draft;
    subtotal, discount, VAT, total, down payment, method, reference, balance; Save & Print · Save only · Measurements… · Cancel */
 function newOrder(){
   draft={design:Object.fromEntries(DESIGN_.map(g=>[g.k,g.opts[0][0]])),lines:[],emb:[],meas:{},sel:-1,esel:-1};
-  const due0=addD(today,10);const nextR=Math.max(DEMO?1000:50000,...orders.filter(o=>DEMO||!o.exe||o.rno>=50000).map(o=>o.rno))+1;
+  const due0=dueDefault();const nextR=Math.max(DEMO?1000:50000,...orders.filter(o=>DEMO||!o.exe||o.rno>=50000).map(o=>o.rno))+1;
   const br=curBranch&&!isFac(curBranch)?curBranch:(USER.branch&&!isFac(USER.branch)?USER.branch:(SHOPS()[0]||{id:1}).id);
   const money=RA().money;
   const F=(lab,ctl,span)=>`<label class="ol">${lab}</label><div class="oc"${span?` style="grid-column:span ${span}"`:''}>${ctl}</div>`;
@@ -582,7 +585,7 @@ function newOrder(){
     ${F('Mobile','<input id="fPhone" class="num" inputmode="tel">')}
     ${F('Address','<input id="fAddr" dir="auto">')}
     ${F('Booking date',`<input id="fBook" type="date" value="${dkey2(today)}">`)}
-    ${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">`)}
+    ${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">${capHint()}`)}
     ${F('Order No',`<input id="fOno" class="num" readonly value="(new)">`)}
     ${F('Invoice No',`<div class="orow"><input id="fInv" class="num" readonly value="(new)"><label class="ock gift"><input type="checkbox" id="fGift"> Free gift / هدية</label></div>`)}
     ${F('',`<label class="ock"><input type="checkbox" id="fSample"> Customer left a sample thobe</label>`)}
@@ -1218,7 +1221,7 @@ function mywork(){
     <div class="jh"><span class="rid" style="font-size:17px">${ono(o)}</span><div style="flex:1;min-width:0"><b>${c.name.split(' ')[0]} · ${pl(o.qty,'thobe')} · ${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</b><div class="muted" style="font-size:12.5px">${o.fabric} · ${p.name}${o.hinge?' · Hinge':''}${o.tatreez?' · Tatreez':''}${+o.zipQty?' · Zip':''}${o.note?' · '+esc(o.note):''}</div></div>${k==='sew'&&atTailor(o)?(allStepsDone(o)?'<span class="pill s-ready">Stitched · all done</span>':'<span class="pill s-cut">Stitched</span>'):taskPill(o,k)}<span class="days ${d<0?'late':d<=1?'today':''}">${d<0?`${-d}d late`:d===0?'Due today':`Due in ${d}d`}</span></div>
     <details class="jmore" data-js="${o.rno}"><summary class="btn sm">Measurements & style</summary>${jHas(o.meas)||jHas(p.m)?`<div class="jwrap jro" style="margin-top:10px"></div>${jStylesHtml(jHas(o.meas)?o.meas:p.m)}`:''}<div class="jb"${jHas(o.meas)||jHas(p.m)?' hidden':''}><div><p class="h4">Measurements · ${esc(p.name)}</p>${mShow(p.m)}</div>
      <div><p class="h4">Style</p><div class="dopts" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">${DESIGN_.map(g=>{const op=g.opts.find(x=>x[0]===o.design[g.k]);return `<div class="dopt" style="cursor:default">${glyph(g.k,op[0])}<span>${op[1]}</span><em>${g.t}</em></div>`}).join('')}</div></div></div></details>
-    <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):k==='hinge'&&tv(o,'hinge')==='done'?`<span class="pill s-ready">Hinge done</span><button class="btn pri" data-send="${o.rno}" data-k="btm">Send for bottom cutting</button>`:`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
+    <div class="jf">${k==='sew'&&atTailor(o)?tailorBack(o):k==='hinge'&&tv(o,'hinge')==='done'?`<span class="pill s-ready">Hinge done</span><button class="btn pri" data-send="${o.rno}" data-k="btm">Send for bottom cutting</button>`:`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>${undoBtn(o,k)}`}<button class="btn" data-r="${o.rno}">Open details</button></div></div>`}).join('')||'<div class="panel"><div class="empty">Nothing waiting for you right now.</div></div>'}`);
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.step);stepTask(o,b.dataset.k,w);route()});
   document.querySelectorAll('[data-mtk]').forEach(b=>b.onclick=()=>{myTask=b.dataset.mtk;mywork()});
   document.querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.rno===+b.dataset.send);sendTask(o,b.dataset.k);route()});
@@ -1272,8 +1275,8 @@ function mypay(){
   const dayEnt=payMode==='d'&&payDay?mp.ent.filter(p=>dkey2(p.d)===payDay):[];
   const dayQ=dayEnt.reduce((s,p)=>s+(+p.qty||0),0);
   const sel=`<div class="rowtools" style="flex-wrap:wrap;gap:10px;align-items:center">
-    <div class="chips"><button class="chip ${payMode==='m'?'on':''}" data-pm="m">By month</button><button class="chip ${payMode==='d'?'on':''}" data-pm="d">By date</button></div>
-    ${payMode==='m'?`<select id="pYm" class="btn sm" style="padding:6px 10px" aria-label="Month">${months.map(m=>`<option value="${m}" ${m===payYm?'selected':''}>${ymName(m)}</option>`).join('')}</select>`
+    <div class="chips"><button class="chip ${payMode==='m'?'on':''}" data-pm="m">By month</button><button class="chip ${payMode==='d'?'on':''}" data-pm="d">By date</button><button class="chip ${payMode==='o'?'on':''}" data-pm="o">By order</button></div>
+    ${payMode==='o'?xMyOrdBox():payMode==='m'?`<select id="pYm" class="btn sm" style="padding:6px 10px" aria-label="Month">${months.map(m=>`<option value="${m}" ${m===payYm?'selected':''}>${ymName(m)}</option>`).join('')}</select>`
       :`<input type="date" id="pDay" class="btn sm" style="padding:6px 10px" value="${payDay||dkey2(today)}" max="${dkey2(today)}" aria-label="Date">`}
     <span class="muted" style="font-size:13px">${esc(w.name)} · ${esc(w.role)} · ${payLabel(w)}</span></div>`;
   const slip=`<div class="panel"><div class="panel-h"><h2>My pay · ${ymName(ym)}</h2></div><div class="panel-b">
@@ -1288,7 +1291,7 @@ function mypay(){
     <p class="muted" style="font-size:12px;margin:8px 0 0">${ym===ymKey(today)?'This month so far – it grows with every piece you finish.':'Whole month.'}</p></div></div>`;
   const dedPanel=`<div class="panel"><div class="panel-h"><h2>Deductions · ${ymName(ym)}</h2><span class="sp"></span><span class="num" style="color:var(--bad);font-weight:600">${sar(mp.dedT)} SAR</span></div>
     <div class="rows">${mp.ded.map(x=>`<div class="row"><div class="grow"><b>${esc(x.reason||'Deduction')}</b><span>${fmtD(x.d)}${x.by?' · by '+esc(x.by):''}</span></div><span class="num" style="color:var(--bad);font-weight:600">− ${sar(x.amt)}</span></div>`).join('')||'<div class="empty">No deductions this month.</div>'}</div></div>`;
-  if(payMode==='d'){
+  if(payMode==='o'){V(sel+xMyOrd(w))}else if(payMode==='d'){
     const d=payDay||dkey2(today);
     V(`${sel}<div class="kpis">
       <div class="kpi"><span class="l">Pieces on ${fmtD(new Date(d))}</span><span class="v">${dayQ}<small>pcs</small></span><span class="d muted">${pl(new Set(dayEnt.map(p=>p.rno).filter(Boolean)).size,'order')}</span></div>
@@ -1313,6 +1316,7 @@ function mypay(){
   const ys=document.getElementById('pYm');if(ys)ys.onchange=()=>{payYm=ys.value;mypay()};
   const ds=document.getElementById('pDay');if(ds)ds.onchange=()=>{if(ds.value){payDay=ds.value;mypay()}};
   document.querySelectorAll('[data-pday]').forEach(r=>r.onclick=()=>{payMode='d';payDay=r.dataset.pday;mypay()});
+  xMyOrdBind();
   bindRows();
 }
 const dkey2=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1328,7 +1332,7 @@ function board(){
    ${js.map(o=>{const wid=t.k==='sew'?o.tailor:o.tw[t.k];return `<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span style="display:flex;gap:4px">${o.hinge&&t.k!=='hinge'?'<span class="tag" title="Needs hinge">H</span>':''}${o.tatreez&&t.k!=='tat'?'<span class="tag" title="Needs tatreez">T</span>':''}<span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:'—'}).code}</span></span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${o.fabric}</b><div class="m">${wid?`<span style="display:inline-flex;gap:6px;align-items:center;vertical-align:middle">${wAv(wk(wid),22)}${esc(wk(wid).name)}</span>`:'Not assigned'} · due ${fmtD(o.due)}</div>
     ${t.k==='sew'||t.k==='cut'?`<div class="mm">${mmLine(o,['tool','sadr','kom','raqba'])}</div>`:''}${t.k==='sew'&&canAssign()&&o.t.sew==='wait'?`<select class="tsel" data-tsel="${o.rno}" aria-label="Tailor" style="border:1px solid var(--line);border-radius:7px;padding:5px;background:var(--surface)"><option value="">Choose tailor…</option>${tailorsOf(o.made).map(w=>`<option value="${w.id}" ${w.id===o.tailor?'selected':''}>${esc(w.name)}</option>`).join('')}</select>`:''}
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${taskPill(o,t.k)}${canTask()?`<button class="btn sm pri" data-mv="${o.rno}" data-k="${t.k}">${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}${undoBtn(o,t.k,1)}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`}).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`}).join('')}${FLOW_OPT.tready?(()=>{const js=list.filter(atTailor).sort((a,b)=>a.due-b.due);return `<div class="col"><h3>Back at tailor · Ready<span class="num">${js.reduce((s,o)=>s+o.qty,0)}</span></h3><div class="cards2">${js.map(o=>`<div class="job ${late(o)?'late':''}"><div class="t"><span class="rid">${ono(o)}</span><span class="tag">${(BRANCHES.find(b=>b.id===o.branch)||{code:''}).code}</span></div>
     <b style="font-size:13px">${pl(o.qty,'thobe')} · ${esc(o.fabric||'')}</b><div class="m">${esc(wk(o.tailor).name)} · due ${fmtD(o.due)}</div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${TASKS.filter(t=>t.m==='send'&&needs(o,t.k)).map(t=>{const v=tv(o,t.k);return `<span class="pill ${v==='done'?'s-ready':v==='doing'||isSent(o,t.k)?'s-cut':'s-wait'}">${t.t}: ${v==='done'?'done':v==='doing'?'working':isSent(o,t.k)?'sent':'not sent'}</span>`}).join('')}${allStepsDone(o)?'<span class="pill s-ready">Waiting for tailor\'s Ready</span>':''}<button class="btn sm" data-r="${o.rno}">Details</button></div></div>`).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">Empty</div>'}</div></div>`})():''}</div>`);
   document.querySelectorAll('[data-tsel]').forEach(s=>s.onchange=()=>{const o=orders.find(x=>x.rno===+s.dataset.tsel);o.tailor=+s.value||0;toast(s.value?`${ono(o)} given to ${wk(o.tailor).name}`:'Tailor removed');route()});
@@ -1576,7 +1580,7 @@ function reports(){
 
 /* ================= Settings ================= */
 function settings(){
-  const secs=[['setBiz','Business'],...(isOwner()?[['flowPanel','Workshop flow']]:[]),['setSync','Shop exe & sync'],['setLogins','Logins & permissions'],['setRoles','What each login can do'],['setPlaces','Branches & factories']];
+  const secs=[['setBiz','Business'],...(isOwner()?[['flowPanel','Workshop flow'],['setWork','Duty hours & capacity']]:[]),['setSync','Shop exe & sync'],['setLogins','Logins & permissions'],['setRoles','What each login can do'],['setPlaces','Branches & factories']];
   V(`<div class="setlay"><nav class="setnav" aria-label="Settings sections">${secs.map(([id,t],i)=>`<a href="#settings" data-sj="${id}" class="${i?'':'on'}">${t}</a>`).join('')}</nav><div class="setmain">
   <div class="panel" id="setBiz"><div class="panel-h"><h2>Business</h2></div><div class="panel-b"><div class="sgrid">
    <div><span>Business name</span><b>Saudi Thobe Men's Tailoring</b><em>AL THOB AL SAUDI · Riyadh</em></div>
@@ -1586,7 +1590,7 @@ function settings(){
    <div><span>Order numbers</span><b class="num">50000 +</b><em>Website orders · the shop exe keeps its own numbers</em></div>
    <div><span>Branches & factories</span><b class="num">${SHOPS().length} · ${FACS().length}</b><em>${pl(workers.length,'person')}</em></div>
   </div></div></div>
-  ${isOwner()?flowEditorHtml():''}
+  ${isOwner()?flowEditorHtml()+workCfgHtml():''}
   <div id="setSync"></div>
   <div class="panel" id="setLogins"><div class="panel-h"><h2>Logins & permissions</h2><span class="sp"></span><span class="muted" style="font-size:12px">${pl(USERS.length,'login')} · 5 roles</span></div><div class="rows" style="max-height:460px;overflow:auto">
    ${USERS.map((u,i)=>{const a=ACCESS[u.role];return `<div class="row"><div class="avatar">${a.no}</div><div class="grow"><b>${u.name}</b><span>${a.label} · ${u.branch?bname(u.branch):'All branches'}</span></div>${DEMO?`<button class="btn sm" data-try="${i}">Try it</button>`:(u.sid?`<button class="btn sm" data-wapp2="${u.sid}">Link</button>`:'')}</div>`}).join('')}
@@ -1597,7 +1601,7 @@ function settings(){
   const sync=document.getElementById('setSync');
   if(typeof LIVE!=='undefined'&&LIVE){sync.innerHTML=`<div class="panel"><div class="panel-h"><h2>Shop exe (AL THOB)</h2></div><div class="panel-b" id="exeBox"><span class="muted">Checking…</span></div></div>`}
   else sync.innerHTML=`<div class="panel"><div class="panel-h"><h2>Shop exe (AL THOB)</h2></div><div class="panel-b"><p class="muted" style="margin:0">In the live site this shows if the AL THOB exe is syncing: last round, and how many customers, orders and payments it sent.</p></div></div>`;
-  if(isOwner())flowEditorMount();
+  if(isOwner()){flowEditorMount();workCfgMount()}
   const nav=document.querySelectorAll('[data-sj]');nav.forEach(a=>a.onclick=e=>{e.preventDefault();nav.forEach(x=>x.classList.toggle('on',x===a));const t=document.getElementById(a.dataset.sj);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})});
 }
 
@@ -2582,6 +2586,212 @@ function slipText(w,ym){const D=slipData(w,ym),mp=D.mp;
 function slipWa(w,ym){const n=waNum(w.phone);if(!n){toast(`${w.name}: no mobile number – add it in Workers`);return}
   window.open(`https://wa.me/${n}?text=${encodeURIComponent(slipText(w,ym))}`,'_blank')}
 
+/* ================= Extras · the same tools as the Jameel admin =================
+   - In work now (Dashboard): which worker has which order in his hands, since when
+   - Work log (page): per order who cut / stitched / … how many pieces and when, each entry with the time it took
+   - Duty hours + work time: Start → Finish, counted only inside the duty hours
+   - Workshop capacity per day: load of the coming delivery days + the delivery date a new order gets
+   - Orders: delivery date from – to, with the pieces to deliver
+   - Give back: a step started by mistake goes back to Waiting
+   - My work & pay: search by order no.
+   Start times: counters/ws_<order>_<step> {n: ms, w: worker} – removed on Finish. The finished entry (prod) keeps s, e and
+   m (duty minutes). Duty hours and capacity: meta/flow.work (the owner writes it). No new collection, no rules change. */
+var WORKCFG={duty:[{f:'09:00',t:'12:00'},{f:'16:00',t:'23:00'}],cap:0,margin:1,dayOff:5,delDays:10};
+var workSaver=null; // live.js
+const okHM=s=>/^([01]\d|2[0-3]):[0-5]\d$/.test(s||'');
+const hmMin=s=>{const a=String(s).split(':');return (+a[0]||0)*60+(+a[1]||0)};
+const WDAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function setWorkCfg(w){if(!w||typeof w!=='object')return;
+  if(Array.isArray(w.duty))WORKCFG.duty=w.duty.filter(x=>x&&okHM(x.f)&&okHM(x.t)&&x.t>x.f).map(x=>({f:x.f,t:x.t})).sort((a,b)=>a.f<b.f?-1:1).slice(0,4);
+  for(const k of ['cap','margin','delDays'])if(w[k]!=null&&isFinite(+w[k]))WORKCFG[k]=Math.max(0,Math.round(+w[k]));
+  if(w.dayOff!=null&&isFinite(+w.dayOff))WORKCFG.dayOff=Math.max(-1,Math.min(6,Math.round(+w.dayOff)));
+  if(!WORKCFG.delDays)WORKCFG.delDays=10}
+const isOff=d=>WORKCFG.dayOff>=0&&d.getDay()===WORKCFG.dayOff;
+/* minutes between two moments that fall inside the duty hours (the day off counts only if he started or finished on it) */
+function dutyMin(a,b){a=+a;b=+b;if(!(b>a))return 0;
+  const sh=WORKCFG.duty.map(x=>[hmMin(x.f),hmMin(x.t)]).filter(x=>x[1]>x[0]);
+  if(!sh.length)return Math.round((b-a)/6e4);
+  const A=new Date(a),B=new Date(b),d=new Date(A.getFullYear(),A.getMonth(),A.getDate());let tot=0,n=0;
+  while(+d<=b&&n++<62){if(!isOff(d)||sameDay(A,d)||sameDay(B,d))for(const [f,t] of sh){const s=Math.max(a,+d+f*6e4),e=Math.min(b,+d+t*6e4);if(e>s)tot+=e-s}
+    d.setDate(d.getDate()+1)}
+  return Math.round(tot/6e4)}
+/* time taken: duty minutes; work done fully outside the duty hours (in the break) counts as it was */
+const tookMin=(s,e)=>{const m=dutyMin(s,e);return m||(e-s<16*36e5?Math.max(1,Math.round((e-s)/6e4)):0)};
+const ents=n=>`${n} ${n===1?'entry':'entries'}`;
+const hmT=m=>{m=Math.round(+m||0);return m<60?`${m} min`:`${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`};
+const clock=ms=>{const d=new Date(ms);const t=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});return sameDay(d,today)?t:`${fmtD(d)} ${t}`};
+
+/* ---------- start of a step ---------- */
+const wsKey=(rno,k)=>`ws_${rno}_${k}`;
+function wsGet(rno,k){const key=wsKey(rno,k);let v=+CNT[key]||0;if(!v){try{v=+localStorage.getItem(key)||0}catch(e){}}return v}
+function wsSet(rno,k,ms,wid){const key=wsKey(rno,k);
+  if(ms){CNT[key]=ms;try{localStorage.setItem(key,ms)}catch(e){}}else{delete CNT[key];try{localStorage.removeItem(key)}catch(e){}}
+  if(LIVE&&db&&fb){try{const r=fb.doc(db,'counters',key);(ms?fb.setDoc(r,{n:ms,w:wid||0}):fb.deleteDoc(r)).catch(()=>{})}catch(e){}}}
+function xStart(o,k){wsSet(o.rno,k,Date.now(),k==='sew'?o.tailor:(o.tw||{})[k])}
+function xFin(o,k,p){const s=wsGet(o.rno,k),e=Date.now();p.e=new Date(e);if(s&&e>s&&e-s<45*864e5){p.s=new Date(s);p.m=tookMin(s,e)}wsSet(o.rno,k,0);return p}
+/* started by mistake: back to Waiting (nothing is counted for the worker) */
+function undoStart(o,k){if(!o||tv(o,k)!=='doing')return;o.t[k]='wait';wsSet(o.rno,k,0);syncSt(o);toast(`${ono(o)}: ${TK[k]?TK[k].t:k} given back · waiting again`)}
+const undoBtn=(o,k,sm)=>canAssign()&&tv(o,k)==='doing'?`<button class="btn${sm?' sm':''}" data-undo="${o.rno}" data-k="${k}" title="Started by mistake? Give it back">↩ Give back</button>`:'';
+document.addEventListener('click',e=>{
+  const u=e.target.closest('[data-undo]');if(u){e.stopPropagation();const o=orders.find(x=>x.rno===+u.dataset.undo);undoStart(o,u.dataset.k);document.getElementById('layer').innerHTML='';route();return}
+  const n=e.target.closest('[data-nw]');if(n)openOrder(+n.dataset.nw)});
+try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith('ws_')&&Date.now()-(+localStorage.getItem(k)||0)>45*864e5)localStorage.removeItem(k)}}catch(e){}
+
+/* ---------- Dashboard: in work now, by worker ---------- */
+function nowList(){const out=[];O().forEach(o=>{if(o.st==='done'||!o.t)return;TASKS.forEach(t=>{if(o.t[t.k]!=='doing')return;const wid=t.k==='sew'?o.tailor:(o.tw||{})[t.k];out.push({o,k:t.k,wid:workers.some(w=>w.id===wid)?wid:0,at:wsGet(o.rno,t.k)})})});return out}
+function nowPanel(){const L=nowList(),g=new Map(),now=Date.now();L.forEach(x=>{if(!g.has(x.wid))g.set(x.wid,[]);g.get(x.wid).push(x)});
+  const G=[...g.entries()].map(([wid,xs])=>({wid,w:wk(wid),xs:xs.sort((a,b)=>(a.at||9e15)-(b.at||9e15)),q:sumBy(xs,x=>x.o.qty)})).sort((a,b)=>b.q-a.q);
+  return `<div class="panel" id="nowWip"><div class="panel-h"><h2>In work now</h2><span class="sp"></span><span class="muted" style="font-size:12.5px">${L.length?`${pl(G.length,'worker')} · ${sumBy(L,x=>x.o.qty)} pcs in hand`:'Started, not finished'}</span></div>
+   ${L.length?`<div class="noww">${G.map(x=>`<div class="nw"><div class="nwh">${wAv(x.w,34)}<div class="grow"><b>${x.wid?esc(x.w.name):'Not assigned'}</b><span>${x.wid?esc(roleText(x.w))+(curBranch?'':' · '+esc(bname(x.w.branch))):''}</span></div><span class="nwq num">${x.q}<small>pcs</small></span></div>
+     ${x.xs.map(y=>`<div class="nwl" data-nw="${y.o.rno}" tabindex="0" role="button"><span class="rid">${ono(y.o)}</span><span class="nwc" dir="auto">${esc(cust(y.o.cid).name)}</span><b class="num">${y.o.qty} pcs</b><span class="nwk"><span class="pill s-cut">${esc(stageT(y.k))}</span>${late(y.o)?'<span class="pill s-late">Late</span>':''}<span class="nwt num">${y.at?`${clock(y.at)} · ${hmT(tookMin(y.at,now))}`:''}</span></span></div>`).join('')}</div>`).join('')}</div>`
+    :'<div class="empty" style="padding:16px">No piece is in work right now.</div>'}</div>`}
+
+/* ---------- workshop capacity: pieces per day → load of the delivery days, delivery date for a new order ---------- */
+const capOpen=()=>orders.filter(o=>o.st!=='done'&&o.st!=='ready').map(o=>({o,q:Math.max(0,(+o.qty||0)-oInfo(o).sew)})).filter(x=>x.q>0);
+function capFreeDate(q){const cap=+WORKCFG.cap||0;if(!cap)return null;const need=sumBy(capOpen(),x=>x.q)+(+q||0),d=new Date(today);let made=0;
+  for(let i=0;i<500;i++){if(!isOff(d))made+=cap;if(made>=need)break;d.setDate(d.getDate()+1)}
+  return addD(d,+WORKCFG.margin||0)}
+function dueDefault(){const a=addD(today,+WORKCFG.delDays||10),f=capFreeDate(1);return f&&f>a?f:a}
+function capPlan(n=14){const cap=+WORKCFG.cap||0,L=capOpen(),mar=+WORKCFG.margin||0,rows=[];let need=sumBy(L.filter(x=>x.o.due<today),x=>x.q),made=0;const lateQ=need,q=[];
+  for(let i=0;i<n;i++){const d=addD(today,i),off=isOff(d);if(!off)made+=cap;q.push(made);const xs=L.filter(x=>sameDay(x.o.due,d)),dq=sumBy(xs,x=>x.q);need+=dq;
+    const can=i-mar>=0?q[i-mar]:0;rows.push({d,off,n:xs.length,dq,need,can,short:Math.max(0,need-can)})}
+  return{cap,total:sumBy(L,x=>x.q),orders:L.length,lateQ,rows,free:capFreeDate(1)}}
+const dLong=d=>d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+function capSummary(p){return `<div class="okpi"><div><span>Still to stitch</span><b class="num">${p.total}<small>pcs</small></b><em>${pl(p.orders,'order')} in all workshops</em></div>
+   <div><span>Capacity</span><b class="num">${p.cap}<small>pcs / day</small></b><em>${WORKCFG.dayOff>=0?WDAYS[WORKCFG.dayOff]+' off':'No day off'}</em></div>
+   <div class="${p.lateQ?'bad':''}"><span>Already late</span><b class="num">${p.lateQ}<small>pcs</small></b><em>Delivery date passed</em></div>
+   <div class="okc"><span>New order can be delivered</span><b style="font-size:19px">${p.free?dLong(p.free):'—'}</b><em>${p.free?`${Math.ceil(p.total/p.cap)} working days of work + ${WORKCFG.margin} margin`:''}</em></div></div>`}
+function capPanel(){if(!(+WORKCFG.cap>0)||!RA().stage)return '';const p=capPlan(14),mx=Math.max(p.cap,...p.rows.map(r=>r.dq))||1;
+  return `<div class="panel" id="capPanel"><div class="panel-h"><h2>Workshop load</h2><span class="sp"></span><span class="muted" style="font-size:12.5px">Next 14 delivery days · all workshops · ${p.cap} pcs / day</span></div>
+   <div class="panel-b" style="padding:12px 16px">${capSummary(p)}
+    <div class="capd">${p.rows.map(r=>`<div class="cd ${r.off?'off':''} ${r.short?'short':''}" title="${dLong(r.d)}: ${r.dq} pcs to stitch for this day · needed by then ${r.need} · can make ${r.can}"><i><b style="height:${Math.min(100,r.dq/mx*100)}%"></b></i><span class="num">${r.dq||''}</span><em>${r.d.toLocaleDateString('en-GB',{weekday:'short'}).slice(0,2)}<br>${r.d.getDate()}</em>${r.short?`<u class="num">−${r.short}</u>`:''}</div>`).join('')}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Bar = pieces still to stitch for that delivery day. Red = the workshop cannot finish them in time (short by that many pieces).</p></div></div>`}
+const capHint=()=>{if(!(+WORKCFG.cap>0))return '';const p=capPlan(1);return `<small class="caph">Workshop: ${p.total} pcs waiting · ${p.cap} / day · free from ${p.free?fmtD(p.free):'—'}</small>`};
+
+/* ---------- Settings → Duty hours & capacity (owner) ---------- */
+function workCfgHtml(){const c=WORKCFG;
+  return `<div class="panel" id="setWork"><div class="panel-h"><h2>Duty hours & capacity</h2><span class="sp"></span><span class="muted" style="font-size:12px">One setting for all branches</span></div>
+   <div class="panel-b wcfg">
+    <div class="wcc"><p class="h4">Duty hours</p><p class="muted" style="font-size:12.5px;margin:0">A worker's time on a piece (Start → Finish) is counted only inside these hours.</p>
+     <div id="wcDuty"></div><div><button class="btn sm" id="wcAdd" type="button">${ico('plus')} Add shift</button></div>
+     <div class="field"><label for="wcOff">Weekly day off</label><select id="wcOff"><option value="-1">No day off</option>${WDAYS.map((d,i)=>`<option value="${i}" ${c.dayOff===i?'selected':''}>${d}</option>`).join('')}</select></div></div>
+    <div class="wcc"><p class="h4">Workshop capacity</p><p class="muted" style="font-size:12.5px;margin:0">How many pieces all tailors together finish in one day. 0 = not used.</p>
+     <div class="field"><label for="wcCap">Pieces per day</label><input id="wcCap" class="num" type="number" min="0" inputmode="numeric" value="${c.cap||''}" placeholder="0"></div>
+     <div class="field"><label for="wcDel">Delivery days for a new order</label><input id="wcDel" class="num" type="number" min="1" inputmode="numeric" value="${c.delDays}"></div>
+     <div class="field"><label for="wcMar">Margin days before delivery</label><input id="wcMar" class="num" type="number" min="0" inputmode="numeric" value="${c.margin}"></div></div>
+   </div>
+   <div class="panel-b" style="border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px"><div id="wcPlan"></div><div><button class="btn pri" id="wcSave" type="button">Save</button></div></div></div>`}
+function workCfgMount(){const box=document.getElementById('wcDuty');if(!box)return;let duty=WORKCFG.duty.map(x=>({...x}));
+  const draw=()=>{box.innerHTML=duty.map((x,i)=>`<div class="wsh"><input type="time" data-wf="${i}" value="${x.f}" aria-label="From"><span class="muted">to</span><input type="time" data-wt="${i}" value="${x.t}" aria-label="To"><button class="btn sm" type="button" data-wx="${i}" aria-label="Remove">${ico('x')}</button></div>`).join('')||'<span class="muted" style="font-size:12.5px">No duty hours: the whole time from Start to Finish is counted.</span>';
+    box.querySelectorAll('[data-wf]').forEach(i=>i.onchange=()=>duty[+i.dataset.wf].f=i.value);box.querySelectorAll('[data-wt]').forEach(i=>i.onchange=()=>duty[+i.dataset.wt].t=i.value);
+    box.querySelectorAll('[data-wx]').forEach(b=>b.onclick=()=>{duty.splice(+b.dataset.wx,1);draw()})};
+  const plan=()=>{const el=document.getElementById('wcPlan');if(el)el.innerHTML=+WORKCFG.cap>0?capSummary(capPlan(1)):'<span class="muted" style="font-size:12.5px">Set the pieces per day to see when a new order can be delivered. A new order then gets that delivery date by itself.</span>'};
+  draw();plan();
+  document.getElementById('wcAdd').onclick=()=>{if(duty.length>=4){toast('4 shifts at most');return}duty.push({f:'13:00',t:'15:00'});draw()};
+  document.getElementById('wcSave').onclick=async()=>{const $=id=>document.getElementById(id);
+    if(duty.some(x=>!okHM(x.f)||!okHM(x.t)||x.t<=x.f)){toast('Check the duty hours: "to" must be after "from"');return}
+    const n={duty:duty.map(x=>({f:x.f,t:x.t})),cap:Math.max(0,+$('wcCap').value||0),margin:Math.max(0,+$('wcMar').value||0),delDays:Math.max(1,+$('wcDel').value||10),dayOff:+$('wcOff').value};
+    const b=$('wcSave');b.disabled=true;
+    try{if(workSaver)await workSaver(n);else{try{localStorage.setItem('st_workcfg',JSON.stringify(n))}catch(e){}}setWorkCfg(n);duty=WORKCFG.duty.map(x=>({...x}));draw();plan();toast('Duty hours and capacity saved')}
+    catch(e){toast('Could not save: '+(e.code||e.message||e))}b.disabled=false}}
+
+/* ---------- Orders: delivery date from – to ---------- */
+var oDue={f:'',t:''};
+function xDueOk(o){if(!oDue.f&&!oDue.t)return true;const k=dkey2(o.due);return (!oDue.f||k>=oDue.f)&&(!oDue.t||k<=oDue.t)}
+function xDueBar(all,info){const on=oDue.f||oDue.t,Q=(t,a,b)=>{const f=dkey2(addD(today,a)),e=dkey2(addD(today,b));return `<button type="button" class="chip ${oDue.f===f&&oDue.t===e?'on':''}" data-odq="${f}|${e}">${t}</button>`};
+  let sum='';if(on){const pcs=sumBy(all,o=>o.qty),del=sumBy(all,o=>info.get(o.rno).dq),rd=sumBy(all.filter(o=>o.st==='ready'),o=>Math.max(0,o.qty-info.get(o.rno).dq)),nr=Math.max(0,pcs-del-rd);
+    sum=`<div class="odsum"><div><span>Orders</span><b class="num">${all.length}</b></div><div><span>Pieces</span><b class="num">${pcs}</b></div><div><span>Ready</span><b class="num tgood">${rd}</b></div><div><span>Not ready</span><b class="num ${nr?'tbad':''}">${nr}</b></div><div><span>Delivered</span><b class="num">${del}</b></div></div>`}
+  return `<div class="odue"><b class="odl">Delivery date</b><label class="pfl">From <input type="date" id="oDf" value="${oDue.f}"></label><label class="pfl">To <input type="date" id="oDt" value="${oDue.t}"></label>
+    <div class="chips">${Q('Today',0,0)}${Q('Tomorrow',1,1)}${Q('7 days',0,6)}</div>${on?'<button type="button" class="btn sm" id="oDx">Clear</button>':''}${sum}</div>`}
+function xDueBind(){const f=document.getElementById('oDf'),t=document.getElementById('oDt');if(!f)return;
+  f.onchange=t.onchange=()=>{oDue={f:f.value,t:t.value};if(oDue.f&&oDue.t&&oDue.f>oDue.t)oDue={f:oDue.t,t:oDue.f};ordersView()};
+  document.querySelectorAll('[data-odq]').forEach(b=>b.onclick=()=>{const [a,c]=b.dataset.odq.split('|');oDue=oDue.f===a&&oDue.t===c?{f:'',t:''}:{f:a,t:c};ordersView()});
+  const x=document.getElementById('oDx');if(x)x.onclick=()=>{oDue={f:'',t:''};ordersView()}}
+
+/* ---------- My work & pay: by order no. ---------- */
+var myOrdQ='';
+const xMyOrdBox=()=>`<label class="search" style="flex:1 1 170px;max-width:260px;width:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="myOq" type="search" inputmode="numeric" placeholder="Order no." value="${esc(myOrdQ)}" autocomplete="off"></label>`;
+function xMyOrd(w){const q=myOrdQ.trim().replace(/^#/,'').toLowerCase();
+  if(!q)return '<div class="panel"><div class="empty">Type an order number to see what you did on it, and when.</div></div>';
+  const os=orders.filter(o=>ordMatch(o,q)),rn=new Set(os.map(o=>o.rno));if(/^\d+$/.test(q))rn.add(+q);
+  const ent=prodLog.filter(p=>p.w===w.id&&rn.has(p.rno)&&(+p.qty||0)).sort((a,b)=>pT(b)-pT(a));
+  const mine=os.flatMap(o=>TASKS.filter(t=>needs(o,t.k)&&tv(o,t.k)!=='done'&&(t.k==='sew'?o.tailor===w.id:(o.tw||{})[t.k]===w.id)).map(t=>({o,t})));
+  if(!ent.length&&!mine.length)return `<div class="panel"><div class="empty">No work of yours on order “${esc(myOrdQ)}”.</div></div>`;
+  const head=os.map(o=>`<div class="row" data-r="${o.rno}" style="cursor:pointer"><span class="rid">${ono(o)}</span><div class="grow"><b dir="auto">${esc(cust(o.cid).name.split(' ')[0])}</b><span>${pl(o.qty,'thobe')} · delivery ${fmtD(o.due)}</span></div><span class="pill ${WHERE_C(oInfo(o).where)}">${esc(oInfo(o).where)}</span></div>`).join('');
+  return `<div class="kpis"><div class="kpi"><span class="l">Pieces I did</span><span class="v">${sumBy(ent,p=>p.qty)}<small>pcs</small></span><span class="d muted">${ents(ent.length)}</span></div>
+     <div class="kpi"><span class="l">Work time</span><span class="v" style="font-size:24px">${ent.some(p=>p.m)?hmT(sumBy(ent,p=>p.m)):'—'}</span><span class="d muted">Start → Finish, in duty hours</span></div></div>
+    ${head?`<div class="panel"><div class="rows">${head}</div></div>`:''}
+    <div class="panel"><div class="panel-h"><h2>My work on this order</h2></div><div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Work</th><th>Pieces</th><th>Time taken</th></tr></thead><tbody>
+     ${mine.map(x=>`<tr><td class="muted">—</td><td>${esc(x.t.t)}</td><td class="num">${x.o.qty}</td><td>${tv(x.o,x.t.k)==='doing'?'<span class="pill s-cut">In progress</span>':'<span class="pill s-new">Waiting</span>'}</td></tr>`).join('')}
+     ${ent.map(p=>`<tr><td>${pE(p)?clock(+pE(p)):fmtD(p.d)}</td><td>${esc(STAGE_T[p.stage]||p.stage)}</td><td class="num"><b>${p.qty}</b></td><td class="num">${p.m?hmT(p.m):'—'}</td></tr>`).join('')}</tbody></table></div></div>`}
+function xMyOrdBind(){const i=document.getElementById('myOq');if(!i)return;let t;
+  const go=()=>{myOrdQ=i.value;mypay();const n=document.getElementById('myOq');if(n){n.focus();try{n.setSelectionRange(n.value.length,n.value.length)}catch(e){}}};
+  i.oninput=()=>{clearTimeout(t);t=setTimeout(go,350)};i.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(t);go()}}}
+
+/* ---------- Work log page: owner, branch manager, accountant ---------- */
+const pT=p=>+(p.e||p.upd||p.d);
+/* the moment it was finished (older entries: the time the entry was saved, when that is the same day) */
+const pE=p=>{const e=p.e||p.upd;return e&&sameDay(new Date(e),d0(p.d))?new Date(e):null};
+var wlTab='ord',wlW=0,wlK='',wlQ='';
+function workLogView(){
+  const P=perGet('wlog','week'),B=curBranch,q=wlQ.trim().replace(/^#/,'').toLowerCase(),om=new Map(orders.map(o=>[o.rno,o]));
+  const hitO=q?orders.filter(o=>ordMatch(o,q)):[],byNo=!!q&&(hitO.length>0||/^\d+$/.test(q)),hitR=new Set(hitO.map(o=>o.rno));if(/^\d+$/.test(q))hitR.add(+q);
+  const scope=p=>{if(!B)return true;const o=om.get(p.rno);return p.made===B||wk(p.w).branch===B||!!(o&&o.branch===B)};
+  const qOk=p=>{if(!q)return true;if(byNo)return hitR.has(p.rno);const o=om.get(p.rno);if(!o)return false;const c=cust(o.cid);return c.name.toLowerCase().includes(q)||String(c.phone||'').includes(q)};
+  const base=prodLog.filter(p=>(+p.qty||0)>0&&scope(p)&&(byNo||inPer(p.d,P)));
+  const ent=base.filter(p=>qOk(p)&&(!wlW||p.w===wlW)&&(!wlK||p.stage===wlK)).sort((a,b)=>pT(b)-pT(a));
+  const ks=TASKS.map(t=>t.k).filter(k=>k==='cut'||k==='sew'||ent.some(p=>p.stage===k));ent.forEach(p=>{if(!ks.includes(p.stage))ks.push(p.stage)});
+  const people=[...new Set(base.map(p=>p.w))].map(id=>wk(id)).filter(w=>w.id).sort((a,b)=>a.name.localeCompare(b.name));
+  const S=k=>sumBy(ent.filter(p=>p.stage===k),p=>p.qty),timed=ent.filter(p=>p.m>0),tm=sumBy(timed,p=>p.m),tq=sumBy(timed,p=>p.qty);
+  const when=p=>pE(p)?clock(+pE(p)):fmtD(p.d),wn=p=>wk(p.w).id?wk(p.w).name:'—',cn=p=>{const o=om.get(p.rno);return o?cust(o.cid).name:''};
+  // by order
+  const g=new Map();ent.forEach(p=>{const k=p.rno||0;if(!g.has(k))g.set(k,{rno:k,o:om.get(k),e:[],last:0});const x=g.get(k);x.e.push(p);x.last=Math.max(x.last,pT(p))});
+  const G=[...g.values()].sort((a,b)=>b.last-a.last);
+  const cell=(x,k)=>x.e.filter(p=>p.stage===k).map(p=>`<div class="wlc"><b>${esc(wn(p))}</b> <span class="num">${p.qty} pcs</span><small>${when(p)}${p.m?' · '+hmT(p.m):''}</small></div>`).join('')||'<span class="muted">—</span>';
+  // by worker (work time)
+  const bw=new Map();ent.forEach(p=>{if(!bw.has(p.w))bw.set(p.w,{w:wk(p.w),q:0,n:0,tq:0,m:0,os:new Set()});const x=bw.get(p.w);x.q+=+p.qty||0;x.n++;if(p.rno)x.os.add(p.rno);if(p.m>0){x.tq+=+p.qty||0;x.m+=p.m}});
+  const BW=[...bw.values()].sort((a,b)=>b.q-a.q);
+  const tab=(k,t,n)=>`<button type="button" class="${wlTab===k?'on':''}" data-wlt="${k}">${t}${n!=null?`<span class="num">${n}</span>`:''}</button>`;
+  let body;
+  if(wlTab==='ent')body=xTable([{t:'Finished',f:p=>`<span class="num">${when(p)}</span>`},{t:'Order',f:p=>p.rno?`<b class="num">${onoR(p.rno)}</b>`:'<span class="muted">—</span>'},{t:'Customer',f:p=>`<span dir="auto">${esc(cn(p))}</span>`},{t:'Work',f:p=>esc(stageT(p.stage))},{t:'Worker',f:p=>`<b>${esc(wn(p))}</b>`},{t:'Pcs',r:1,f:p=>`<b>${p.qty}</b>`},{t:'Started',f:p=>p.s?`<span class="num">${clock(+p.s)}</span>`:'<span class="muted">—</span>'},{t:'Work time',r:1,f:p=>p.m?hmT(p.m):'—'},{t:'Made at',f:p=>esc(bname(p.made))}],
+     ent.slice(0,1500),{attr:p=>p.rno&&om.has(p.rno)?`data-lr="${p.rno}"`:'',mw:'860px',h:'calc(100vh - 330px)',empty:'No work in this period.',foot:['Total','','','','',sumBy(ent,p=>p.qty),'',tm?hmT(tm):'','']});
+  else if(wlTab==='time')body=xTable([{t:'Worker',f:x=>`<span style="display:inline-flex;gap:8px;align-items:center">${wAv(x.w,28)}<b>${esc(x.w.id?x.w.name:'—')}</b></span>`},{t:'Job',f:x=>esc(roleText(x.w))},{t:'Pcs',r:1,f:x=>`<b>${x.q}</b>`},{t:'Orders',r:1,f:x=>x.os.size||''},{t:'Pcs with time',r:1,f:x=>x.tq||'—'},{t:'Work time',r:1,f:x=>x.m?hmT(x.m):'—'},{t:'Avg per piece',r:1,f:x=>x.tq?`<b>${hmT(x.m/x.tq)}</b>`:'—'}],
+     BW,{attr:x=>x.w.id?`data-wlw="${x.w.id}"`:'',h:'calc(100vh - 330px)',empty:'No work in this period.',foot:['Total','',sumBy(BW,x=>x.q),'',tq||'',tm?hmT(tm):'',tq?hmT(tm/tq):'']});
+  else body=xTable([{t:'Order',f:x=>x.rno?`<b class="num">${onoR(x.rno)}</b>`:'<span class="muted">No order no.</span>'},{t:'Customer',f:x=>x.o?`<b dir="auto" class="cn">${esc(cust(x.o.cid).name)}</b>`:''},{t:'Pcs',r:1,f:x=>x.o?`<b>${x.o.qty}</b>`:''},...ks.map(k=>({t:stageT(k),f:x=>cell(x,k)})),{t:'Now',f:x=>{if(!x.o)return '';const i=oInfo(x.o);return `<span class="pill ${WHERE_C(i.where)}">${esc(i.where)}</span>`}}],
+     G.slice(0,800),{attr:x=>x.o?`data-lr="${x.rno}"`:'',mw:`${420+ks.length*170}px`,h:'calc(100vh - 330px)',empty:byNo?`No work found for order “${esc(wlQ)}”.`:'No work in this period.',foot:['Total',pl(G.filter(x=>x.rno).length,'order'),sumBy(G,x=>x.o?x.o.qty:0),...ks.map(k=>`<b>${S(k)}</b> pcs`),'']});
+  V(`<div class="panel"><div class="panel-b" style="padding:12px 16px">${perBar('wlPer',P)}
+     <div class="wltools"><label class="search" style="flex:1 1 200px;max-width:300px;width:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="wlQ" type="search" placeholder="Order no. or customer" value="${esc(wlQ)}" autocomplete="off"></label>
+      <label class="pfl">Worker <select id="wlW"><option value="0">All workers</option>${people.map(w=>`<option value="${w.id}" ${w.id===wlW?'selected':''}>${esc(w.name)}</option>`).join('')}</select></label>
+      <label class="pfl">Work <select id="wlK"><option value="">All steps</option>${Object.keys(TASK_DEF).filter(k=>TK[k]||base.some(p=>p.stage===k)).map(k=>`<option value="${k}" ${k===wlK?'selected':''}>${esc(stageT(k))}</option>`).join('')}</select></label>
+      <span class="sp" style="flex:1"></span><button class="btn sm" id="wlCsv">CSV</button><button class="btn sm" id="wlPrint">Print</button></div>
+     <div class="muted" style="font-size:12.5px;margin-top:8px">${byNo?`Whole history of order “${esc(wlQ)}”`:perLabel(P)+' · '+esc(B?bname(B):'All branches & factories')} · tap a row to open the order</div></div></div>
+   <div class="okpi"><div><span>Orders worked on</span><b class="num">${G.filter(x=>x.rno).length}</b><em>${ents(ent.length)}</em></div>${ks.map(k=>`<div><span>${esc(stageT(k))}</span><b class="num">${S(k)}<small>pcs</small></b></div>`).join('')}
+    <div class="okc"><span>Work time</span><b class="num" style="font-size:20px">${tm?hmT(tm):'—'}</b><em>${tq?`avg ${hmT(tm/tq)} per piece · ${tq} pcs timed`:'Counted from Start to Finish'}</em></div></div>
+   <div class="panel opanel"><div class="otools"><div class="seg" role="tablist">${tab('ord','By order',G.length)}${tab('ent','All entries',ent.length)}${tab('time','Work time',BW.length)}</div></div>${body}</div>`);
+  perBind('wlPer',P,workLogView);
+  const $=id=>document.getElementById(id);let t;
+  const again=()=>{wlQ=$('wlQ').value;workLogView();const n=$('wlQ');if(n){n.focus();try{n.setSelectionRange(n.value.length,n.value.length)}catch(e){}}};
+  $('wlQ').oninput=()=>{clearTimeout(t);t=setTimeout(again,350)};$('wlQ').onkeydown=e=>{if(e.key==='Enter'){clearTimeout(t);again()}};
+  $('wlW').onchange=e=>{wlW=+e.target.value;workLogView()};$('wlK').onchange=e=>{wlK=e.target.value;workLogView()};
+  document.querySelectorAll('[data-wlt]').forEach(b=>b.onclick=()=>{wlTab=b.dataset.wlt;workLogView()});
+  document.querySelectorAll('#view [data-lr]').forEach(r=>r.onclick=()=>openOrder(+r.dataset.lr));
+  document.querySelectorAll('#view [data-wlw]').forEach(r=>r.onclick=()=>{wlW=+r.dataset.wlw;wlTab='ent';workLogView()});
+  const name=`work_log_${byNo?q:dkey2(P.from)+'_'+dkey2(P.to)}`,sub=`${B?bname(B):'All branches & factories'} · ${byNo?'order '+wlQ:perLabel(P)}`;
+  const HO=['Order','Customer','Pcs',...ks.map(stageT)],RO=G.map(x=>[x.rno?onoR(x.rno):'',x.o?cust(x.o.cid).name:'',x.o?x.o.qty:'',...ks.map(k=>x.e.filter(p=>p.stage===k).map(p=>`${wn(p)} ${p.qty} pcs (${when(p)}${p.m?', '+hmT(p.m):''})`).join('; '))]);
+  const HE=['Finished','Order','Customer','Work','Worker','Pcs','Started','Work time (min)','Made at'],RE=ent.map(p=>[pE(p)?`${dkey2(pE(p))} ${pE(p).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`:dkey2(p.d),p.rno?onoR(p.rno):'',cn(p),stageT(p.stage),wn(p),p.qty,p.s?`${dkey2(p.s)} ${new Date(p.s).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`:'',p.m||'',bname(p.made)]);
+  const HT=['Worker','Job','Pcs','Orders','Pcs with time','Work time','Avg per piece'],RT=BW.map(x=>[x.w.id?x.w.name:'',roleText(x.w),x.q,x.os.size,x.tq,x.m?hmT(x.m):'',x.tq?hmT(x.m/x.tq):'']);
+  $('wlCsv').onclick=()=>csvOut(name,wlTab==='ent'?[HE,...RE]:wlTab==='time'?[HT,...RT]:[HO,...RO]);
+  $('wlPrint').onclick=()=>printRep('Work log',sub,pTiles([['Orders',G.filter(x=>x.rno).length],...ks.map(k=>[stageT(k),S(k)+' pcs']),['Work time',tm?hmT(tm):'—']])
+    +(wlTab==='ent'?pTable(HE,RE,null,[5,7]):wlTab==='time'?pTable(HT,RT,null,[2,3,4]):pTable(HO,RO,null,[2])));
+}
+
+/* ---------- demo: order numbers, times and start times on the sample work, so the new pages show something ---------- */
+if(DEMO){try{setWorkCfg({cap:30,...JSON.parse(localStorage.getItem('st_workcfg')||'{}')})}catch(e){setWorkCfg({cap:30})}
+  let z=7;const rz=()=>(z=(z*9301+49297)%233280)/233280;
+  prodLog.forEach(p=>{if(!p.rno){const pool=orders.filter(o=>o.t&&o.t[p.stage]==='done'&&(p.stage!=='sew'||o.tailor===p.w));const o=pool.length?pool[Math.floor(rz()*pool.length)]:null;if(o)p.rno=o.rno}
+    if(!p.e){const e=Math.min(Date.now()-3e5,+p.d+(9+Math.floor(rz()*13))*36e5+Math.floor(rz()*59)*6e4),m=Math.round((+p.qty||1)*(25+rz()*50));p.e=new Date(e);p.s=new Date(e-m*6e4);p.m=m}});
+  orders.forEach(o=>{if(o.st==='done'||!o.t)return;Object.keys(o.t).forEach(k=>{if(o.t[k]==='doing')CNT[wsKey(o.rno,k)]=Date.now()-Math.round((10+rz()*170)*6e4)})})}
+
 /* ================= Language: English · العربية · हिन्दी =================
    The screens are written in English; this swaps every known label on the page (menu, titles, buttons, table heads, tiles)
    for the chosen language, also on whatever is drawn later. Names, numbers and Arabic text stay as they are.
@@ -2650,6 +2860,14 @@ const TR_SRC={
  'Pay / Deliver':L3('دفع / تسليم','भुगतान / डिलीवरी'),'Receive payment / Deliver':L3('استلام دفعة / تسليم','भुगतान लें / डिलीवरी'),'Down payment ':L3('العربون','एडवांस'),
  'Ready · not taken':L3('جاهز · لم يُستلم','तैयार · नहीं ले गया'),'In the workshop':L3('في الورشة','वर्कशॉप में'),
  'Workers\' work':L3('عمل العمال','कारीगरों का काम'),'Attendance · last 14 days':L3('الحضور · آخر ١٤ يوم','हाज़िरी · पिछले 14 दिन'),'Language':L3('اللغة','भाषा'),
+ 'Work log':L3('سجل العمل','काम का रिकॉर्ड'),'In work now':L3('في العمل الآن','अभी काम में'),'No piece is in work right now.':L3('لا توجد قطعة في العمل الآن.','अभी कोई पीस काम में नहीं है।'),'Not assigned':L3('غير معيّن','किसी को नहीं दिया'),
+ 'Workshop load':L3('حمل الورشة','वर्कशॉप का लोड'),'Still to stitch':L3('باقي للخياطة','सिलाई बाकी'),'Capacity':L3('الطاقة','क्षमता'),'Already late':L3('متأخر','पहले से लेट'),'New order can be delivered':L3('تسليم الطلب الجديد','नया ऑर्डर कब मिलेगा'),
+ 'Duty hours & capacity':L3('ساعات الدوام والطاقة','ड्यूटी टाइम और क्षमता'),'Duty hours':L3('ساعات الدوام','ड्यूटी टाइम'),'Workshop capacity':L3('طاقة الورشة','वर्कशॉप की क्षमता'),'Weekly day off':L3('يوم الإجازة الأسبوعي','हफ़्ते की छुट्टी'),
+ 'Pieces per day':L3('قطع في اليوم','रोज़ के पीस'),'Delivery days for a new order':L3('أيام التسليم للطلب الجديد','नए ऑर्डर के डिलीवरी दिन'),'Margin days before delivery':L3('أيام احتياط قبل التسليم','डिलीवरी से पहले के अतिरिक्त दिन'),'Add shift':L3('إضافة فترة','शिफ्ट जोड़ें'),
+ 'Not ready':L3('غير جاهز','तैयार नहीं'),'Tomorrow':L3('غداً','कल'),'Clear':L3('مسح','हटाएँ'),'By order':L3('حسب الطلب','ऑर्डर से'),'All entries':L3('كل القيود','सारी एंट्री'),'Work time':L3('وقت العمل','काम का समय'),
+ 'Orders worked on':L3('طلبات تم العمل عليها','जिन ऑर्डर पर काम हुआ'),'Finished':L3('انتهى','खत्म'),'Started':L3('بدأ','शुरू'),'Avg per piece':L3('متوسط القطعة','औसत प्रति पीस'),'Pcs with time':L3('قطع بوقت','समय वाले पीस'),
+ 'All workers':L3('كل العمال','सभी कारीगर'),'All steps':L3('كل المراحل','सभी काम'),'↩ Give back':L3('↩ إرجاع','↩ वापस करें'),'Pieces I did':L3('القطع التي عملتها','मैंने जो पीस बनाए'),'My work on this order':L3('عملي على هذا الطلب','इस ऑर्डर पर मेरा काम'),
+ 'Time taken':L3('الوقت المستغرق','कितना समय लगा'),'Type an order number to see what you did on it, and when.':L3('اكتب رقم الطلب لترى ما عملته عليه ومتى.','ऑर्डर नंबर डालें — उस पर क्या और कब काम किया, दिखेगा।'),
 };
 const TR={ar:{},hi:{}};Object.entries(TR_SRC).forEach(([k,v])=>{TR.ar[k]=v.ar;TR.hi[k]=v.hi});
 function trText(n){const d=TR[LANG];const v=n.nodeValue;if(!v)return;const k=v.trim();if(k&&d[k]!==undefined&&d[k]!==k)n.nodeValue=v.replace(k,d[k])}
@@ -3022,12 +3240,16 @@ function startListeners(){
   else if(worker)sub(c,query(collection(db,c),where('sid','==',USER.sid)));
   else if(ROLE==='manager'||isFactoryLogin()){sub(c,query(collection(db,c),where('branch','==',USER.branch)));if(USER.fac)sub(c,query(collection(db,c),where('branch','==',USER.fac)))}}
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
-  unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
+  // counters + the start times of the steps in work (ws_<order>_<step>, see extra.js)
+  unsubs.push(onSnapshot(collection(db,'counters'),s=>{const seen=new Set();let ch=false;s.forEach(x=>{const n=+x.data().n||0;seen.add(x.id);if(x.id.startsWith('ws_')&&CNT[x.id]!==n)ch=true;CNT[x.id]=n});
+    for(const k of Object.keys(CNT))if(k.startsWith('ws_')&&!seen.has(k)){delete CNT[k];ch=true}if(ch)rerender()},()=>{}));
   // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices
   unsubs.push(onSnapshot(fb.doc(db,'meta','exe'),x=>{const d=x.exists()?x.data():null;if(!d)return;EXE_BRANCH=+d.branch||0;if(d.shop&&typeof d.shop==='object')SHOP={...SHOP,...d.shop}},()=>{}));
   // workshop flow (Settings → Workshop flow): one for all branches
-  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
-  flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'});
+  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.work){const b4=JSON.stringify(WORKCFG);setWorkCfg(d.work);if(JSON.stringify(WORKCFG)!==b4)rerender()}if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
+  flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'},{merge:true});
+  // duty hours + capacity (Settings → Duty hours & capacity): kept beside the flow, the owner writes it
+  workSaver=w=>fb.setDoc(fb.doc(db,'meta','flow'),{work:{...w,at:new Date(),by:USER.name||'Owner'}},{merge:true});
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
 }

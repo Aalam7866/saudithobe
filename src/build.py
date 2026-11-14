@@ -124,6 +124,42 @@ R('<div class="acts"><button class="btn sm" id="wcp">Copy link</button>', '<div 
 R("document.getElementById('wcp').onclick=()=>cp(wLink(w),'Link copied');", "const mk=document.getElementById('wmk');if(mk)mk.onclick=async()=>{mk.disabled=true;mk.textContent='Creating…';try{w.login=w.login||jobLogin(w.role);await createStaff(w);toast('Login made. Send him the link');workerApp(w)}catch(e){mk.disabled=false;mk.textContent='Create his login';toast('Could not create: '+(e.code||e.message))}};\n  document.getElementById('wcp').onclick=()=>{if(LIVE&&!w.uid){toast('Create his login first');return}cp(wLink(w),'Link copied')};")
 # owner: shop exe status in Settings
 
+# ---- extras (src/extra.js): in work now, work log, work time, capacity, delivery range, give back
+R(" {h:'daily',t:'Daily report',s:'Daily',i:'cal'},", " {h:'daily',t:'Daily report',s:'Daily',i:'cal'},\n {h:'worklog',t:'Work log',s:'Work log',i:'needle'},")
+R("pages:['dashboard','daily','orders','new','measurements','customers','payments','salary','workers',", "pages:['dashboard','daily','worklog','orders','new','measurements','customers','payments','salary','workers',")
+R("pages:['dashboard','daily','orders','new','measurements','customers','payments','till','workers',", "pages:['dashboard','daily','worklog','orders','new','measurements','customers','payments','till','workers',")
+R("pages:['salary','dashboard','daily','payments','workers',", "pages:['salary','dashboard','daily','worklog','payments','workers',")
+R("salary:salaryView,workers:workersView,", "salary:salaryView,worklog:workLogView,workers:workersView,")
+R("if(tv(o,k)==='wait'){o.t[k]='doing';toast(", "if(tv(o,k)==='wait'){o.t[k]='doing';xStart(o,k);toast(")
+R("if(wid)prodLog.push({d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});", "{const fin=xFin(o,k,{d:today,w:wid,made:o.made,stage:k,qty:o.qty,rno:o.rno});if(wid)prodLog.push(fin)}")
+# dashboard: in work now + workshop load
+R("""  <div class="panel">
+    <div class="panel-h"><h2>Workshop right now</h2>""", """  ${nowPanel()}${capPanel()}
+  <div class="panel">
+    <div class="panel-h"><h2>Workshop right now</h2>""")
+# orders: delivery date from - to
+R("  const all=O();const info=new Map(all.map(o=>[o.rno,oInfo(o)]));", "  const all=O().filter(xDueOk);const info=new Map(all.map(o=>[o.rno,oInfo(o)]));")
+R("""    <div class="tbl-wrap otbl"><table class="ot">
+     <thead><tr>${th('rno','Order / Invoice','stk s1')}""", """    ${xDueBar(all,info)}
+    <div class="tbl-wrap otbl"><table class="ot">
+     <thead><tr>${th('rno','Order / Invoice','stk s1')}""")
+R("  bindRows();bindPgSearch();\n}", "  bindRows();bindPgSearch();xDueBind();\n}")
+# new order: delivery date from the capacity
+R("const due0=addD(today,10);", "const due0=dueDefault();")
+R("""${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">`)}""", """${F('Delivery date',`<input id="fDue" type="date" value="${dkey2(due0)}">${capHint()}`)}""")
+# give back a step started by mistake
+R("""`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>`}<button class="btn" data-r="${o.rno}">Open details</button>""", """`<button class="btn pri" data-step="${o.rno}" data-k="${k}">${taskBtn(o,k)}</button>${undoBtn(o,k)}`}<button class="btn" data-r="${o.rno}">Open details</button>""")
+R("""${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}<button class="btn sm" data-r="${o.rno}">Details</button>""", """${o.t[t.k]==='wait'?'Start':'Finish'}</button>`:''}${undoBtn(o,t.k,1)}<button class="btn sm" data-r="${o.rno}">Details</button>""")
+# my work & pay: by order no.
+R("""<button class="chip ${payMode==='d'?'on':''}" data-pm="d">By date</button></div>""", """<button class="chip ${payMode==='d'?'on':''}" data-pm="d">By date</button><button class="chip ${payMode==='o'?'on':''}" data-pm="o">By order</button></div>""")
+R("""    ${payMode==='m'?`<select id="pYm" """, """    ${payMode==='o'?xMyOrdBox():payMode==='m'?`<select id="pYm" """)
+R("  if(payMode==='d'){\n    const d=payDay||dkey2(today);", "  if(payMode==='o'){V(sel+xMyOrd(w))}else if(payMode==='d'){\n    const d=payDay||dkey2(today);")
+R("  document.querySelectorAll('[data-pday]').forEach(r=>r.onclick=()=>{payMode='d';payDay=r.dataset.pday;mypay()});", "  document.querySelectorAll('[data-pday]').forEach(r=>r.onclick=()=>{payMode='d';payDay=r.dataset.pday;mypay()});\n  xMyOrdBind();")
+# settings: duty hours & capacity
+R("...(isOwner()?[['flowPanel','Workshop flow']]:[])", "...(isOwner()?[['flowPanel','Workshop flow'],['setWork','Duty hours & capacity']]:[])")
+R("${isOwner()?flowEditorHtml():''}", "${isOwner()?flowEditorHtml()+workCfgHtml():''}")
+R("  if(isOwner())flowEditorMount();", "  if(isOwner()){flowEditorMount();workCfgMount()}")
+
 # delete worker in live also removes login (flush → removeStaff); demo unchanged
 # start
 R("route();showLogin();", "if(DEMO){route();showLogin()}else liveBoot();\nsetTimeout(()=>location.reload(),addD(today,1)-new Date()+60000);")
@@ -133,7 +169,7 @@ live = (SRC / 'live.js').read_text()
 js = (SRC / 'jspec.js').read_text() + '\n' + (SRC / 'jsheet.js').read_text()
 START = 'if(DEMO){route();showLogin()}else liveBoot();'
 assert s.count(START) == 1
-s = s.replace(START, (SRC / 'docs.js').read_text() + '\n' + (SRC / 'exeviews.js').read_text() + '\n' + (SRC / 'biz.js').read_text() + '\n' + (SRC / 'acct.js').read_text() + '\n' + (SRC / 'i18n.js').read_text() + '\n' + START)
+s = s.replace(START, (SRC / 'docs.js').read_text() + '\n' + (SRC / 'exeviews.js').read_text() + '\n' + (SRC / 'biz.js').read_text() + '\n' + (SRC / 'acct.js').read_text() + '\n' + (SRC / 'extra.js').read_text() + '\n' + (SRC / 'i18n.js').read_text() + '\n' + START)
 app = s + '\n' + js + '\n' + live + "\nasync function loadFirebase(){\n  if(window.__FB_MOCK)return window.__FB_MOCK;\n  const V='10.14.1',B=`https://www.gstatic.com/firebasejs/${V}/`;\n  const [a,au,fs]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);\n  return {...a,...au,...fs};\n}\n"
 (ROOT / 'app.js').write_text(app)
 

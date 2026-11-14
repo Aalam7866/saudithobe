@@ -198,12 +198,16 @@ function startListeners(){
   else if(worker)sub(c,query(collection(db,c),where('sid','==',USER.sid)));
   else if(ROLE==='manager'||isFactoryLogin()){sub(c,query(collection(db,c),where('branch','==',USER.branch)));if(USER.fac)sub(c,query(collection(db,c),where('branch','==',USER.fac)))}}
   sub('notices',query(collection(db,'notices'),where('at','>=',since(14))));
-  unsubs.push(onSnapshot(collection(db,'counters'),s=>{s.forEach(x=>{CNT[x.id]=+x.data().n||0})},()=>{}));
+  // counters + the start times of the steps in work (ws_<order>_<step>, see extra.js)
+  unsubs.push(onSnapshot(collection(db,'counters'),s=>{const seen=new Set();let ch=false;s.forEach(x=>{const n=+x.data().n||0;seen.add(x.id);if(x.id.startsWith('ws_')&&CNT[x.id]!==n)ch=true;CNT[x.id]=n});
+    for(const k of Object.keys(CNT))if(k.startsWith('ws_')&&!seen.has(k)){delete CNT[k];ch=true}if(ch)rerender()},()=>{}));
   // the shop exe: which branch it runs in (that branch keeps the exe's invoice numbers) and the shop's details for the invoices
   unsubs.push(onSnapshot(fb.doc(db,'meta','exe'),x=>{const d=x.exists()?x.data():null;if(!d)return;EXE_BRANCH=+d.branch||0;if(d.shop&&typeof d.shop==='object')SHOP={...SHOP,...d.shop}},()=>{}));
   // workshop flow (Settings → Workshop flow): one for all branches
-  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
-  flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'});
+  unsubs.push(onSnapshot(fb.doc(db,'meta','flow'),x=>{const d=x.exists()?x.data():null;if(d&&d.work){const b4=JSON.stringify(WORKCFG);setWorkCfg(d.work);if(JSON.stringify(WORKCFG)!==b4)rerender()}if(d&&d.v===2&&Array.isArray(d.steps)){const before=JSON.stringify([FLOW,FLOW_OPT]);setFlow(d.steps,{tready:d.tready!==false});if(JSON.stringify([FLOW,FLOW_OPT])!==before)rerender()}},()=>{}));
+  flowSaver=(steps,tready)=>fb.setDoc(fb.doc(db,'meta','flow'),{v:2,steps,tready:!!tready,at:new Date(),by:USER.name||'Owner'},{merge:true});
+  // duty hours + capacity (Settings → Duty hours & capacity): kept beside the flow, the owner writes it
+  workSaver=w=>fb.setDoc(fb.doc(db,'meta','flow'),{work:{...w,at:new Date(),by:USER.name||'Owner'}},{merge:true});
   unsubs.push(onSnapshot(query(collection(db,'att'),where('d','>=',dkey(since(14)))),s=>{ATT.clear();s.forEach(x=>{const d=x.data();ATT.set(x.id,d.v)});applyAtt();rerender()},()=>{}));
   if(ROLE==='owner'||ROLE==='manager'||isFactoryLogin())unsubs.push(onSnapshot(ROLE==='owner'?collection(db,'keys'):query(collection(db,'keys'),where('branch','==',USER.branch)),s=>{s.forEach(x=>KEYS[x.id]=x.data().k)},()=>{}));
 }
